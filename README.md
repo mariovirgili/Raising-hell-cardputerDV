@@ -78,4 +78,8 @@ Because the Cardputer deserves cursed firmware.
 ![Mourn It](media/Raising_Hell_Mourn.JPG)
 ---
 
-Follow the project for updates.
+## 📢 Updates
+
+Major updates are posted as GitHub Releases.
+Watch the repository to follow development.
+
