@@ -72,7 +72,8 @@ Because the Cardputer deserves cursed firmware.
 ---
 
 ## = Screenshots
-![Devil Baby Idle](media/Flash_It.gif)
+
+![Devil Baby Idle](media/Raising_Hell_Flash.jpg)
 
 ---
 
