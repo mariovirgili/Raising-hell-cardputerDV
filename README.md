@@ -73,7 +73,7 @@ Because the Cardputer deserves cursed firmware.
 
 ## = Screenshots
 
-![Flash It](media/Raising_Hell_Flash.JPG)
+![Flash It](media/Raising_Hell_Credits.JPG)
 
 ---
 
