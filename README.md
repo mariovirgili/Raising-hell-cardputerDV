@@ -50,6 +50,7 @@ Not yet at v1.0.
 - [ ] More pet types
 - [ ] Audio improvements
 - [ ] Lots of mini games
+- [ ] Explore portable architecture for cross-platform future
 
 ---
 
