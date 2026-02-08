@@ -34,17 +34,11 @@ This is a hobby project under active development.
 
 ---
 
-## 🚧 Project Status
+## 🔴 Development Status
 
-This project is under heavy development and frequent refactoring.
+Actively under heavy refactor and feature expansion.
 
-The architecture is being cleaned and modularized before wider contribution.
-
----
-
-## 📸 Screenshots / Clips
-
-(Coming soon)
+Not yet at v1.0.
 
 ---
 
