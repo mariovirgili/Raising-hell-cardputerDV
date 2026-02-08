@@ -74,7 +74,14 @@ Because the Cardputer deserves cursed firmware.
 ## = Screenshots
 
 ![Flash It](media/Raising_Hell_Credits.JPG)
-
+![Choose It](media/Raising_Hell_Choose.JPG)
+![Hatch It](media/Raising_Hell_Hatch.JPG)
+![Name It](media/Raising_Hell_Name.JPG)
+![Meet It](media/Raising_Hell_Meet.JPG)
+![Raise It](media/Raising_Hell_Raise.JPG)
+![Take Care Of It](media/Raising_Hell_Care.JPG)
+![Neglect It](media/Raising_Hell_Neglect.JPG)
+![Mourn It](media/Raising_Hell_Mourn.JPG)
 ---
 
 Follow the project for updates.
