@@ -1,86 +1,118 @@
-# 🔥 Raising Hell — Cardputer Edition
+# Raising Hell — Cardputer ADV Edition
 
-A dark, evolving virtual pet for the M5Stack Cardputer.
+A Tamagotchi-style virtual pet game for the M5Stack Cardputer ADV (ESP32).
 
-Raising Hell is an open-source virtual pet firmware project built specifically for the Cardputer ADV platform. Raise demonic, eldritch, and otherworldly creatures through multiple life stages while managing hunger, energy, mood, and survival.
+Raise your infernal companion through multiple life stages, feed it, play mini-games, manage sleep cycles, survive decay, and maybe… resurrect what should not be resurrected.
 
-This is a hobby project under active development.
 
----
+------------------------------------------------------------
+Hardware Target
+------------------------------------------------------------
 
-## 🖥 Hardware Target
+- M5Stack Cardputer ADV
+- ESP32 (240 MHz)
+- SD card (required for assets)
 
-- M5Stack Cardputer (ESP32-based)
-- Built-in display + keyboard
-- RGB LED (NeoPixel)
-- Accelerometer (shake-to-wake and mini games)
-- SD card storage
-- WiFi (optional time sync)
 
----
+------------------------------------------------------------
+Arduino IDE Settings
+------------------------------------------------------------
 
-## 👹 Current Features
+Recommended configuration:
 
-- Multiple pet types (Devil, Eldritch, Kaiju, more planned)
-- Evolution stages (Baby → Teen → Adult → Elder)
-- Hunger, energy, mood, health systems
-- Sleep / wake cycle
-- Inventory & feeding system
-- LED status indicators
-- Mini-games
-- SD card save system (CRC protected)
-- Real-time stat decay
-- Death & resurrection system
+Board: M5Cardputer
+Flash Mode: QIO 80MHz
+Flash Size: 4MB (32Mb)
+Partition Scheme: Huge APP (3MB No OTA / 1MB SPIFFS)
+CPU Frequency: 240MHz (WiFi)
+Upload Speed: 921600
 
----
 
-## 🔴 Development Status
+------------------------------------------------------------
+Project Structure
+------------------------------------------------------------
 
-Actively under heavy refactor and feature expansion.
+raising_hell_cpADV.ino
+src/        (all .cpp and .h files)
+assets/     (SD card asset pack)
 
-Not yet at v1.0.
 
----
+------------------------------------------------------------
+SD Card Setup
+------------------------------------------------------------
 
-## 🛣 Roadmap
+Copy the contents of the "assets" directory to the root of your SD card.
 
-- [ ] Codebase cleanup phase
-- [ ] Public documentation
-- [ ] Animation system polish
-- [ ] More pet types
-- [ ] Audio improvements
-- [ ] Lots of mini games
-- [ ] Explore portable architecture for cross-platform future
+Expected structure example:
 
----
+/raising_hell/
+    /graphics/
+    /pet/
+    /anim/
+    ...
 
-## 📜 License
+The game will not function correctly without the SD assets present.
 
-(To be added — likely MIT)
 
----
+------------------------------------------------------------
+Controls
+------------------------------------------------------------
 
-## 🤘 Why?
+Arrow Keys  - Navigate
+Enter       - Confirm
+Esc         - Back
+Hold GO     - Power Menu
 
-Because the Cardputer deserves cursed firmware.
+(Some mini-games may use alternate input behavior.)
 
----
 
-## 🤘 Screenshots
+------------------------------------------------------------
+Development Direction
+------------------------------------------------------------
 
-![Flash It](media/Raising_Hell_Credits.JPG)
-![Choose It](media/Raising_Hell_Choose.JPG)
-![Hatch It](media/Raising_Hell_Hatch.JPG)
-![Name It](media/Raising_Hell_Name.JPG)
-![Meet It](media/Raising_Hell_Meet.JPG)
-![Raise It](media/Raising_Hell_Raise.JPG)
-![Take Care Of It](media/Raising_Hell_Care.JPG)
-![Neglect It](media/Raising_Hell_Neglect.JPG)
-![Mourn It](media/Raising_Hell_Mourn.JPG)
----
+This project is under active architectural cleanup and refactor toward:
 
-## 📢 Updates
+- Modular state architecture
+- Strict include hygiene
+- Removal of legacy globals
+- Separation of platform and gameplay logic
+- Open-source readiness
 
-Major updates are posted as GitHub Releases.
-Watch the repository to follow development.
 
+------------------------------------------------------------
+Building From Source
+------------------------------------------------------------
+
+1. Clone the repository.
+2. Copy the assets folder contents to an SD card.
+3. Open raising_hell_cpADV.ino in the Arduino IDE.
+4. Select the board settings listed above.
+5. Compile and upload.
+
+
+------------------------------------------------------------
+Known Limitations
+------------------------------------------------------------
+
+- Requires SD card
+- Designed specifically for Cardputer ADV hardware
+- Not optimized for alternate ESP32 boards
+
+
+------------------------------------------------------------
+License
+------------------------------------------------------------
+
+Code is licensed under the MIT License.
+See the LICENSE file for details.
+
+Assets licensing is described in ASSETS_LICENSE.md.
+
+
+------------------------------------------------------------
+Author
+------------------------------------------------------------
+
+Aaron Ayers
+
+If you build this, fork it, improve it, or port it — I’d love to see it.

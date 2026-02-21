@@ -1,0 +1,73 @@
+#pragma once
+#include <stdint.h>
+
+// Animation clip IDs. Keep these stable: they are referenced by the engine.
+enum AnimId : uint16_t {
+  ANIM_NONE = 0,
+
+  // Devil (baby)
+  ANIM_DEV_BABY_HAPPY_BALL,
+  ANIM_DEV_BABY_HUNGRY_RUB,
+  ANIM_DEV_BABY_ANGRY_BOB,
+  ANIM_DEV_BABY_ANGRY_SWIPE,
+  ANIM_DEV_BABY_SLEEPY_NOD,
+  ANIM_DEV_BABY_SICK_CRAWL,
+  ANIM_DEV_BABY_BORED_ROLL,
+
+  // Devil (teen)
+  ANIM_DEV_TEEN_HAPPY_POSE,
+  ANIM_DEV_TEEN_HUNGRY_RUB,
+  ANIM_DEV_TEEN_ANGRY_CLAW,
+  ANIM_DEV_TEEN_SLEEPY_BOB,
+  ANIM_DEV_TEEN_SICK_BOB,
+  ANIM_DEV_TEEN_BORED_PLAY,
+
+  // Devil (adult)
+  ANIM_DEV_ADULT_HAPPY_TAIL,
+  ANIM_DEV_ADULT_HUNGRY_BEND,
+  ANIM_DEV_ADULT_ANGRY_KICK,
+  ANIM_DEV_ADULT_ANGRY_STANCE,
+  ANIM_DEV_ADULT_BORED_GAMEBOY,
+  ANIM_DEV_ADULT_TIRED_CHAIR_IDLE,
+  ANIM_DEV_ADULT_TIRED_CHAIR_BLINK,
+  ANIM_DEV_ADULT_SICK_LAY,
+
+  // Devil (elder)
+  ANIM_DEV_ELDER_BORED_SPIN,
+  ANIM_DEV_ELDER_ANGRY_FIRE,
+  ANIM_DEV_ELDER_HAPPY_SHAKE,
+  ANIM_DEV_ELDER_HUNGRY_RUB,
+  ANIM_DEV_ELDER_TIRED_SIT,
+  ANIM_DEV_ELDER_SICK_COUGH,
+
+  // Eldritch
+  ANIM_ELD_BABY_IDLE_1F,
+  ANIM_ELD_TEEN_IDLE_1F,
+  ANIM_ELD_ADULT_IDLE_1F,
+  ANIM_ELD_ELDER_IDLE_1F,
+
+  // Kaiju / Alien / Anubis / Axolotl
+  ANIM_KAI_IDLE_1F,
+  ANIM_AL_IDLE_1F,
+  ANIM_ANU_IDLE_1F,
+  ANIM_AXO_IDLE_1F,
+};
+
+struct AnimClip {
+  AnimId id;
+  const char* const* frames;
+  uint8_t frameCount;
+  uint16_t frameMs;
+  bool loop;
+};
+
+struct AnimBehavior {
+  AnimId baseId;
+  AnimId triggerId;
+  uint32_t triggerMinMs;
+  uint32_t triggerMaxMs;
+};
+
+const AnimClip* animGetClip(AnimId id);
+const AnimBehavior* animGetBehavior(AnimId baseId);
+AnimId animSelectPetScreen();
