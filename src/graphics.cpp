@@ -50,6 +50,7 @@
 #include "shop_items.h"
 #include "settings_flow_state.h"
 #include "factory_reset_state.h"
+#include "build_flags.h"
 
 bool g_forcePetBgCache = false;
 static void drawBurialScreen();

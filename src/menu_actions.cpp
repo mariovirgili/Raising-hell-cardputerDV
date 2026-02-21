@@ -43,6 +43,7 @@
 #include "flow_factory_reset.h"
 #include "flow_time_editor.h"
 #include "new_pet_flow_state.h"
+#include "build_flags.h"
 
 static bool g_namePetJustOpened = false;
 

@@ -38,6 +38,7 @@
 #include "game_options_state.h"  
 #include "ui_level_popup.h"        
 #include "menu_actions.h" 
+#include "build_flags.h"
 
 bool handleMenuInput(InputState &in);
 
