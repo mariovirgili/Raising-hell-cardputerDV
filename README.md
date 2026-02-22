@@ -116,16 +116,3 @@ Author
 Aaron Ayers
 
 If you build this, fork it, improve it, or port it — I’d love to see it.
-
-------------------------------------------------------------
-Screenshots
-------------------------------------------------------------
-![Raising Hell!](/media/Raising_Hell_Credits.JPG)
-![Choose Your Pet](/media/Raising_Hell_Choose.JPG)
-![Hatch Your Pet](/media/Raising_Hell_Hatch.JPG)
-![Name Your Pet](/media/Raising_Hell_Name.JPG)
-![Meet Your Pet](/media/Raising_Hell_Meet.JPG)
-![Care for Your Pet](/media/Raising_Hell_Care.JPG)
-![Raise Your Pet](/media/Raising_Hell_Raise.JPG)
-![Neglect Your Pet](/media/Raising_Hell_Neglect.JPG)
-![Mourn Your Pet](/media/Raising_Hell_Mourn.JPG)
