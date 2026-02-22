@@ -120,12 +120,12 @@ If you build this, fork it, improve it, or port it — I’d love to see it.
 ------------------------------------------------------------
 Screenshots
 ------------------------------------------------------------
-![Raising Hell](media/Raising_Hell_Credits.png)
-![Choose Your Pet](media/Raising_Hell_Choose.png)
-![Hatch Your Pet](media/Raising_Hell_Hatch.png)
-![NameYour Pet](media/Raising_Hell_Name.png)
-![Meet Your Pet](media/Raising_Hell_Meet.png)
-![Care for Your Pet](media/Raising_Hell_Care.png)
-![Raise Your Pet](media/Raising_Hell_Raise.png)
-![Neglect Your Pet](media/Raising_Hell_Neglect.png)
-![Mourn Your Pet](media/Raising_Hell_Mourn.png)
+![Raising Hell](media/Raising_Hell_Credits.jpg)
+![Choose Your Pet](media/Raising_Hell_Choose.jpg)
+![Hatch Your Pet](media/Raising_Hell_Hatch.jpg)
+![NameYour Pet](media/Raising_Hell_Name.jpg)
+![Meet Your Pet](media/Raising_Hell_Meet.jpg)
+![Care for Your Pet](media/Raising_Hell_Care.jpg)
+![Raise Your Pet](media/Raising_Hell_Raise.jpg)
+![Neglect Your Pet](media/Raising_Hell_Neglect.jpg)
+![Mourn Your Pet](media/Raising_Hell_Mourn.jpg)
