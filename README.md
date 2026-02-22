@@ -117,7 +117,9 @@ Aaron Ayers
 
 If you build this, fork it, improve it, or port it — I’d love to see it.
 
-
+------------------------------------------------------------
+Screenshots
+------------------------------------------------------------
 ![Raising Hell!](/media/Raising_Hell_Credits.JPG)
 ![Choose Your Pet](/media/Raising_Hell_Choose.JPG)
 ![Hatch Your Pet](/media/Raising_Hell_Hatch.JPG)
