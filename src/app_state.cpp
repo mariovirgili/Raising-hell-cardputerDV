@@ -9,3 +9,9 @@ AppState g_app{};
 void requestUIRedraw() {
   g_app.uiNeedsRedraw = true;
 }
+
+bool consumeUIRedrawRequest() {
+  const bool was = g_app.uiNeedsRedraw;
+  g_app.uiNeedsRedraw = false;
+  return was;
+}

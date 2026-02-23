@@ -29,27 +29,27 @@
 #include "debug_state.h"
 #include "sleep_state.h"
 #include "time_state.h"
-#include "motion.h" 
-#include "ui_runtime.h"   
-#include "sdcard.h"             
-#include "graphics.h"         
-#include "console.h"            
-#include "input_activity_state.h" 
-#include "game_options_state.h"  
-#include "ui_level_popup.h"        
-#include "menu_actions.h" 
+#include "motion.h"
+#include "ui_runtime.h"
+#include "sdcard.h"
+#include "graphics.h"
+#include "console.h"
+#include "input_activity_state.h"
+#include "game_options_state.h"
+#include "ui_level_popup.h"
+#include "menu_actions.h"
 #include "build_flags.h"
 
 bool handleMenuInput(InputState &in);
 
-static bool     s_forcedFirstRender = false;
-static uint32_t s_hbNextMs          = 0;
-static bool     s_bootKeepAwakeInited   = false;
+static bool s_forcedFirstRender = false;
+static uint32_t s_hbNextMs = 0;
+static bool s_bootKeepAwakeInited = false;
 static uint32_t s_bootKeepAwakeUntilMs = 0;
 
+void appMainLoopTick()
+{
 
-void appMainLoopTick() {
-  
   // ---------------------------------------------------------------------------
   // TRUE LOOP-ENTRY TIMESTAMP
   // ---------------------------------------------------------------------------
@@ -58,20 +58,28 @@ void appMainLoopTick() {
   // ---------------------------------------------------------------------------
   // SERIAL SAFE PRINT HELPERS
   // ---------------------------------------------------------------------------
-  auto dbgCanWrite = [&](size_t need) -> bool {
-    if (!g_debugEnabled) return false;
+  auto dbgCanWrite = [&](size_t need) -> bool
+  {
+    if (!g_debugEnabled)
+      return false;
     return Serial.availableForWrite() >= (int)need;
   };
 
-  auto dbgPrintln = [&](const char* s) {
-    if (!g_debugEnabled) return;
+  auto dbgPrintln = [&](const char *s)
+  {
+    if (!g_debugEnabled)
+      return;
     const size_t need = strlen(s) + 2;
-    if (dbgCanWrite(need)) Serial.println(s);
+    if (dbgCanWrite(need))
+      Serial.println(s);
   };
 
-  auto dbgPrintf = [&](const char* fmt, auto... args) {
-    if (!g_debugEnabled) return;
-    if (!dbgCanWrite(128)) return;
+  auto dbgPrintf = [&](const char *fmt, auto... args)
+  {
+    if (!g_debugEnabled)
+      return;
+    if (!dbgCanWrite(128))
+      return;
     Serial.printf(fmt, args...);
   };
 
@@ -89,7 +97,8 @@ void appMainLoopTick() {
   // ---------------------------------------------------------------------------
   // SCREEN OFF PATH
   // ---------------------------------------------------------------------------
-  if (!isScreenOn()) {
+  if (!isScreenOn())
+  {
     wifiTimeTick();
     updateTime();
     updateBattery();
@@ -98,10 +107,13 @@ void appMainLoopTick() {
 
     const bool sleepingNow_off = isPetSleepingNow();
 
-    if (sleepingNow_off) {
+    if (sleepingNow_off)
+    {
       pet.petSleepTick();
-      petResetUpdateTimers();   // prevent decay "catch-up" on wake
-    } else {
+      petResetUpdateTimers(); // prevent decay "catch-up" on wake
+    }
+    else
+    {
       pet.update();
     }
 
@@ -111,7 +123,8 @@ void appMainLoopTick() {
                        /*screenOn=*/false,
                        /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
 
-    if (motionAvailable && motionShakeDetected()) {
+    if (motionAvailable && motionShakeDetected())
+    {
       SET_SCREEN_POWER(true);
       noteUserActivity();
       invalidateBackgroundCache();
@@ -132,16 +145,17 @@ void appMainLoopTick() {
   // SCREEN ON PATH
   // ---------------------------------------------------------------------------
   // ---------------------------------------------------------------------------
-// Force one render after boot so we never sit on a blank screen because
-// uiNeedsRedraw was never set by the boot pipeline.
-// ---------------------------------------------------------------------------
-if (!s_forcedFirstRender) {
-  s_forcedFirstRender = true;
-  noteUserActivity();
-  invalidateBackgroundCache();
-  requestUIRedraw();
-  renderUI();
-}
+  // Force one render after boot so we never sit on a blank screen because
+  // uiNeedsRedraw was never set by the boot pipeline.
+  // ---------------------------------------------------------------------------
+  if (!s_forcedFirstRender)
+  {
+    s_forcedFirstRender = true;
+    noteUserActivity();
+    invalidateBackgroundCache();
+    requestUIRedraw();
+    renderUI();
+  }
 
   InputState input = readInput();
 
@@ -149,25 +163,30 @@ if (!s_forcedFirstRender) {
   // MODAL: SD assets missing screen (all builds)
   // Draw ONCE to prevent flicker; retry check on ENTER.
   // ---------------------------------------------------------------------------
-  if (g_assetsMissing) {
+  if (g_assetsMissing)
+  {
     static bool s_prevSelectHeld_assets = false;
     const bool enterOnce = (input.selectHeld && !s_prevSelectHeld_assets);
     s_prevSelectHeld_assets = input.selectHeld;
 
     static bool s_drawn = false;
-    if (!s_drawn) {
+    if (!s_drawn)
+    {
       drawAssetsMissingScreen();
       s_drawn = true;
     }
 
-    if (enterOnce || input.selectOnce) {
+    if (enterOnce || input.selectOnce)
+    {
       // Re-check SD + marker file
-      if (!g_sdReady) {
+      if (!g_sdReady)
+      {
         g_sdReady = initSD();
       }
 
       // If SD comes back, allow the normal boot pipeline to proceed again.
-      if (g_sdReady) {
+      if (g_sdReady)
+      {
         g_sdGaveUp = false;
         g_sdFirstTryMs = 0;
         g_sdTryCount = 0;
@@ -176,13 +195,16 @@ if (!s_forcedFirstRender) {
       g_assetsMissing = !(g_sdReady && sdAssetsPresent());
       g_assetsChecked = true;
 
-      if (!g_assetsMissing) {
+      if (!g_assetsMissing)
+      {
         s_drawn = false;
         drawBootSplash();
         invalidateBackgroundCache();
         requestUIRedraw();
         renderUI();
-      } else {
+      }
+      else
+      {
         s_drawn = false; // force a clean redraw
       }
     }
@@ -200,22 +222,27 @@ if (!s_forcedFirstRender) {
     const bool enterOnce = (input.selectHeld && !s_prevSelectHeld_levelUp);
     s_prevSelectHeld_levelUp = input.selectHeld;
 
-    if (uiIsLevelUpPopupActive()) {
-      if (enterOnce || input.selectOnce) {
+    if (uiIsLevelUpPopupActive())
+    {
+      if (enterOnce || input.selectOnce)
+      {
         uiDismissLevelUpPopup();
         clearInputLatch();
         requestUIRedraw();
-      } else {
+      }
+      else
+      {
         requestUIRedraw();
       }
 
-      if (g_app.uiNeedsRedraw) {
-        g_app.uiNeedsRedraw = false;   // clear first so renderUI() can re-request
+      if (consumeUIRedrawRequest())
+      {
         renderUI();
       }
 
       wifiTimeTick();
-      if (g_timeAnchorAttempted || timeIsSynced()) updateTime();
+      if (g_timeAnchorAttempted || timeIsSynced())
+        updateTime();
       updateBattery();
       saveManagerTick();
       maybePeriodicTimeSave();
@@ -233,14 +260,17 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
   {
     const bool allowTabLR_fast =
-      (g_app.uiState == UIState::PET_SCREEN) ||
-      (g_app.uiState == UIState::SLEEP_MENU) ||
-      (g_app.uiState == UIState::INVENTORY) ||
-      (g_app.uiState == UIState::SHOP);
+        (g_app.uiState == UIState::PET_SCREEN) ||
+        (g_app.uiState == UIState::SLEEP_MENU) ||
+        (g_app.uiState == UIState::INVENTORY) ||
+        (g_app.uiState == UIState::SHOP);
 
-    if (allowTabLR_fast && (input.leftOnce || input.rightOnce)) {
-      if (input.leftOnce)  tabPrev();
-      if (input.rightOnce) tabNext();
+    if (allowTabLR_fast && (input.leftOnce || input.rightOnce))
+    {
+      if (input.leftOnce)
+        tabPrev();
+      if (input.rightOnce)
+        tabNext();
 
       noteUserActivity();
       clearInputLatch();
@@ -258,39 +288,48 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
   // GLOBAL UI SFX
   // ---------------------------------------------------------------------------
-  if (input.upOnce || input.downOnce || (input.encoderDelta != 0)) soundMenuTick();
-  if (input.leftOnce || input.rightOnce)                           soundClick();
-  if (input.selectOnce || input.encoderPressOnce)                  soundConfirm();
-  if (input.menuOnce || input.escOnce)                             soundCancel();
+  if (input.upOnce || input.downOnce || (input.encoderDelta != 0))
+    soundMenuTick();
+  if (input.leftOnce || input.rightOnce)
+    soundClick();
+  if (input.selectOnce || input.encoderPressOnce)
+    soundConfirm();
+  if (input.menuOnce || input.escOnce)
+    soundCancel();
 
   // AUTO SCREEN
-  if (hasUserActivity(input)) noteUserActivity();
+  if (hasUserActivity(input))
+    noteUserActivity();
 
   // ---------------------------------------------------------------------------
   // BOOT KEEP-AWAKE (prevents auto_screen from blanking during early init)
   // ---------------------------------------------------------------------------
-  if (!s_bootKeepAwakeInited) {
+  if (!s_bootKeepAwakeInited)
+  {
     s_bootKeepAwakeInited = true;
-    s_bootKeepAwakeUntilMs = now + 6000;   // 6 seconds
+    s_bootKeepAwakeUntilMs = now + 6000; // 6 seconds
   }
 
-  if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0) {
+  if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
+  {
     // Feed the project's inactivity timer + ensure we render at least once.
     noteUserActivity();
     requestUIRedraw();
 
     // If something already blanked the screen during boot, force it back on.
-    if (!isScreenOn()) {
+    if (!isScreenOn())
+    {
       SET_SCREEN_POWER(true);
       invalidateBackgroundCache();
       requestUIRedraw();
       clearInputLatch();
     }
   }
-  
+
   autoScreenTick();
 
-  if (!isScreenOn()) {
+  if (!isScreenOn())
+  {
 #if LED_STATUS_ENABLED
     ledSetScreenOff(true);
     ledUpdatePetStatus(computeLedMode());
@@ -300,18 +339,21 @@ if (!s_forcedFirstRender) {
   }
 
   // DEATH/BURIAL special flow (unchanged)
-  if (g_app.uiState == UIState::DEATH) {
+  if (g_app.uiState == UIState::DEATH)
+  {
     const UIState before = g_app.uiState;
     handleMenuInput(input);
 
-    if (g_app.uiState != before) {
+    if (g_app.uiState != before)
+    {
       g_app.uiNeedsRedraw = true;
       renderUI();
       return;
     }
 
     if (input.upOnce || input.downOnce || input.selectOnce ||
-        input.encoderPressOnce || (input.encoderDelta != 0)) {
+        input.encoderPressOnce || (input.encoderDelta != 0))
+    {
       requestUIRedraw();
     }
 
@@ -319,17 +361,21 @@ if (!s_forcedFirstRender) {
     return;
   }
 
-  if (g_app.uiState == UIState::BURIAL_SCREEN) {
+  if (g_app.uiState == UIState::BURIAL_SCREEN)
+  {
     handleMenuInput(input);
-    if (input.selectOnce || input.encoderPressOnce) requestUIRedraw();
+    if (input.selectOnce || input.encoderPressOnce)
+      requestUIRedraw();
     renderUI();
     return;
   }
 
   // AUTO-RETURN TO PET TAB
-  if (g_app.uiState == UIState::PET_SCREEN && g_app.currentTab != Tab::TAB_PET) {
+  if (g_app.uiState == UIState::PET_SCREEN && g_app.currentTab != Tab::TAB_PET)
+  {
     const uint32_t nowMs = millis();
-    if ((uint32_t)(nowMs - getLastInputActivityMs()) >= 60000UL) {
+    if ((uint32_t)(nowMs - getLastInputActivityMs()) >= 60000UL)
+    {
       g_app.currentTab = Tab::TAB_PET;
       requestUIRedraw();
       clearInputLatch();
@@ -341,38 +387,46 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
 
   // SET TIME: lock out global hotkeys so the editor can't be bypassed
-  if (g_app.uiState == UIState::SET_TIME) {
-    input.tabJump     = 255;
+  if (g_app.uiState == UIState::SET_TIME)
+  {
+    input.tabJump = 255;
     input.consoleOnce = false;
     input.hotSettings = false;
   }
 
   // If sleeping, block focus-stealing tab hotkeys.
   const bool sleepingNow = isPetSleepingNow();
-  if (sleepingNow) {
+  if (sleepingNow)
+  {
     input.tabJump = 255;
 
-    if (g_app.uiState == UIState::PET_SLEEPING) {
-      input.upOnce    = false;
-      input.downOnce  = false;
-      input.leftOnce  = false;
+    if (g_app.uiState == UIState::PET_SLEEPING)
+    {
+      input.upOnce = false;
+      input.downOnce = false;
+      input.leftOnce = false;
       input.rightOnce = false;
     }
   }
 
   // Don't allow ESC/C/Q to steal focus on New Pet flow screens
-  if (g_app.uiState == UIState::CHOOSE_PET) {
+  if (g_app.uiState == UIState::CHOOSE_PET)
+  {
     input.consoleOnce = false;
-    input.escOnce     = false;
+    input.escOnce = false;
     input.hotSettings = false;
-    input.menuOnce    = false;
-    input.tabJump     = 255;
-  } else {
+    input.menuOnce = false;
+    input.tabJump = 255;
+  }
+  else
+  {
     // Bottom-row tab hotkeys (z x c v b n m) — only when not in restricted screens
     if (g_app.uiState != UIState::NAME_PET &&
-        g_app.uiState != UIState::SET_TIME) {
+        g_app.uiState != UIState::SET_TIME)
+    {
 
-      if (sleepingNow && input.tabJump != 255) {
+      if (sleepingNow && input.tabJump != 255)
+      {
         input.tabJump = 255;
         clearInputLatch();
       }
@@ -380,15 +434,17 @@ if (!s_forcedFirstRender) {
       // Don't allow ESC/C/Q/tab jumps to steal focus during Hatching/Evolution
       if (g_app.uiState == UIState::HATCHING ||
           g_app.flow.evo.active ||
-          g_app.uiState == UIState::EVOLUTION) {
-        input.tabJump     = 255;
+          g_app.uiState == UIState::EVOLUTION)
+      {
+        input.tabJump = 255;
         input.consoleOnce = false;
-        input.escOnce     = false;
+        input.escOnce = false;
         input.hotSettings = false;
-        input.menuOnce    = false;
+        input.menuOnce = false;
       }
 
-      if (input.tabJump != 255) {
+      if (input.tabJump != 255)
+      {
         noteUserActivity();
 
         g_app.currentTab = (Tab)input.tabJump;
@@ -403,17 +459,24 @@ if (!s_forcedFirstRender) {
 
 #if !PUBLIC_BUILD
     // C toggles console
-    if (g_app.uiState != UIState::SET_TIME && input.consoleOnce) {
+    if (g_app.uiState != UIState::SET_TIME && input.consoleOnce)
+    {
       noteUserActivity();
 
-      if (g_app.uiState != UIState::CONSOLE) {
+      if (g_app.uiState != UIState::CONSOLE)
+      {
         consoleOpen();
         g_app.uiState = UIState::CONSOLE;
-      } else {
+      }
+      else
+      {
         consoleClose();
-        if (sleepingNow) {
+        if (sleepingNow)
+        {
           g_app.uiState = UIState::PET_SLEEPING;
-        } else {
+        }
+        else
+        {
           g_app.uiState = UIState::PET_SCREEN;
           g_app.currentTab = Tab::TAB_PET;
         }
@@ -425,13 +488,17 @@ if (!s_forcedFirstRender) {
     }
 
     // ESC inside console exits back to pet screen (NOT settings)
-    if (g_app.uiState == UIState::CONSOLE && input.escOnce) {
+    if (g_app.uiState == UIState::CONSOLE && input.escOnce)
+    {
       noteUserActivity();
 
       consoleClose();
-      if (sleepingNow) {
+      if (sleepingNow)
+      {
         g_app.uiState = UIState::PET_SLEEPING;
-      } else {
+      }
+      else
+      {
         g_app.uiState = UIState::PET_SCREEN;
         g_app.currentTab = Tab::TAB_PET;
       }
@@ -443,7 +510,8 @@ if (!s_forcedFirstRender) {
 #endif
 
     // I opens Controls help overlay (non-interrupting, including pet sleep)
-    if (g_app.uiState != UIState::SET_TIME && input.controlsOnce) {
+    if (g_app.uiState != UIState::SET_TIME && input.controlsOnce)
+    {
       noteUserActivity();
       openControlsHelpFromAnywhere();
       return;
@@ -455,14 +523,17 @@ if (!s_forcedFirstRender) {
   // from handlePowerMenuInput)
   if (g_app.uiState != UIState::SET_TIME &&
       g_app.uiState != UIState::POWER_MENU &&
-      input.menuOnce) {
+      input.menuOnce)
+  {
 
     // While sleeping, do NOT hijack menuOnce here.
     // Let handleMenuInput() decide.
-    if (g_app.uiState != UIState::PET_SLEEPING) {
+    if (g_app.uiState != UIState::PET_SLEEPING)
+    {
       noteUserActivity();
 
-      if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET) {
+      if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET)
+      {
         g_app.uiState = UIState::PET_SCREEN;
         g_app.currentTab = Tab::TAB_PET;
 
@@ -476,7 +547,8 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
   // Waking from sleep screen state
   // ---------------------------------------------------------------------------
-  if (g_app.uiState == UIState::PET_SLEEPING && !isPetSleepingNow()) {
+  if (g_app.uiState == UIState::PET_SLEEPING && !isPetSleepingNow())
+  {
     petResetUpdateTimers();
     g_app.uiState = UIState::PET_SCREEN;
     g_app.currentTab = Tab::TAB_PET;
@@ -488,24 +560,28 @@ if (!s_forcedFirstRender) {
   // Input-driven redraw hint (single copy)
   // ---------------------------------------------------------------------------
   if (input.menuOnce || input.selectOnce || input.upOnce || input.downOnce ||
-      (input.encoderDelta != 0)) {
+      (input.encoderDelta != 0))
+  {
     requestUIRedraw();
   }
 
   // ---------------------------------------------------------------------------
   // HATCHING: modal tick, then render, then return
   // ---------------------------------------------------------------------------
-  if (g_app.uiState == UIState::HATCHING) {
-  updateHatching();
-  if (isScreenOn()) requestUIRedraw();
+  if (g_app.uiState == UIState::HATCHING)
+  {
+    updateHatching();
+    if (isScreenOn())
+      requestUIRedraw();
 
-    if (g_app.uiNeedsRedraw) {
-      g_app.uiNeedsRedraw = false;   // clear first so renderUI() can re-request
+    if (consumeUIRedrawRequest())
+    {
       renderUI();
     }
 
     wifiTimeTick();
-    if (g_timeAnchorAttempted || timeIsSynced()) updateTime();
+    if (g_timeAnchorAttempted || timeIsSynced())
+      updateTime();
     updateBattery();
     saveManagerTick();
     maybePeriodicTimeSave();
@@ -520,17 +596,19 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
   // EVOLUTION: modal tick, then render, then return
   // ---------------------------------------------------------------------------
-  if (g_app.flow.evo.active || g_app.uiState == UIState::EVOLUTION) {
-  updateEvolution();
-  if (isScreenOn()) requestUIRedraw();
+  if (g_app.flow.evo.active || g_app.uiState == UIState::EVOLUTION)
+  {
+    updateEvolution();
+    if (isScreenOn())
+      requestUIRedraw();
 
-    if (g_app.uiNeedsRedraw) {
-      g_app.uiNeedsRedraw = false;
+    if (consumeUIRedrawRequest())
+    {
       renderUI();
     }
-
     wifiTimeTick();
-    if (g_timeAnchorAttempted || timeIsSynced()) updateTime();
+    if (g_timeAnchorAttempted || timeIsSynced())
+      updateTime();
     updateBattery();
     saveManagerTick();
     maybePeriodicTimeSave();
@@ -548,22 +626,27 @@ if (!s_forcedFirstRender) {
   // ---------------------------------------------------------------------------
 
   const bool inDeathFlow =
-    (g_app.uiState == UIState::DEATH) ||
-    (g_app.uiState == UIState::MINI_GAME) ||
-    (g_app.uiState == UIState::BURIAL_SCREEN);
+      (g_app.uiState == UIState::DEATH) ||
+      (g_app.uiState == UIState::MINI_GAME) ||
+      (g_app.uiState == UIState::BURIAL_SCREEN);
 
-  if (!inDeathFlow) {
-    if (isPetSleepingNow()) {
+  if (!inDeathFlow)
+  {
+    if (isPetSleepingNow())
+    {
       pet.petSleepTick();
       petResetUpdateTimers();
-    } else {
+    }
+    else
+    {
       pet.update();
 
       // Detect level-ups right after the pet tick updates XP/level.
       uiMaybeShowLevelUpPopup();
     }
 
-    if (pet.health <= 0 && petDeathEnabled && g_app.uiState != UIState::DEATH) {
+    if (pet.health <= 0 && petDeathEnabled && g_app.uiState != UIState::DEATH)
+    {
       petEnterDeathState();
       invalidateBackgroundCache();
       requestUIRedraw();
@@ -578,8 +661,10 @@ if (!s_forcedFirstRender) {
 
   const bool sleepingNow2 = isPetSleepingNow();
 
-  if (!s_prevSleeping && sleepingNow2) soundSleep();
-  if (s_prevSleeping && !sleepingNow2) soundWake();
+  if (!s_prevSleeping && sleepingNow2)
+    soundSleep();
+  if (s_prevSleeping && !sleepingNow2)
+    soundWake();
   s_prevSleeping = sleepingNow2;
 
   soundLowHealthTick((uint8_t)pet.health,
@@ -588,7 +673,8 @@ if (!s_forcedFirstRender) {
                      /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
 
   // Anim tick
-  if (g_sdReady) {
+  if (g_sdReady)
+  {
     animTick();
   }
 
@@ -597,14 +683,14 @@ if (!s_forcedFirstRender) {
   sleepMiniStatsHeartbeat(now);
 
   // Render
-  if (g_app.uiNeedsRedraw) {
-    g_app.uiNeedsRedraw = false;   // clear first so renderUI() can re-request
+  if (consumeUIRedrawRequest())
+  {
     renderUI();
   }
-
   // Maintenance AFTER render
   wifiTimeTick();
-  if (g_timeAnchorAttempted || timeIsSynced()) updateTime();
+  if (g_timeAnchorAttempted || timeIsSynced())
+    updateTime();
   updateBattery();
   saveManagerTick();
   maybePeriodicTimeSave();

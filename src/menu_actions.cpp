@@ -44,6 +44,7 @@
 #include "flow_time_editor.h"
 #include "new_pet_flow_state.h"
 #include "build_flags.h"
+#include "ui_invalidate.h"
 
 static bool g_namePetJustOpened = false;
 
@@ -260,7 +261,7 @@ static void handleChoosePetInput(InputState &in) {
     resetSettingsNav(true);
     g_settingsFlow.settingsPage = SettingsPage::TOP;
     g_app.uiState               = UIState::SETTINGS;
-    g_app.uiNeedsRedraw         = true;
+    requestUIRedraw();
 
     swallowTypingAndEdges(in);
     return;
@@ -524,7 +525,7 @@ bool handleMenuInput(InputState &in) {
       resetSettingsNav(true);
       g_settingsFlow.settingsPage = SettingsPage::TOP;
       g_app.uiState               = UIState::SETTINGS;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
 
       drainKb(in);
       inputForceClear();
@@ -609,7 +610,7 @@ static void handleSleepScreenInput(InputState &input) {
     resetSettingsNav(true);
     g_settingsFlow.settingsPage = SettingsPage::TOP;
     g_app.uiState               = UIState::SETTINGS;
-    g_app.uiNeedsRedraw         = true;
+    requestUIRedraw();
 
     drainKb(input);
     inputForceClear();
@@ -736,7 +737,7 @@ void handleSettingsInput(InputState &input) {
     if (g_settingsFlow.settingsPage == SettingsPage::DECAY_MODE ||
         g_settingsFlow.settingsPage == SettingsPage::AUTO_SCREEN) {
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
       playBeep();
       clearInputLatch();
       return;
@@ -815,7 +816,7 @@ void handleSettingsInput(InputState &input) {
         case 2: { // Screen Settings
           g_settingsFlow.settingsPage = SettingsPage::SCREEN;
           g_ui.screenSettingsIndex    = 0;
-          g_app.uiNeedsRedraw         = true;
+          requestUIRedraw();
           playBeep();
           clearInputLatch();
           return;
@@ -824,7 +825,7 @@ void handleSettingsInput(InputState &input) {
         case 3: { // System
           g_settingsFlow.settingsPage = SettingsPage::SYSTEM;
           g_ui.systemSettingsIndex    = 0;
-          g_app.uiNeedsRedraw         = true;
+          requestUIRedraw();
           playBeep();
           clearInputLatch();
           return;
@@ -833,7 +834,7 @@ void handleSettingsInput(InputState &input) {
         case 4: { // Game
           g_settingsFlow.settingsPage = SettingsPage::GAME;
           g_ui.gameOptionsIndex       = 0;
-          g_app.uiNeedsRedraw         = true;
+          requestUIRedraw();
           playBeep();
           clearInputLatch();
           return;
@@ -857,7 +858,7 @@ void handleSettingsInput(InputState &input) {
 
         case 6: { // Credits
           g_settingsFlow.settingsPage = SettingsPage::CREDITS;
-          g_app.uiNeedsRedraw         = true;
+          requestUIRedraw();
           playBeep();
           clearInputLatch();
           return;
@@ -941,7 +942,7 @@ void handleSettingsInput(InputState &input) {
         case 2:
           g_settingsFlow.settingsPage = SettingsPage::WIFI;
           g_wifi.wifiSettingsIndex      = 0;
-          g_app.uiNeedsRedraw         = true;
+          requestUIRedraw();
           playBeep();
           clearInputLatch();
           return;
@@ -1062,7 +1063,7 @@ void handleSettingsInput(InputState &input) {
         g_ui.decayModeIndex              = (int)saveManagerGetDecayMode();
         g_settingsFlow.settingsReturnPage = SettingsPage::GAME;
         g_settingsFlow.settingsPage       = SettingsPage::DECAY_MODE;
-        g_app.uiNeedsRedraw               = true;
+        requestUIRedraw();
         playBeep();
         clearInputLatch();
         return;
@@ -1118,7 +1119,7 @@ void handleSettingsInput(InputState &input) {
       saveSettingsToSD();
       saveManagerMarkDirty();
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
       playBeep();
       clearInputLatch();
       return;
@@ -1126,7 +1127,7 @@ void handleSettingsInput(InputState &input) {
 
     if (input.menuOnce || input.escOnce) {
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
       playBeep();
       clearInputLatch();
       return;
@@ -1154,7 +1155,7 @@ void handleSettingsInput(InputState &input) {
     if (input.selectOnce || input.encoderPressOnce) {
       saveManagerSetDecayMode((uint8_t)g_ui.decayModeIndex);
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
       playBeep();
       clearInputLatch();
       return;
@@ -1162,7 +1163,7 @@ void handleSettingsInput(InputState &input) {
 
     if (input.menuOnce || input.escOnce) {
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-      g_app.uiNeedsRedraw         = true;
+      requestUIRedraw();
       playBeep();
       clearInputLatch();
       return;
@@ -1297,7 +1298,7 @@ void handleSleepMenuInput(const InputState &input) {
     isSleeping        = true;
     g_app.uiState     = UIState::PET_SLEEPING;
     g_app.currentTab  = Tab::TAB_PET;
-    g_app.uiNeedsRedraw = true;
+    requestUIRedraw();
 
     // Prevent the ENTER/encoder press that *started* sleep from immediately waking it.
     g_suppressSleepWakeUntilMs = millis() + 400;
@@ -1358,7 +1359,7 @@ void handleMiniGameInput(const InputState &input) {
     g_app.inMiniGame    = false;
     currentMiniGame     = MiniGame::NONE;
     g_app.uiState       = UIState::PET_SCREEN;
-    g_app.uiNeedsRedraw = true;
+    requestUIRedraw();
     clearInputLatch();
     return;
   }
@@ -1542,7 +1543,7 @@ static void handleWifiSetupInput(InputState &in) {
 
         g_wifi.setupStage = 1;
         wifiSetupBuf[0]     = '\0';
-        g_app.uiNeedsRedraw = true;
+        requestUIRedraw();
 
         clearInputLatch();
       } else {
@@ -1618,7 +1619,7 @@ void onResurrectionMiniGameResult(bool success) {
 
   deathMenuIndex        = 0;
   g_app.uiState         = UIState::DEATH;
-  g_app.uiNeedsRedraw   = true;
+  requestUIRedraw();
 
   invalidateBackgroundCache();
   requestUIRedraw();
