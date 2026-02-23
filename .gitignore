@@ -20,3 +20,4 @@ Thumbs.db
 # Optional: ignore SD mirror binaries (if you don't want them versioned)
 # assets/**/*.png
 # assets/**/*.wav
+*.zip

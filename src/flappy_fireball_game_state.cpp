@@ -4,6 +4,7 @@
 
 void FlappyFireballGameState::enter() {
     Serial.println("Entering Flappy Fireball Mini-Game...");
+    startFlappyFireball();    // ← launches the real game
 }
 
 void FlappyFireballGameState::exit() {
@@ -11,15 +12,7 @@ void FlappyFireballGameState::exit() {
 }
 
 void FlappyFireballGameState::update() {
-    static int gameTick = 0;
-    gameTick++;
-
-    if (gameTick % 10 == 0) {
-        Serial.print("Flappy Fireball update, tick: ");
-        Serial.println(gameTick);
-
-        if (gameTick > 100) {
-            state_manager.setState(new GameState());
-        }
-    }
+    // The real game is driven by appMainLoopTick() → updateMiniGame()
+    // When the player finishes, mini_games.cpp handles the result and
+    // sets g_app.uiState back — no state_manager transition needed here.
 }

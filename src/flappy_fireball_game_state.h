@@ -2,6 +2,7 @@
 #include "mini_game_state.h"
 #include <Arduino.h>
 #include "state_manager_fwd.h"
+#include "mini_games.h" 
 
 class GameState;
 

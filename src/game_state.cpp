@@ -6,6 +6,8 @@
 void GameState::enter() {
     Serial.println("Entering GameState...");
     playerPet = Pet();
+    lastPetUpdateMs = millis();
+    lastFeedMs = millis();
 }
 
 void GameState::exit() {
@@ -13,10 +15,11 @@ void GameState::exit() {
 }
 
 void GameState::update() {
-    static int gameTick = 0;
-    gameTick++;
+    const uint32_t now = millis();
 
-    if (gameTick % 100 == 0) {
+    // Update pet stats every 1 second
+    if (now - lastPetUpdateMs >= 1000) {
+        lastPetUpdateMs = now;
         playerPet.update();
         Serial.print("Pet Status - Health: ");
         Serial.print(playerPet.health);
@@ -24,17 +27,10 @@ void GameState::update() {
         Serial.println(playerPet.happiness);
     }
 
-    if (gameTick % 200 == 0) {
+    // Feed pet every 2 seconds
+    if (now - lastFeedMs >= 2000) {
+        lastFeedMs = now;
         playerPet.feed(10);
         Serial.println("Pet fed!");
-    }
-
-    if (gameTick == 500) {
-        Serial.println("Starting Flappy Fireball Mini-Game...");
-        state_manager.setState(new FlappyFireballGameState());
-    }
-
-    if (gameTick > 1000) {
-        state_manager.setState(new PauseState());
     }
 }

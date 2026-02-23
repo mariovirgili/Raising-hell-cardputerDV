@@ -2,9 +2,12 @@
 #include "state_manager.h"
 #include "game_state.h"
 #include "main_menu_state.h"
+#include "input.h"
+#include "sound.h"
 
 void PauseState::enter() {
     Serial.println("Entering PauseState...");
+    selectedOption = 0;
 }
 
 void PauseState::exit() {
@@ -12,13 +15,31 @@ void PauseState::exit() {
 }
 
 void PauseState::update() {
-    static int selectedOption = 0;
+    InputState input = readInput();
 
-    if (selectedOption == 0) {
-        Serial.println("Resuming game...");
-        state_manager.setState(new GameState());
-    } else if (selectedOption == 1) {
-        Serial.println("Quitting to Main Menu...");
-        state_manager.setState(new MainMenuState());
+    // Navigate options
+    if (input.upOnce || input.leftOnce) {
+        if (selectedOption > 0) {
+            selectedOption--;
+            playBeep();
+        }
+    }
+    if (input.downOnce || input.rightOnce) {
+        if (selectedOption < 1) {
+            selectedOption++;
+            playBeep();
+        }
+    }
+
+    // Confirm selection
+    if (input.selectOnce || input.encoderPressOnce) {
+        if (selectedOption == 0) {
+            Serial.println("Resuming game...");
+            state_manager.setState(new GameState());
+        } else {
+            Serial.println("Quitting to Main Menu...");
+            state_manager.setState(new MainMenuState());
+        }
+        return;
     }
 }

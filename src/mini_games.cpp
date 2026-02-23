@@ -63,6 +63,8 @@ static inline void miniGameClearReturnUi() {
   s_miniGameReturnUi = UIState::PET_SCREEN;
 }
 
+static const uint32_t kSurviveWinMs = 18000; // 18s survive-to-win (Flappy + Dodger)
+
 static void mgApplyResultAndShowReward(bool won)
 {
   // Apply rewards (your rule: lose => XP+5, MOOD+10 only)
@@ -259,8 +261,7 @@ static bool     s_flappyCrashed    = false;
 static uint32_t s_flappyStartMs    = 0;
 
 // Survive timer (tune this)
-static const uint32_t s_flappyWinMs = 18000; // 18s survive to win (same as dodger)
-
+static const uint32_t s_flappyWinMs = kSurviveWinMs;
 
 static int      s_fbX              = 0;
 static int      s_fbY              = 0;
@@ -567,6 +568,36 @@ if (gameOver)
   }
 }
 
+static void drawRewardModal(int gW, int gH)
+{
+    spr.setTextDatum(CC_DATUM);
+
+    const char* nl = strchr(s_rewardMsg, '\n');
+    if (nl)
+    {
+        char line1[64];
+        size_t len = (size_t)(nl - s_rewardMsg);
+        if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
+
+        memcpy(line1, s_rewardMsg, len);
+        line1[len] = 0;
+
+        spr.setTextColor(TFT_WHITE, TFT_BLACK);
+        spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
+
+        spr.setTextColor(TFT_YELLOW, TFT_BLACK);
+        spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
+    }
+    else
+    {
+        spr.setTextColor(TFT_WHITE, TFT_BLACK);
+        spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
+    }
+
+    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
+}
+
 void drawFlappyFireball()
 {
   const int gW = (screenW > 0) ? screenW : 240;
@@ -576,35 +607,11 @@ void drawFlappyFireball()
   spr.fillSprite(TFT_BLACK);
 
   // Reward screen (modal)
+  // FIND and replace the body of this block:
   if (s_showReward)
   {
-    spr.setTextDatum(CC_DATUM);
-
-    const char* nl = strchr(s_rewardMsg, '\n');
-    if (nl)
-    {
-      char line1[64];
-      size_t len = (size_t)(nl - s_rewardMsg);
-      if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
-
-      memcpy(line1, s_rewardMsg, len);
-      line1[len] = 0;
-
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
-
-      spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-      spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
-    }
-    else
-    {
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
-    }
-
-    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
-    return;
+      drawRewardModal(gW, gH);
+      return;
   }
 
   // Result screen (shown immediately on crash / win)
@@ -1038,16 +1045,18 @@ void drawResurrectionRun() {
   spr.fillSprite(TFT_BLACK);
 
   // Reward modal (reuse your existing s_showReward drawing)
-if (rr_gameOver)
-{
-  spr.setTextDatum(CC_DATUM);
-  spr.setTextColor(rr_won ? TFT_GREEN : TFT_RED, TFT_BLACK);
-  spr.drawCentreString(rr_won ? "RESURRECTED!" : "FALLEN...", gW/2, gH/2 - 10, 4);
+  // NOTE: Resurrection Run does not use s_showReward — result is handled
+  // by onResurrectionMiniGameResult() which manages the death/revival flow directly.
+  if (rr_gameOver)
+  {
+    spr.setTextDatum(CC_DATUM);
+    spr.setTextColor(rr_won ? TFT_GREEN : TFT_RED, TFT_BLACK);
+    spr.drawCentreString(rr_won ? "RESURRECTED!" : "FALLEN...", gW/2, gH/2 - 10, 4);
 
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
-  return;
-}
+    spr.setTextColor(TFT_WHITE, TFT_BLACK);
+    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
+    return;
+  }
   const int groundY = gH - 18;
   spr.drawLine(0, groundY, gW, groundY, TFT_DARKGREY);
 
@@ -1298,35 +1307,9 @@ void drawCrossyRoad()
   // Reward modal: reuse your existing rendering style (same as other games)
   if (s_showReward)
   {
-    spr.setTextDatum(CC_DATUM);
-
-    const char* nl = strchr(s_rewardMsg, '\n');
-    if (nl)
-    {
-      char line1[64];
-      size_t len = (size_t)(nl - s_rewardMsg);
-      if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
-
-      memcpy(line1, s_rewardMsg, len);
-      line1[len] = 0;
-
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
-
-      spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-      spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
-    }
-    else
-    {
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
-    }
-
-    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
-    return;
+      drawRewardModal(gW, gH);
+      return;
   }
-
   // Result screen
   if (gameOver)
   {
@@ -1539,8 +1522,7 @@ if (gameOver)
   const int difficulty = (int)(aliveMs / 3000); // +1 every 3s
 
   // Win condition (tune this)
-  const uint32_t kWinMs = 18000; // 18s survive to win
-  if (aliveMs >= kWinMs)
+  const uint32_t kWinMs = kSurviveWinMs;  if (aliveMs >= kWinMs)
   {
     playerWon = true;
     gameOver  = true;
@@ -1652,8 +1634,7 @@ void drawInfernalDodger()
   // Progress bar (survive timer) — same style as Resurrection Run
   {
     const uint32_t aliveMs = millis() - s_dodgerStartMs;
-    const uint32_t kWinMs  = 18000; // keep in sync with updateInfernalDodger()
-
+    const uint32_t kWinMs = kSurviveWinMs;
     int barW = gW - 20;
     int barX = 10;
     int barY = 6;
@@ -1670,35 +1651,10 @@ void drawInfernalDodger()
   // Reward modal (same rendering style)
   if (s_showReward)
   {
-    spr.setTextDatum(CC_DATUM);
-
-    const char* nl = strchr(s_rewardMsg, '\n');
-    if (nl)
-    {
-      char line1[64];
-      size_t len = (size_t)(nl - s_rewardMsg);
-      if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
-
-      memcpy(line1, s_rewardMsg, len);
-      line1[len] = 0;
-
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
-
-      spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-      spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
-    }
-    else
-    {
-      spr.setTextColor(TFT_WHITE, TFT_BLACK);
-      spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
-    }
-
-    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
-    return;
+      drawRewardModal(gW, gH);
+      return;
   }
-
+  
   // Result screen
   if (gameOver)
   {

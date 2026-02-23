@@ -9,10 +9,12 @@ class FlappyFireballGameState;
 class PauseState;
 
 class GameState : public State {
-private:
-    Pet playerPet;
-public:
-    void enter() override;
-    void exit() override;
-    void update() override;
-};
+    private:
+        Pet playerPet;
+        uint32_t lastPetUpdateMs = 0;
+        uint32_t lastFeedMs = 0;
+    public:
+        void enter() override;
+        void exit() override;
+        void update() override;
+    };
