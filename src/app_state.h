@@ -15,7 +15,9 @@ struct AppState {
   bool     uiNeedsRedraw = true;
   PetFlowState flow;
   Inventory inventory;
-
+  bool gameOver          = false;
+  bool newPetFlowActive  = false;
+  
   // Primary UI routing
   UIState  uiState = UIState::BOOT;
   Tab      currentTab = Tab::TAB_PET;

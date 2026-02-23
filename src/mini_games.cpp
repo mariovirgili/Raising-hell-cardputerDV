@@ -102,9 +102,9 @@ static void mgApplyResultAndShowReward(bool won)
 
   saveManagerMarkDirty();
 
-  // Show modal + clear gameOver so we don't re-enter result logic
+  // Show modal + clear g_app.gameOver so we don't re-enter result logic
   s_showReward = true;
-  gameOver = false;
+  g_app.gameOver = false;
   clearInputLatch();
 }
 
@@ -318,7 +318,7 @@ void startFlappyFireball()
   inputSetTextCapture(false);
 
   g_app.inMiniGame     = true;
-  gameOver       = false;
+  g_app.gameOver       = false;
   playerWon      = false;
   s_resultShown  = false;
 
@@ -439,7 +439,7 @@ if (s_gravCounter >= 3)
     if (flappyCollides(s_fbX, s_fbY, fbR, s_pipes[i], w, h))
     {
       playerWon       = false;
-      gameOver        = true;
+      g_app.gameOver        = true;
       s_resultShown   = true;
       s_flappyPlaying = false;
       soundError();
@@ -480,7 +480,7 @@ if (enterOnce) {
   }
 
   // If game is over, ENTER applies rewards and shows reward modal
-if (gameOver)
+if (g_app.gameOver)
 {
   if (enterOnce)
   {
@@ -489,7 +489,7 @@ if (gameOver)
     {
       currentMiniGame = MiniGame::NONE;
       g_app.inMiniGame = false;
-      gameOver = false;
+      g_app.gameOver = false;
 
       onResurrectionMiniGameResult(playerWon);
 
@@ -535,7 +535,7 @@ if (gameOver)
   const uint32_t aliveMs = flappyAliveMsNow(now);
   if (aliveMs >= s_flappyWinMs) {
     playerWon       = true;
-    gameOver        = true;
+    g_app.gameOver        = true;
     s_resultShown   = true;
     s_flappyPlaying = false;
     soundConfirm();
@@ -563,7 +563,7 @@ if (gameOver)
       if (flapThisStep) flapUsed = true;
 
       s_lastStepMs += stepMs;
-      if (gameOver) break;
+      if (g_app.gameOver) break;
     }
   }
 }
@@ -615,7 +615,7 @@ void drawFlappyFireball()
   }
 
   // Result screen (shown immediately on crash / win)
-  if (gameOver)
+  if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
     spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);
@@ -717,7 +717,7 @@ static void exitMiniGameToReturnUi(bool beginLockout)
   s_rewardMsg[0] = 0;
 
   g_app.inMiniGame   = false;
-  gameOver     = false;
+  g_app.gameOver     = false;
   playerWon    = false;
   currentMiniGame = MiniGame::NONE;
 
@@ -747,7 +747,7 @@ void updateMiniGame(const InputState& input)
   const bool activePlay =
       g_app.inMiniGame &&
       !s_showReward &&
-      !gameOver;
+      !g_app.gameOver;
 
   // If not actively playing, force pause off so it doesn't "stick"
   if (!activePlay) {
@@ -1091,7 +1091,7 @@ void drawResurrectionRun() {
 // -----------------------------------------------------------------------------
 // CROSSY ROAD (Frogger-lite)
 // Goal: reach the top row. Hit a car = lose.
-// Uses existing: gameOver/playerWon + reward modal (s_showReward/s_rewardMsg)
+// Uses existing: g_app.gameOver/playerWon + reward modal (s_showReward/s_rewardMsg)
 // -----------------------------------------------------------------------------
 
 static const int kCrossyCols = 15;
@@ -1159,7 +1159,7 @@ void startCrossyRoad()
   inputSetTextCapture(false);
 
   g_app.inMiniGame    = true;
-  gameOver      = false;
+  g_app.gameOver      = false;
   playerWon     = false;
   s_resultShown = false;
 
@@ -1236,7 +1236,7 @@ void updateCrossyRoad(const InputState& input)
   }
 
   // Result screen: ENTER applies rewards then shows modal
-  if (gameOver)
+  if (g_app.gameOver)
   {
     if (enterOnce)
     {
@@ -1276,7 +1276,7 @@ void updateCrossyRoad(const InputState& input)
   // Win
   if (s_crossyPy == 0) {
     playerWon = true;
-    gameOver = true;
+    g_app.gameOver = true;
     s_resultShown = true;
     soundConfirm();
     return;
@@ -1285,7 +1285,7 @@ void updateCrossyRoad(const InputState& input)
   // Lose (hit car)
   if (crossyHitCar()) {
     playerWon = false;
-    gameOver = true;
+    g_app.gameOver = true;
     s_resultShown = true;
     soundError();
     return;
@@ -1311,7 +1311,7 @@ void drawCrossyRoad()
       return;
   }
   // Result screen
-  if (gameOver)
+  if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
     spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);
@@ -1461,7 +1461,7 @@ void startInfernalDodger()
   mgPauseReset();          // <-- ADD THIS (must be before g_app.inMiniGame=true)
 
   g_app.inMiniGame     = true;
-  gameOver       = false;
+  g_app.gameOver       = false;
   playerWon      = false;
   s_resultShown  = false;
 
@@ -1496,7 +1496,7 @@ if (s_showReward)
 
 
   // Result screen: ENTER applies rewards + shows modal
-if (gameOver)
+if (g_app.gameOver)
 {
   if (enterOnce)
   {
@@ -1525,7 +1525,7 @@ if (gameOver)
   const uint32_t kWinMs = kSurviveWinMs;  if (aliveMs >= kWinMs)
   {
     playerWon = true;
-    gameOver  = true;
+    g_app.gameOver  = true;
     s_resultShown = true;
     soundConfirm();
     return;
@@ -1613,7 +1613,7 @@ if (input.mgRightOnce) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
       if (dodgerHit((int)s_dodgerPx, (int)s_dodgerPy, pr, (int)b.x, (int)b.y, (int)b.r))
       {
         playerWon = false;
-        gameOver  = true;
+        g_app.gameOver  = true;
         s_resultShown = true;
         soundError();
         return;
@@ -1656,7 +1656,7 @@ void drawInfernalDodger()
   }
   
   // Result screen
-  if (gameOver)
+  if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
     spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);

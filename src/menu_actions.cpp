@@ -211,7 +211,7 @@ static void finalizeNewPetFromName_local(InputState &in) {
   // Commit chosen type into the final saved pet
   pet.type = g_pendingPetType;
 
-  g_newPetFlowActive = false; // ✅ pet is now real; allow decay/death from here on
+  g_app.newPetFlowActive = false; // ✅ pet is now real; allow decay/death from here on
 
   saveManagerMarkDirty();
   saveManagerForce();
@@ -231,7 +231,7 @@ static void finalizeNewPetFromName_local(InputState &in) {
 static void handleChoosePetInput(InputState &in) {
   // Reliable Enter edge (press-level -> edge) for Cardputer:
   // Sometimes selectOnce is missed depending on keyboard change detection.
-  g_newPetFlowActive = true;
+  g_app.newPetFlowActive = true;
   static bool s_prevSelectHeld = false;
 
   // ---------------------------------------------------------------------------
@@ -438,7 +438,7 @@ bool handleMenuInput(InputState &in) {
     g_bootNamePetFixApplied = true;
 
     // If we're actively in the new-pet flow, NAME_PET is valid.
-    if (g_newPetFlowActive) {
+    if (g_app.newPetFlowActive) {
       swallowTypingAndEdges(in);
       return true;
     }
@@ -1603,7 +1603,7 @@ void onResurrectionMiniGameResult(bool success) {
 
     currentMiniGame      = MiniGame::NONE;
     g_app.inMiniGame     = false;
-    gameOver             = false;
+    g_app.gameOver             = false;
 
     g_app.currentTab     = Tab::TAB_PET;
     g_app.uiState        = UIState::PET_SCREEN;
@@ -1656,7 +1656,7 @@ static void handleDeathInput(InputState &in) {
 
   if (deathMenuIndex == 0) {
     g_app.inMiniGame = true;
-    gameOver         = false;
+    g_app.gameOver   = false;
     g_app.uiState    = UIState::MINI_GAME;
     requestUIRedraw();
 

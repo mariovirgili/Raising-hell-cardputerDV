@@ -1,9 +1,3 @@
-// runtime_flags_state.h
 #pragma once
-#include <stdbool.h>
-
-extern bool gameOver;
-extern bool noUpdate;
-extern bool settingTime;
-
-extern bool g_newPetFlowActive;
+// gameOver and newPetFlowActive have moved to g_app (app_state.h).
+// This file is intentionally empty.
