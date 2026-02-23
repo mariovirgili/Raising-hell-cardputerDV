@@ -1506,11 +1506,11 @@ static void drawGameOptionsMenu()
   const char *labels[] = {decayLine, deathLine, ledLine};
   const int totalItems = 3;
 
-  g_ui.gameOptionsIndex = clampi(g_ui.gameOptionsIndex, 0, totalItems - 1);
+  g_app.gameOptionsIndex = clampi(g_app.gameOptionsIndex, 0, totalItems - 1);
 
   constexpr int MAX_VISIBLE = 3;
   int start = 0, visCount = 0;
-  listWindow(totalItems, g_ui.gameOptionsIndex, MAX_VISIBLE, start, visCount);
+  listWindow(totalItems, g_app.gameOptionsIndex, MAX_VISIBLE, start, visCount);
 
   const int itemH = 22;
   const int gap = 6;
@@ -1530,7 +1530,7 @@ static void drawGameOptionsMenu()
   {
     const int i = start + row;
     const int y = startY + row * (itemH + gap);
-    const bool sel = (i == g_ui.gameOptionsIndex);
+    const bool sel = (i == g_app.gameOptionsIndex);
 
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;
@@ -1573,11 +1573,11 @@ static void drawAutoScreenPickerMenu()
   const char *choices[] = {"5 minutes", "30 minutes", "1 hour", "Off"};
   const int kCount = 4;
 
-  g_ui.autoScreenIndex = clampi(g_ui.autoScreenIndex, 0, kCount - 1);
+  g_app.autoScreenIndex = clampi(g_app.autoScreenIndex, 0, kCount - 1);
 
   constexpr int MAX_VISIBLE = 4;
   int start = 0, visCount = 0;
-  listWindow(kCount, g_ui.autoScreenIndex, MAX_VISIBLE, start, visCount);
+  listWindow(kCount, g_app.autoScreenIndex, MAX_VISIBLE, start, visCount);
 
   const int itemH = 22;
   const int gap = 6;
@@ -1597,7 +1597,7 @@ static void drawAutoScreenPickerMenu()
   {
     const int i = start + row;
     const int y = startY + row * (itemH + gap);
-    const bool sel = (i == g_ui.autoScreenIndex);
+    const bool sel = (i == g_app.autoScreenIndex);
 
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;
@@ -1639,12 +1639,10 @@ static void drawDecayModePickerMenu()
   static const char *modes[] = {"SUPER SLOW", "SLOW", "NORMAL", "FAST", "SUPER FAST", "INSANE"};
   const int totalItems = 6;
 
-  g_ui.decayModeIndex = clampi(g_ui.decayModeIndex, 0, totalItems - 1);
-
+  g_app.decayModeIndex = clampi(g_app.decayModeIndex, 0, totalItems - 1);
   constexpr int MAX_VISIBLE = 3;
   int start = 0, visCount = 0;
-  listWindow(totalItems, g_ui.decayModeIndex, MAX_VISIBLE, start, visCount);
-
+  listWindow(totalItems, g_app.decayModeIndex, MAX_VISIBLE, start, visCount);
   int itemH = 22;
   int gap = 6;
 
@@ -1667,8 +1665,8 @@ static void drawDecayModePickerMenu()
   {
     const int idx = start + row;
     const int y = startY + row * (itemH + gap);
-    const bool sel = (idx == g_ui.decayModeIndex);
-
+    const bool sel = (idx == g_app.decayModeIndex);
+    
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;
     const uint16_t textCol = sel ? TFT_WHITE : TFT_LIGHTGREY;
@@ -1709,11 +1707,11 @@ static void drawScreenSettingsMenu()
   const char *labels[] = {bLine, aLine};
   const int totalItems = 2;
 
-  g_ui.screenSettingsIndex = clampi(g_ui.screenSettingsIndex, 0, totalItems - 1);
+  g_app.screenSettingsIndex = clampi(g_app.screenSettingsIndex, 0, totalItems - 1);
 
   constexpr int MAX_VISIBLE = 3;
   int start = 0, visCount = 0;
-  listWindow(totalItems, g_ui.screenSettingsIndex, MAX_VISIBLE, start, visCount);
+  listWindow(totalItems, g_app.screenSettingsIndex, MAX_VISIBLE, start, visCount);
 
   int itemH = 22;
   int gap = 6;
@@ -1733,7 +1731,7 @@ static void drawScreenSettingsMenu()
   {
     const int i = start + row;
     const int y = startY + row * (itemH + gap);
-    const bool sel = (i == g_ui.screenSettingsIndex);
+    const bool sel = (i == g_app.screenSettingsIndex);
 
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;
@@ -1911,11 +1909,11 @@ static void drawSystemSettingsMenu()
   const char *labels[] = {"Set Time", "Factory Reset", "WiFi Settings >"};
   const int totalItems = 3;
 
-  g_ui.systemSettingsIndex = clampi(g_ui.systemSettingsIndex, 0, totalItems - 1);
+  g_app.systemSettingsIndex = clampi(g_app.systemSettingsIndex, 0, totalItems - 1);
 
   constexpr int MAX_VISIBLE = 3;
   int start = 0, visCount = 0;
-  listWindow(totalItems, g_ui.systemSettingsIndex, MAX_VISIBLE, start, visCount);
+  listWindow(totalItems, g_app.systemSettingsIndex, MAX_VISIBLE, start, visCount);
 
   const int itemH = 22;
   const int gap = 6;
@@ -1935,7 +1933,7 @@ static void drawSystemSettingsMenu()
   {
     const int i = start + row;
     const int y = startY + row * (itemH + gap);
-    const bool sel = (i == g_ui.systemSettingsIndex);
+    const bool sel = (i == g_app.systemSettingsIndex);
 
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;

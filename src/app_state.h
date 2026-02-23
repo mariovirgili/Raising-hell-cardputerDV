@@ -34,6 +34,14 @@ struct AppState {
   int sleepMenuIndex = 0;
   int playMenuIndex  = 0;
   int selectedMenu   = 0;
+
+  // Settings sub-menu indices (migrated from g_ui / UIRuntimeState)
+  int screenSettingsIndex = 0;
+  int systemSettingsIndex = 0;
+  int gameOptionsIndex    = 0;
+  int playIndex           = 0;
+  int autoScreenIndex     = 0;
+  int decayModeIndex      = 0;
 };
 
 extern AppState g_app;

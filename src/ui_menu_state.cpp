@@ -12,3 +12,11 @@ uint32_t& lastRenderTimeMs = g_app.lastRenderTimeMs;
 int& sleepMenuIndex = g_app.sleepMenuIndex;
 int& playMenuIndex  = g_app.playMenuIndex;
 int& selectedMenu   = g_app.selectedMenu;
+
+// Migrated from g_ui
+int& screenSettingsIndex = g_app.screenSettingsIndex;
+int& systemSettingsIndex = g_app.systemSettingsIndex;
+int& gameOptionsIndex    = g_app.gameOptionsIndex;
+int& playIndex           = g_app.playIndex;
+int& autoScreenIndex     = g_app.autoScreenIndex;
+int& decayModeIndex      = g_app.decayModeIndex;

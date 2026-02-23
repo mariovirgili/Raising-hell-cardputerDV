@@ -815,7 +815,7 @@ void handleSettingsInput(InputState &input) {
 
         case 2: { // Screen Settings
           g_settingsFlow.settingsPage = SettingsPage::SCREEN;
-          g_ui.screenSettingsIndex    = 0;
+          g_app.screenSettingsIndex    = 0;
           requestUIRedraw();
           playBeep();
           clearInputLatch();
@@ -824,7 +824,7 @@ void handleSettingsInput(InputState &input) {
 
         case 3: { // System
           g_settingsFlow.settingsPage = SettingsPage::SYSTEM;
-          g_ui.systemSettingsIndex    = 0;
+          g_app.systemSettingsIndex    = 0;
           requestUIRedraw();
           playBeep();
           clearInputLatch();
@@ -833,7 +833,7 @@ void handleSettingsInput(InputState &input) {
 
         case 4: { // Game
           g_settingsFlow.settingsPage = SettingsPage::GAME;
-          g_ui.gameOptionsIndex       = 0;
+          g_app.gameOptionsIndex       = 0;
           requestUIRedraw();
           playBeep();
           clearInputLatch();
@@ -875,9 +875,9 @@ void handleSettingsInput(InputState &input) {
   if (g_settingsFlow.settingsPage == SettingsPage::SCREEN) {
     if (move != 0) {
       const int totalItems = 2;
-      g_ui.screenSettingsIndex += move;
-      if (g_ui.screenSettingsIndex < 0) g_ui.screenSettingsIndex = totalItems - 1;
-      if (g_ui.screenSettingsIndex > totalItems - 1) g_ui.screenSettingsIndex = 0;
+      g_app.screenSettingsIndex += move;
+      if (g_app.screenSettingsIndex < 0) g_app.screenSettingsIndex = totalItems - 1;
+      if (g_app.screenSettingsIndex > totalItems - 1) g_app.screenSettingsIndex = 0;
 
       requestUIRedraw();
       playBeep();
@@ -887,7 +887,7 @@ void handleSettingsInput(InputState &input) {
     const bool leftPulse  = input.leftOnce;
     const bool rightPulse = input.rightOnce;
 
-    if (g_ui.screenSettingsIndex == 0 && (leftPulse || rightPulse)) {
+    if (g_app.screenSettingsIndex == 0 && (leftPulse || rightPulse)) {
       brightnessLevel += (rightPulse ? 1 : -1);
       if (brightnessLevel < 0) brightnessLevel = 2;
       if (brightnessLevel > 2) brightnessLevel = 0;
@@ -902,8 +902,8 @@ void handleSettingsInput(InputState &input) {
       return;
     }
 
-    if (g_ui.screenSettingsIndex == 1 && (input.selectOnce || input.encoderPressOnce)) {
-      g_ui.autoScreenIndex             = (int)autoScreenTimeoutSel;
+    if (g_app.screenSettingsIndex == 1 && (input.selectOnce || input.encoderPressOnce)) {
+      g_app.autoScreenIndex             = (int)autoScreenTimeoutSel;
       g_settingsFlow.settingsReturnPage = SettingsPage::SCREEN;
       g_settingsFlow.settingsPage       = SettingsPage::AUTO_SCREEN;
       requestUIRedraw();
@@ -919,9 +919,9 @@ void handleSettingsInput(InputState &input) {
   if (g_settingsFlow.settingsPage == SettingsPage::SYSTEM) {
     if (move != 0) {
       const int totalItems = 3;
-      g_ui.systemSettingsIndex += move;
-      if (g_ui.systemSettingsIndex < 0) g_ui.systemSettingsIndex = totalItems - 1;
-      if (g_ui.systemSettingsIndex > totalItems - 1) g_ui.systemSettingsIndex = 0;
+      g_app.systemSettingsIndex += move;
+      if (g_app.systemSettingsIndex < 0) g_app.systemSettingsIndex = totalItems - 1;
+      if (g_app.systemSettingsIndex > totalItems - 1) g_app.systemSettingsIndex = 0;
 
       requestUIRedraw();
       playBeep();
@@ -929,12 +929,12 @@ void handleSettingsInput(InputState &input) {
     }
 
     // Factory Reset confirm/hold UI is owned by flow_factory_reset.cpp now.
-    if (factoryResetSystemSettingsHook(input, g_ui.systemSettingsIndex)) {
+    if (factoryResetSystemSettingsHook(input, g_app.systemSettingsIndex)) {
       return;
     }
 
     if (input.selectOnce || input.encoderPressOnce) {
-      switch (g_ui.systemSettingsIndex) {
+      switch (g_app.systemSettingsIndex) {
         case 0:
           beginSetTimeEditorFromSettings(SettingsPage::SYSTEM, UIState::SETTINGS, g_app.currentTab);          playBeep();
           return;
@@ -1048,9 +1048,9 @@ void handleSettingsInput(InputState &input) {
     if (input.downOnce) mv = 1;
 
     if (mv != 0) {
-      g_ui.gameOptionsIndex += mv;
-      if (g_ui.gameOptionsIndex < 0) g_ui.gameOptionsIndex = totalItems - 1;
-      if (g_ui.gameOptionsIndex >= totalItems) g_ui.gameOptionsIndex = 0;
+      g_app.gameOptionsIndex += mv;
+      if (g_app.gameOptionsIndex < 0) g_app.gameOptionsIndex = totalItems - 1;
+      if (g_app.gameOptionsIndex >= totalItems) g_app.gameOptionsIndex = 0;
 
       requestUIRedraw();
       playBeep();
@@ -1059,8 +1059,8 @@ void handleSettingsInput(InputState &input) {
     }
 
     if (input.selectOnce || input.encoderPressOnce) {
-      if (g_ui.gameOptionsIndex == 0) {
-        g_ui.decayModeIndex              = (int)saveManagerGetDecayMode();
+      if (g_app.gameOptionsIndex == 0) {
+        g_app.decayModeIndex              = (int)saveManagerGetDecayMode();
         g_settingsFlow.settingsReturnPage = SettingsPage::GAME;
         g_settingsFlow.settingsPage       = SettingsPage::DECAY_MODE;
         requestUIRedraw();
@@ -1069,7 +1069,7 @@ void handleSettingsInput(InputState &input) {
         return;
       }
 
-      if (g_ui.gameOptionsIndex == 1) {
+      if (g_app.gameOptionsIndex == 1) {
         petDeathEnabled = !petDeathEnabled;
         saveSettingsToSD();
         saveManagerMarkDirty();
@@ -1079,7 +1079,7 @@ void handleSettingsInput(InputState &input) {
         return;
       }
 
-      if (g_ui.gameOptionsIndex == 2) {
+      if (g_app.gameOptionsIndex == 2) {
         ledAlertsEnabled = !ledAlertsEnabled;
 #if LED_STATUS_ENABLED
         ledUpdatePetStatus(LED_PET_OFF);
@@ -1104,8 +1104,8 @@ void handleSettingsInput(InputState &input) {
     if (input.downOnce) mv = 1;
 
     if (mv != 0) {
-      g_ui.autoScreenIndex =
-        (g_ui.autoScreenIndex + (mv < 0 ? (kCount - 1) : 1)) % kCount;
+      g_app.autoScreenIndex =
+        (g_app.autoScreenIndex + (mv < 0 ? (kCount - 1) : 1)) % kCount;
       requestUIRedraw();
       playBeep();
       clearInputLatch();
@@ -1113,7 +1113,7 @@ void handleSettingsInput(InputState &input) {
     }
 
     if (input.selectOnce || input.encoderPressOnce) {
-      autoScreenTimeoutSel = (uint8_t)g_ui.autoScreenIndex;
+      autoScreenTimeoutSel = (uint8_t)g_app.autoScreenIndex;
       autoScreenSetEnabled(autoScreenTimeoutSel != 0);
       screenWake();
       saveSettingsToSD();
@@ -1144,8 +1144,8 @@ void handleSettingsInput(InputState &input) {
     if (input.downOnce) mv = 1;
 
     if (mv != 0) {
-      g_ui.decayModeIndex =
-        (g_ui.decayModeIndex + (mv < 0 ? (kCount - 1) : 1)) % kCount;
+      g_app.decayModeIndex =
+        (g_app.decayModeIndex + (mv < 0 ? (kCount - 1) : 1)) % kCount;
       requestUIRedraw();
       playBeep();
       clearInputLatch();
@@ -1153,7 +1153,7 @@ void handleSettingsInput(InputState &input) {
     }
 
     if (input.selectOnce || input.encoderPressOnce) {
-      saveManagerSetDecayMode((uint8_t)g_ui.decayModeIndex);
+      saveManagerSetDecayMode((uint8_t)g_app.decayModeIndex);
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
       requestUIRedraw();
       playBeep();
@@ -1177,12 +1177,12 @@ void handleSettingsInput(InputState &input) {
 // ==================================================================
 void resetSettingsNav(bool resetTopIndex) {
   g_settingsFlow.settingsPage     = SettingsPage::TOP;
-  g_ui.screenSettingsIndex        = 0;
-  g_ui.systemSettingsIndex        = 0;
+  g_app.screenSettingsIndex        = 0;
+  g_app.systemSettingsIndex        = 0;
   g_wifi.wifiSettingsIndex          = 0;
-  g_ui.gameOptionsIndex           = 0;
-  g_ui.autoScreenIndex            = 0;
-  g_ui.decayModeIndex             = 0;
+  g_app.gameOptionsIndex           = 0;
+  g_app.autoScreenIndex            = 0;
+  g_app.decayModeIndex             = 0;
 
   factoryResetResetUiState();
 

@@ -22,3 +22,11 @@ extern uint32_t& lastRenderTimeMs;
 extern int& sleepMenuIndex;
 extern int& playMenuIndex;
 extern int& selectedMenu;
+
+// Migrated from g_ui
+extern int& screenSettingsIndex;
+extern int& systemSettingsIndex;
+extern int& gameOptionsIndex;
+extern int& playIndex;
+extern int& autoScreenIndex;
+extern int& decayModeIndex;
