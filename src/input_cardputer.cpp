@@ -664,8 +664,8 @@ if (!mgSelectHeld) s_mgSelectLatched = false;
     if (!c) continue;
 
     // Some cores put HID usage IDs into st.word for special keys.
-    if ((uint8_t)c == 0x28) { out.kbPush((uint8_t)KEY_ENTER);     continue; }
-    if ((uint8_t)c == 0x2A) { out.kbPush((uint8_t)KEY_BACKSPACE); continue; }
+    if ((uint8_t)c == 0x28) { out.kbPush((uint8_t)'\n'); continue; }  // Enter
+    if ((uint8_t)c == 0x2A) { out.kbPush((uint8_t)'\b'); continue; }  // Backspace
 
     // ` or ~ already handled via heldTilde (but keep sawSettingsKeyThisTick for safety)
     if (c == '`' || c == '~') {
@@ -792,5 +792,5 @@ if (!mgSelectHeld) s_mgSelectLatched = false;
   }
 
   if (st.fn)    out.kbPush((uint8_t)KEY_FN);
-  if (st.shift) out.kbPush((uint8_t)KEY_SHIFT);
+  if (st.shift) out.kbPush((uint8_t)RH_KEY_SHIFT);
 }

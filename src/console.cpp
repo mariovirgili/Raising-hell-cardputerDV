@@ -1,47 +1,47 @@
 #include "console.h"
 
-#include <string.h>
-#include <stdlib.h>
-#include <stdarg.h>
-#include <time.h>
-#include "ui_runtime.h"
-#include "input.h"
-#include "currency.h"
-#include "pet.h"
-#include "led_status.h"
-#include "wifi_time.h"
-#include "wifi_store.h"
-#include "wifi_power.h"
-#include "save_manager.h"
-#include "debug.h"
-#include "pet_age.h"
-#include "graphics.h"
-#include "user_toggles_state.h"
 #include "app_state.h"
+#include "currency.h"
+#include "debug.h"
+#include "graphics.h"
+#include "input.h"
+#include "led_status.h"
+#include "pet.h"
+#include "pet_age.h"
+#include "save_manager.h"
+#include "ui_runtime.h"
+#include "user_toggles_state.h"
+#include "wifi_power.h"
+#include "wifi_store.h"
+#include "wifi_time.h"
+#include <stdarg.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
 // -----------------------------------------------------------------------------
 // Console state
 // -----------------------------------------------------------------------------
-static bool g_consoleOpen       = false;
+static bool g_consoleOpen = false;
 static bool g_consoleJustOpened = false;
 
 // Current editable input line
-static char    g_buf[64];
+static char g_buf[64];
 static uint8_t g_len = 0;
 
 // Scrollback (fixed ring)
 static constexpr int MAX_LINES = 16;
 static char g_lines[MAX_LINES][64];
-static int  g_lineCount = 0;
+static int g_lineCount = 0;
 
 // Command history (fixed ring)
 static const int CONSOLE_HIST_MAX = 12;
 static const int CONSOLE_HIST_LINE_MAX = 64;
 
 static char g_hist[CONSOLE_HIST_MAX][CONSOLE_HIST_LINE_MAX];
-static int  g_histCount = 0;     // number of valid entries (<= MAX)
-static int  g_histHead  = 0;     // next write index (ring)
-static int  g_histNav   = -1;    // -1 = not navigating; otherwise 0..histCount-1 (relative age)
+static int g_histCount = 0; // number of valid entries (<= MAX)
+static int g_histHead = 0;  // next write index (ring)
+static int g_histNav = -1;  // -1 = not navigating; otherwise 0..histCount-1 (relative age)
 
 static char g_histDraft[CONSOLE_HIST_LINE_MAX]; // what user typed before navigating
 static bool g_histHasDraft = false;
@@ -49,25 +49,32 @@ static bool g_histHasDraft = false;
 // -----------------------------------------------------------------------------
 // Helpers
 // -----------------------------------------------------------------------------
-static void resetLine() {
+static void resetLine()
+{
   g_len = 0;
   g_buf[0] = '\0';
 }
 
-static void pushLine(const char* s) {
-  if (!s) return;
+static void pushLine(const char *s)
+{
+  if (!s)
+    return;
 
   // Truncate to fit line storage
   char tmp[64];
   strncpy(tmp, s, sizeof(tmp) - 1);
   tmp[sizeof(tmp) - 1] = '\0';
 
-  if (g_lineCount < MAX_LINES) {
+  if (g_lineCount < MAX_LINES)
+  {
     strncpy(g_lines[g_lineCount], tmp, sizeof(g_lines[g_lineCount]) - 1);
     g_lines[g_lineCount][sizeof(g_lines[g_lineCount]) - 1] = '\0';
     g_lineCount++;
-  } else {
-    for (int i = 1; i < MAX_LINES; i++) {
+  }
+  else
+  {
+    for (int i = 1; i < MAX_LINES; i++)
+    {
       strcpy(g_lines[i - 1], g_lines[i]);
     }
     strncpy(g_lines[MAX_LINES - 1], tmp, sizeof(g_lines[MAX_LINES - 1]) - 1);
@@ -75,18 +82,22 @@ static void pushLine(const char* s) {
   }
 }
 
-static void logLine(const char* s) {
+static void logLine(const char *s)
+{
   pushLine(s);
 
   // Never stall gameplay/UI if Serial isn't draining.
-  if (!s) return;
+  if (!s)
+    return;
   int need = (int)strlen(s) + 2; // \r\n
-  if (Serial && Serial.availableForWrite() >= need) {
+  if (Serial && Serial.availableForWrite() >= need)
+  {
     Serial.println(s);
   }
 }
 
-static void logf(const char* fmt, ...) {
+static void logf(const char *fmt, ...)
+{
   char buf[96];
   va_list ap;
   va_start(ap, fmt);
@@ -94,16 +105,19 @@ static void logf(const char* fmt, ...) {
   va_end(ap);
 
   // Split on '\n' so a multi-line format becomes multiple scrollback lines
-  const char* p = buf;
-  while (*p) {
-    const char* nl = strchr(p, '\n');
-    if (!nl) {
+  const char *p = buf;
+  while (*p)
+  {
+    const char *nl = strchr(p, '\n');
+    if (!nl)
+    {
       logLine(p);
       break;
     }
     char line[64];
     size_t n = (size_t)(nl - p);
-    if (n >= sizeof(line)) n = sizeof(line) - 1;
+    if (n >= sizeof(line))
+      n = sizeof(line) - 1;
     memcpy(line, p, n);
     line[n] = '\0';
     logLine(line);
@@ -114,95 +128,126 @@ static void logf(const char* fmt, ...) {
 // -----------------------------------------------------------------------------
 // History helpers
 // -----------------------------------------------------------------------------
-static void consoleSetInputLine(const char* s) {
-  if (!s) s = "";
+static void consoleSetInputLine(const char *s)
+{
+  if (!s)
+    s = "";
   strncpy(g_buf, s, sizeof(g_buf) - 1);
   g_buf[sizeof(g_buf) - 1] = '\0';
   g_len = (uint8_t)strlen(g_buf);
 }
 
-static bool histIsSameAsLast(const char* s) {
-  if (!s || !*s) return true;
-  if (g_histCount <= 0) return false;
+static bool histIsSameAsLast(const char *s)
+{
+  if (!s || !*s)
+    return true;
+  if (g_histCount <= 0)
+    return false;
 
   int lastIdx = g_histHead - 1;
-  if (lastIdx < 0) lastIdx = CONSOLE_HIST_MAX - 1;
+  if (lastIdx < 0)
+    lastIdx = CONSOLE_HIST_MAX - 1;
 
   return strncmp(g_hist[lastIdx], s, CONSOLE_HIST_LINE_MAX) == 0;
 }
 
-static void histPush(const char* s) {
-  if (!s) return;
+static void histPush(const char *s)
+{
+  if (!s)
+    return;
 
   // trim leading spaces
-  while (*s == ' ' || *s == '\t') s++;
-  if (!*s) return;
+  while (*s == ' ' || *s == '\t')
+    s++;
+  if (!*s)
+    return;
 
-  if (histIsSameAsLast(s)) return;
+  if (histIsSameAsLast(s))
+    return;
 
   strncpy(g_hist[g_histHead], s, CONSOLE_HIST_LINE_MAX - 1);
   g_hist[g_histHead][CONSOLE_HIST_LINE_MAX - 1] = '\0';
 
   g_histHead = (g_histHead + 1) % CONSOLE_HIST_MAX;
-  if (g_histCount < CONSOLE_HIST_MAX) g_histCount++;
+  if (g_histCount < CONSOLE_HIST_MAX)
+    g_histCount++;
 
   // reset navigation state
   g_histNav = -1;
   g_histHasDraft = false;
 }
 
-static const char* histGetByNavIndex(int nav) {
+static const char *histGetByNavIndex(int nav)
+{
   // nav: 0 = most recent, 1 = one older, ...
-  if (nav < 0 || nav >= g_histCount) return nullptr;
+  if (nav < 0 || nav >= g_histCount)
+    return nullptr;
 
   int idx = g_histHead - 1 - nav;
-  while (idx < 0) idx += CONSOLE_HIST_MAX;
+  while (idx < 0)
+    idx += CONSOLE_HIST_MAX;
   idx %= CONSOLE_HIST_MAX;
   return g_hist[idx];
 }
 
-static bool histPrev() {
-  if (g_histCount <= 0) return false;
+static bool histPrev()
+{
+  if (g_histCount <= 0)
+    return false;
 
-  if (g_histNav < 0) {
+  if (g_histNav < 0)
+  {
     // entering navigation: store draft
     strncpy(g_histDraft, g_buf, sizeof(g_histDraft) - 1);
     g_histDraft[sizeof(g_histDraft) - 1] = '\0';
     g_histHasDraft = true;
     g_histNav = 0;
-  } else {
-    if (g_histNav < g_histCount - 1) g_histNav++;
+  }
+  else
+  {
+    if (g_histNav < g_histCount - 1)
+      g_histNav++;
   }
 
-  const char* s = histGetByNavIndex(g_histNav);
-  if (!s) return false;
+  const char *s = histGetByNavIndex(g_histNav);
+  if (!s)
+    return false;
   consoleSetInputLine(s);
   return true;
 }
 
-static bool histNext() {
-  if (g_histCount <= 0) return false;
-  if (g_histNav < 0) return false;
+static bool histNext()
+{
+  if (g_histCount <= 0)
+    return false;
+  if (g_histNav < 0)
+    return false;
 
-  if (g_histNav > 0) {
+  if (g_histNav > 0)
+  {
     g_histNav--;
-    const char* s = histGetByNavIndex(g_histNav);
-    if (!s) return false;
+    const char *s = histGetByNavIndex(g_histNav);
+    if (!s)
+      return false;
     consoleSetInputLine(s);
     return true;
   }
 
   // g_histNav == 0 -> leave history navigation and restore draft
   g_histNav = -1;
-  if (g_histHasDraft) {
+  if (g_histHasDraft)
+  {
     consoleSetInputLine(g_histDraft);
-  } else {
+  }
+  else
+  {
     consoleSetInputLine("");
   }
   return true;
 }
 
-static void histCancelNav() {
+static void histCancelNav()
+{
   g_histNav = -1;
   g_histHasDraft = false;
 }
@@ -210,45 +255,75 @@ static void histCancelNav() {
 // ---------------------------------------------------------------------------
 // Pet type helpers
 // ---------------------------------------------------------------------------
-static const char* petTypeToString(PetType t) {
-  switch (t) {
-    case PET_DEVIL:    return "devil";
-    case PET_KAIJU:    return "kaiju";
-    case PET_ELDRITCH: return "eldritch";
-    case PET_ALIEN:    return "alien";
-    case PET_ANUBIS:   return "anubis";
-    case PET_AXOLOTL:  return "axolotl";
-    default:           return "unknown";
+static const char *petTypeToString(PetType t)
+{
+  switch (t)
+  {
+  case PET_DEVIL:
+    return "devil";
+  case PET_KAIJU:
+    return "kaiju";
+  case PET_ELDRITCH:
+    return "eldritch";
+  case PET_ALIEN:
+    return "alien";
+  case PET_ANUBIS:
+    return "anubis";
+  case PET_AXOLOTL:
+    return "axolotl";
+  default:
+    return "unknown";
   }
 }
 
-static bool parsePetType(const char* s, PetType& out) {
-  if (!s || !*s) return false;
-  if (!strcmp(s, "devil"))    { out = PET_DEVIL; return true; }
-  if (!strcmp(s, "kaiju"))    { out = PET_KAIJU; return true; }
-  if (!strcmp(s, "eldritch")) { out = PET_ELDRITCH; return true; }
-  if (!strcmp(s, "alien"))    { out = PET_ALIEN; return true; }
-  if (!strcmp(s, "anubis"))   { out = PET_ANUBIS; return true; }
-  if (!strcmp(s, "axolotl"))  { out = PET_AXOLOTL; return true; }
+static bool parsePetType(const char *s, PetType &out)
+{
+  if (!s || !*s)
+    return false;
+  if (!strcmp(s, "devil"))
+  {
+    out = PET_DEVIL;
+    return true;
+  }
+  if (!strcmp(s, "kaiju"))
+  {
+    out = PET_KAIJU;
+    return true;
+  }
+  if (!strcmp(s, "eldritch"))
+  {
+    out = PET_ELDRITCH;
+    return true;
+  }
+  if (!strcmp(s, "alien"))
+  {
+    out = PET_ALIEN;
+    return true;
+  }
+  if (!strcmp(s, "anubis"))
+  {
+    out = PET_ANUBIS;
+    return true;
+  }
+  if (!strcmp(s, "axolotl"))
+  {
+    out = PET_AXOLOTL;
+    return true;
+  }
   return false;
 }
 
 // -----------------------------------------------------------------------------
 // WiFi helpers (Preferences-backed creds)
 // -----------------------------------------------------------------------------
-static void wifiSaveCreds(const char* ssid, const char* pass) {
-  wifiStoreSave(ssid, pass);
-}
+static void wifiSaveCreds(const char *ssid, const char *pass) { wifiStoreSave(ssid, pass); }
 
-static bool wifiLoadCreds(String& ssidOut, String& passOut) {
-  return wifiStoreLoad(ssidOut, passOut);
-}
+static bool wifiLoadCreds(String &ssidOut, String &passOut) { return wifiStoreLoad(ssidOut, passOut); }
 
-static void wifiClearCreds() {
-  wifiStoreClear();
-}
+static void wifiClearCreds() { wifiStoreClear(); }
 
-void wifiBeginConnect(const char* ssid, const char* pass) {
+void wifiBeginConnect(const char *ssid, const char *pass)
+{
   logf("wifi: connecting to '%s'...", ssid ? ssid : "");
   wifiConsoleBeginConnect(ssid, pass);
 }
@@ -256,20 +331,24 @@ void wifiBeginConnect(const char* ssid, const char* pass) {
 // -----------------------------------------------------------------------------
 // Command execution
 // -----------------------------------------------------------------------------
-static void execLine(char* line) {
+static void execLine(char *line)
+{
   // tokenize (in-place)
-  char* argv[6];
+  char *argv[6];
   int argc = 0;
 
-  char* tok = strtok(line, " ");
-  while (tok && argc < (int)(sizeof(argv) / sizeof(argv[0]))) {
+  char *tok = strtok(line, " ");
+  while (tok && argc < (int)(sizeof(argv) / sizeof(argv[0])))
+  {
     argv[argc++] = tok;
     tok = strtok(nullptr, " ");
   }
-  if (argc == 0) return;
+  if (argc == 0)
+    return;
 
   // HELP
-  if (!strcmp(argv[0], "help") || !strcmp(argv[0], "?")) {
+  if (!strcmp(argv[0], "help") || !strcmp(argv[0], "?"))
+  {
     logLine("Commands:");
     logLine("  help | ?            show this");
     logLine("  giveinf <amount>    add Inferium");
@@ -299,12 +378,14 @@ static void execLine(char* line) {
   }
 
   // NEW PET (destructive)
-  if (!strcmp(argv[0], "newpet")) {
+  if (!strcmp(argv[0], "newpet"))
+  {
     logLine("Type 'newpet!' to confirm (this overwrites your save).");
     return;
   }
 
-  if (!strcmp(argv[0], "newpet!")) {
+  if (!strcmp(argv[0], "newpet!"))
+  {
     logLine("[OK] Creating new pet...");
     saveManagerNewPet();
     logLine("[OK] New pet created (save overwritten).");
@@ -312,54 +393,75 @@ static void execLine(char* line) {
   }
 
   // CLEAR
-  if (!strcmp(argv[0], "clear")) {
+  if (!strcmp(argv[0], "clear"))
+  {
     consoleClear();
     return;
   }
 
   // GIVE INF
-  if (!strcmp(argv[0], "giveinf")) {
-    if (argc < 2) { logLine("Usage: giveinf <amount>"); return; }
+  if (!strcmp(argv[0], "giveinf"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: giveinf <amount>");
+      return;
+    }
     int amt = atoi(argv[1]);
-    if (amt <= 0) { logLine("Amount must be > 0"); return; }
+    if (amt <= 0)
+    {
+      logLine("Amount must be > 0");
+      return;
+    }
     addInf(amt);
     logf("[OK] INF +%d (now %d)", amt, getInf());
     return;
   }
 
   // GIVE XP
-  if (!strcmp(argv[0], "givexp")) {
-    if (argc < 2) { logLine("Usage: givexp <amount>"); return; }
+  if (!strcmp(argv[0], "givexp"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: givexp <amount>");
+      return;
+    }
     long amt = atol(argv[1]);
-    if (amt <= 0) { logLine("Amount must be > 0"); return; }
+    if (amt <= 0)
+    {
+      logLine("Amount must be > 0");
+      return;
+    }
 
     pet.addXP((uint32_t)amt);
     saveManagerMarkDirty();
-requestUIRedraw();
+    requestUIRedraw();
 
-    logf("[OK] XP +%ld (Level %u, XP %lu/%lu)",
-         amt,
-         (unsigned)pet.level,
-         (unsigned long)pet.xp,
+    logf("[OK] XP +%ld (Level %u, XP %lu/%lu)", amt, (unsigned)pet.level, (unsigned long)pet.xp,
          (unsigned long)pet.xpForNextLevel());
     return;
   }
 
   // SET LEVEL
-  if (!strcmp(argv[0], "setlevel")) {
-    if (argc < 2) { logLine("Usage: setlevel <level>"); return; }
+  if (!strcmp(argv[0], "setlevel"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: setlevel <level>");
+      return;
+    }
     long lvl = atol(argv[1]);
-    if (lvl < 1) lvl = 1;
-    if (lvl > 999) lvl = 999;
+    if (lvl < 1)
+      lvl = 1;
+    if (lvl > 999)
+      lvl = 999;
 
     pet.level = (uint16_t)lvl;
     pet.xp = 0; // reset progress toward next level
     saveManagerMarkDirty();
-requestUIRedraw();
+    requestUIRedraw();
 
-    logf("[OK] Level set to %ld (XP reset, next %lu)",
-         lvl,
-         (unsigned long)pet.xpForNextLevel());
+    logf("[OK] Level set to %ld (XP reset, next %lu)", lvl, (unsigned long)pet.xpForNextLevel());
     return;
   }
 
@@ -367,20 +469,32 @@ requestUIRedraw();
   // SET EVO STAGE
   // Usage: setevo <0-3|baby|teen|adult|elder>
   // -------------------------------------------------
-  if (!strcmp(argv[0], "setevo")) {
-    if (argc < 2) { logLine("Usage: setevo <0-3|baby|teen|adult|elder>"); return; }
+  if (!strcmp(argv[0], "setevo"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: setevo <0-3|baby|teen|adult|elder>");
+      return;
+    }
 
     uint8_t st = 0;
 
-    if (!strcmp(argv[1], "baby")) st = 0;
-    else if (!strcmp(argv[1], "teen")) st = 1;
-    else if (!strcmp(argv[1], "adult")) st = 2;
-    else if (!strcmp(argv[1], "elder")) st = 3;
-    else {
+    if (!strcmp(argv[1], "baby"))
+      st = 0;
+    else if (!strcmp(argv[1], "teen"))
+      st = 1;
+    else if (!strcmp(argv[1], "adult"))
+      st = 2;
+    else if (!strcmp(argv[1], "elder"))
+      st = 3;
+    else
+    {
       // numeric
       int v = atoi(argv[1]);
-      if (v < 0) v = 0;
-      if (v > 3) v = 3;
+      if (v < 0)
+        v = 0;
+      if (v > 3)
+        v = 3;
       st = (uint8_t)v;
     }
 
@@ -394,26 +508,39 @@ requestUIRedraw();
   // SET NAME
   // Usage: name <pet name...>
   // -------------------------------------------------
-  if (!strcmp(argv[0], "name")) {
-    if (argc < 2) { logLine("Usage: name <pet name>"); return; }
+  if (!strcmp(argv[0], "name"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: name <pet name>");
+      return;
+    }
 
     // Recombine argv[1..] to allow spaces
     char nm[PET_NAME_MAX + 1];
     nm[0] = '\0';
 
     int pos = 0;
-    for (int i = 1; i < argc && pos < PET_NAME_MAX; i++) {
-      if (i > 1 && pos < PET_NAME_MAX) nm[pos++] = ' ';
-      for (const char* p = argv[i]; *p && pos < PET_NAME_MAX; p++) {
+    for (int i = 1; i < argc && pos < PET_NAME_MAX; i++)
+    {
+      if (i > 1 && pos < PET_NAME_MAX)
+        nm[pos++] = ' ';
+      for (const char *p = argv[i]; *p && pos < PET_NAME_MAX; p++)
+      {
         nm[pos++] = *p;
       }
     }
     nm[pos] = '\0';
 
     // Optional: trim leading spaces (safety)
-    while (nm[0] == ' ') memmove(nm, nm + 1, strlen(nm));
+    while (nm[0] == ' ')
+      memmove(nm, nm + 1, strlen(nm));
 
-    if (!nm[0]) { logLine("Name cannot be empty."); return; }
+    if (!nm[0])
+    {
+      logLine("Name cannot be empty.");
+      return;
+    }
 
     pet.setName(nm);
     saveManagerMarkDirty();
@@ -428,30 +555,34 @@ requestUIRedraw();
   //  pet cycle
   //  pet devil|kaiju|eldritch|alien
   // -------------------------------------------------
-  if (!strcmp(argv[0], "pet")) {
-    if (argc == 1) {
+  if (!strcmp(argv[0], "pet"))
+  {
+    if (argc == 1)
+    {
       logf("Pet type: %s (%d)", petTypeToString(pet.type), (int)pet.type);
       return;
     }
 
-    if (!strcmp(argv[1], "cycle")) {
+    if (!strcmp(argv[1], "cycle"))
+    {
       int next = ((int)pet.type + 1) % 4;
       pet.type = (PetType)next;
       saveManagerMarkDirty();
-requestUIRedraw();
+      requestUIRedraw();
       logf("[OK] Pet type set to: %s", petTypeToString(pet.type));
       return;
     }
 
     PetType t;
-    if (!parsePetType(argv[1], t)) {
+    if (!parsePetType(argv[1], t))
+    {
       logLine("Usage: pet cycle|devil|kaiju|eldritch|alien");
       return;
     }
 
     pet.type = t;
     saveManagerMarkDirty();
-requestUIRedraw();
+    requestUIRedraw();
     logf("[OK] Pet type set to: %s", petTypeToString(pet.type));
     return;
   }
@@ -459,8 +590,13 @@ requestUIRedraw();
   // -------------------------------------------------
   // SET HUNGER
   // -------------------------------------------------
-  if (!strcmp(argv[0], "sethunger")) {
-    if (argc < 2) { logLine("Usage: sethunger <0-100>"); return; }
+  if (!strcmp(argv[0], "sethunger"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: sethunger <0-100>");
+      return;
+    }
     int v = constrain(atoi(argv[1]), 0, 100);
     pet.hunger = v;
     pet.clampStats();
@@ -472,8 +608,13 @@ requestUIRedraw();
   // -------------------------------------------------
   // SET MOOD (happiness)
   // -------------------------------------------------
-  if (!strcmp(argv[0], "setmood")) {
-    if (argc < 2) { logLine("Usage: setmood <0-100>"); return; }
+  if (!strcmp(argv[0], "setmood"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: setmood <0-100>");
+      return;
+    }
     int v = constrain(atoi(argv[1]), 0, 100);
     pet.happiness = v;
     pet.clampStats();
@@ -485,8 +626,13 @@ requestUIRedraw();
   // -------------------------------------------------
   // SET REST (energy)
   // -------------------------------------------------
-  if (!strcmp(argv[0], "setrest")) {
-    if (argc < 2) { logLine("Usage: setrest <0-100>"); return; }
+  if (!strcmp(argv[0], "setrest"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: setrest <0-100>");
+      return;
+    }
     int v = constrain(atoi(argv[1]), 0, 100);
     pet.energy = v;
     pet.clampStats();
@@ -498,8 +644,13 @@ requestUIRedraw();
   // -------------------------------------------------
   // SET HEALTH
   // -------------------------------------------------
-  if (!strcmp(argv[0], "sethealth")) {
-    if (argc < 2) { logLine("Usage: sethealth <0-100>"); return; }
+  if (!strcmp(argv[0], "sethealth"))
+  {
+    if (argc < 2)
+    {
+      logLine("Usage: sethealth <0-100>");
+      return;
+    }
     int v = constrain(atoi(argv[1]), 0, 100);
     pet.health = v;
     pet.clampStats();
@@ -511,13 +662,15 @@ requestUIRedraw();
   // -------------------------------------------------
   // KILL PET (force death flow immediately)
   // -------------------------------------------------
-  if (!strcmp(argv[0], "killpet")) {
+  if (!strcmp(argv[0], "killpet"))
+  {
     pet.health = 0;
     pet.clampStats();
     saveManagerMarkDirty();
 
     // Enter death flow immediately (same as main loop)
-if (g_app.uiState != UIState::DEATH) {
+    if (g_app.uiState != UIState::DEATH)
+    {
       petEnterDeathState();
       invalidateBackgroundCache();
       requestUIRedraw();
@@ -529,47 +682,57 @@ if (g_app.uiState != UIState::DEATH) {
   }
 
   // WIFI
-  if (!strcmp(argv[0], "wifi")) {
+  if (!strcmp(argv[0], "wifi"))
+  {
     // wifi  (status)
-    if (argc == 1) {
+    if (argc == 1)
+    {
       String ssid, pass;
       bool has = wifiLoadCreds(ssid, pass);
 
-logf("WiFi enabled: %s", wifiIsEnabled() ? "ON" : "OFF");
-logf("WiFi status:  %s", wifiIsConnected() ? "CONNECTED" : "NOT CONNECTED");
+      logf("WiFi enabled: %s", wifiIsEnabled() ? "ON" : "OFF");
+      logf("WiFi status:  %s", wifiIsConnected() ? "CONNECTED" : "NOT CONNECTED");
 
-if (wifiIsConnectedNow()) {
-  logf("SSID:         %s", wifiConsoleSsid());
-  logf("IP:           %s", wifiConsoleIpString());
-  logf("RSSI:         %d", wifiConsoleRssi());
-} else {
-  logf("Saved SSID:   %s", has ? ssid.c_str() : "(none)");
-}
+      if (wifiIsConnectedNow())
+      {
+        logf("SSID:         %s", wifiConsoleSsid());
+        logf("IP:           %s", wifiConsoleIpString());
+        logf("RSSI:         %d", wifiConsoleRssi());
+      }
+      else
+      {
+        logf("Saved SSID:   %s", has ? ssid.c_str() : "(none)");
+      }
 
       return;
     }
 
     // wifi off
-    if (!strcmp(argv[1], "off")) {
+    if (!strcmp(argv[1], "off"))
+    {
       wifiSetEnabled(false);
       applyWifiPower(false);
-wifiConsoleDisconnect(false);
+      wifiConsoleDisconnect(false);
       logLine("[OK] WiFi OFF");
       saveManagerMarkDirty(); // optional
       return;
     }
 
     // wifi on
-    if (!strcmp(argv[1], "on")) {
+    if (!strcmp(argv[1], "on"))
+    {
       wifiSetEnabled(true);
       applyWifiPower(true);
 
       // If creds exist, try to connect automatically
       String ssid, pass;
-      if (wifiLoadCreds(ssid, pass)) {
+      if (wifiLoadCreds(ssid, pass))
+      {
         wifiBeginConnect(ssid.c_str(), pass.c_str());
         logLine("[OK] WiFi ON (connecting using saved creds)");
-      } else {
+      }
+      else
+      {
         logLine("[OK] WiFi ON (no saved creds)");
       }
 
@@ -578,7 +741,8 @@ wifiConsoleDisconnect(false);
     }
 
     // wifi clear
-    if (!strcmp(argv[1], "clear")) {
+    if (!strcmp(argv[1], "clear"))
+    {
       wifiClearCreds();
       wifiConsoleDisconnect(true);
       logLine("[OK] WiFi creds cleared");
@@ -587,9 +751,10 @@ wifiConsoleDisconnect(false);
     }
 
     // wifi <ssid> <pass>
-    if (argc >= 3) {
-      const char* ssid = argv[1];
-      const char* pass = argv[2];
+    if (argc >= 3)
+    {
+      const char *ssid = argv[1];
+      const char *pass = argv[2];
 
       wifiSaveCreds(ssid, pass);
       saveManagerMarkDirty(); // optional
@@ -608,7 +773,8 @@ wifiConsoleDisconnect(false);
   }
 
   // AGE (birth epoch + formatted age)
-  if (!strcmp(argv[0], "age")) {
+  if (!strcmp(argv[0], "age"))
+  {
     time_t now = time(nullptr);
 
     uint32_t birth = saveManagerGetBirthEpoch(); // you'll add this getter
@@ -624,7 +790,8 @@ wifiConsoleDisconnect(false);
   }
 
   // MONITOR
-  if (!strcmp(argv[0], "mon")) {
+  if (!strcmp(argv[0], "mon"))
+  {
     logLine("----- MON -----");
     logf("INF:    %d", getInf());
     logf("HP:     %d", pet.health);
@@ -636,7 +803,8 @@ wifiConsoleDisconnect(false);
   }
 
   // EXIT
-  if (!strcmp(argv[0], "exit")) {
+  if (!strcmp(argv[0], "exit"))
+  {
     consoleClose();
     return;
   }
@@ -647,10 +815,11 @@ wifiConsoleDisconnect(false);
 // -----------------------------------------------------------------------------
 // Public API
 // -----------------------------------------------------------------------------
-void consoleOpen() {
+void consoleOpen()
+{
   inputSetTextCapture(true);
   g_textCaptureMode = true;
-  g_consoleOpen       = true;
+  g_consoleOpen = true;
   g_consoleJustOpened = true;
 
   consoleClear();
@@ -660,40 +829,49 @@ void consoleOpen() {
   logLine("Type 'help' for commands.");
 }
 
-void consoleClose() {
+void consoleClose()
+{
   inputSetTextCapture(false);
-  g_textCaptureMode = false;   // <-- MUST be here
+  g_textCaptureMode = false; // <-- MUST be here
   g_consoleOpen = false;
   logLine("[Console closed]");
 }
 
 bool consoleIsOpen() { return g_consoleOpen; }
 
-void consoleClear() {
+void consoleClear()
+{
   g_lineCount = 0;
-  for (int i = 0; i < MAX_LINES; i++) g_lines[i][0] = '\0';
+  for (int i = 0; i < MAX_LINES; i++)
+    g_lines[i][0] = '\0';
   resetLine();
 }
 
 int consoleGetLineCount() { return g_lineCount; }
 
-const char* consoleGetLine(int idx) {
-  if (idx < 0 || idx >= g_lineCount) return "";
+const char *consoleGetLine(int idx)
+{
+  if (idx < 0 || idx >= g_lineCount)
+    return "";
   return g_lines[idx];
 }
 
-const char* consoleGetInputLine() { return g_buf; }
+const char *consoleGetInputLine() { return g_buf; }
 
 // -----------------------------------------------------------------------------
 // Input handling
 // -----------------------------------------------------------------------------
-void consoleUpdate(InputState &in) {
-  if (!g_consoleOpen) return;
+void consoleUpdate(InputState &in)
+{
+  if (!g_consoleOpen)
+    return;
 
   // Swallow the first tick after opening so the "enter/select" that opened
   // the console can't also immediately submit a blank line.
-  if (g_consoleJustOpened) {
-    while (in.kbHasEvent()) (void)in.kbPop();
+  if (g_consoleJustOpened)
+  {
+    while (in.kbHasEvent())
+      (void)in.kbPop();
     g_consoleJustOpened = false;
     requestUIRedraw(); // ensure the console frame appears immediately
     return;
@@ -701,38 +879,42 @@ void consoleUpdate(InputState &in) {
 
   bool touched = false;
 
-  while (in.kbHasEvent()) {
+  while (in.kbHasEvent())
+  {
     KeyEvent e = in.kbPop();
     uint8_t code = e.code;
 
     const bool isEnter =
-        (code == (uint8_t)KEY_ENTER) || (code == '\n') || (code == '\r');
+        (code == (uint8_t)RH_KEY_ENTER) || (code == '\n') || (code == '\r');
+
     const bool isBackspace =
-        (code == (uint8_t)KEY_BACKSPACE) || (code == '\b') || (code == 127);
+        (code == (uint8_t)RH_KEY_BACKSPACE) || (code == '\b') || (code == 127);
 
     // -------------------------------------------------
     // Command history navigation (console-only)
     //   ';' = previous
     //   '.' = next
     // -------------------------------------------------
-    if (code == (uint8_t)';') {
+    if (code == (uint8_t)';')
+    {
       if (histPrev()) touched = true;
       continue;
     }
-    if (code == (uint8_t)'.') {
+    if (code == (uint8_t)'.')
+    {
       if (histNext()) touched = true;
       continue;
     }
 
-    if (isEnter) {
+    // ENTER submits the current line
+    if (isEnter)
+    {
       g_buf[g_len] = '\0';
 
-      // Echo command into scrollback
       char echo[70];
       snprintf(echo, sizeof(echo), "> %s", g_buf);
       logLine(echo);
 
-      // Save into history (before reset)
       histPush(g_buf);
 
       char line[64];
@@ -746,8 +928,11 @@ void consoleUpdate(InputState &in) {
       continue;
     }
 
-    if (isBackspace) {
-      if (g_len > 0) {
+    // BACKSPACE edits the current line
+    if (isBackspace)
+    {
+      if (g_len > 0)
+      {
         g_len--;
         g_buf[g_len] = '\0';
         histCancelNav();
@@ -757,21 +942,21 @@ void consoleUpdate(InputState &in) {
     }
 
     // Ignore other special tokens (FN/SHIFT/etc.)
-    if (code >= (uint8_t)KEY_BACKSPACE) continue;
+    // Use RH_ constants so PlatformIO builds don't depend on legacy KEY_* defines.
+    if (code >= (uint8_t)RH_KEY_BACKSPACE)
+      continue;
 
     // Printable ASCII
     char c = (char)code;
-    if (c >= 32 && c <= 126) {
-      if (g_len < sizeof(g_buf) - 1) {
+    if (c >= 32 && c <= 126)
+    {
+      if (g_len < sizeof(g_buf) - 1)
+      {
         g_buf[g_len++] = c;
         g_buf[g_len] = '\0';
         histCancelNav();
         touched = true;
       }
     }
-  }
-
-  if (touched) {
-    requestUIRedraw();
   }
 }

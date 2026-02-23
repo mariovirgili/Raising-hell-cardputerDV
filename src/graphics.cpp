@@ -1,56 +1,55 @@
-#include "graphics.h" // first
+#include "graphics.h"
 
-#include <Arduino.h>
-#include <SD.h>
-#include <FS.h>
-#include <time.h>
-#include <cstring>
-#include <lgfx/v1/misc/DataWrapper.hpp>
 #include "app_state.h"
 #include "display.h"
-#include "tft_compat.h"
 #include "display_dims_state.h"
+#include "tft_compat.h"
+#include <Arduino.h>
+#include <FS.h>
+#include <SD.h>
+#include <cstring>
+#include <time.h>
 
-#include "input.h"
-#include "sound.h"
 #include "console.h"
 #include "game_options_state.h"
+#include "input.h"
+#include "sound.h"
 
-#include "sdcard.h"
 #include "save_manager.h"
 #include "savegame.h"
+#include "sdcard.h"
 
 #include "settings_state.h"
-#include "wifi_time.h"
 #include "timezone.h"
+#include "wifi_time.h"
 
+#include "anim_engine.h"
+#include "inventory.h"
 #include "pet.h"
 #include "pet_age.h"
-#include "inventory.h"
-#include "mini_games.h"
-#include "anim_engine.h"
 
+#include "auto_screen.h"
 #include "graphics_assets.h"
 #include "ui_runtime.h"
-#include "auto_screen.h"
 
-#include "system_status_state.h"
-#include "brightness_state.h"
-#include "user_toggles_state.h"
-#include "inventory_state.h"
-#include "ui_menu_state.h"
-#include "settings_nav_state.h"
-#include "wifi_setup_state.h"
-#include "time_state.h"
-#include "boot_state.h"
-#include "name_entry_state.h"
-#include "version.h"
 #include "anim_clips.h"
-#include "mini_games.h"
-#include "shop_items.h"
-#include "settings_flow_state.h"
-#include "factory_reset_state.h"
+#include "boot_state.h"
+#include "brightness_state.h"
 #include "build_flags.h"
+#include "factory_reset_state.h"
+#include "inventory_state.h"
+#include "mini_games.h"
+#include "name_entry_state.h"
+#include "settings_flow_state.h"
+#include "settings_nav_state.h"
+#include "shop_items.h"
+#include "system_status_state.h"
+#include "time_state.h"
+#include "ui_menu_state.h"
+#include "user_toggles_state.h"
+#include "version.h"
+#include "wifi_setup_state.h"
+#include <lgfx/v1/misc/DataWrapper.hpp>
 
 bool g_forcePetBgCache = false;
 static void drawBurialScreen();
@@ -69,7 +68,17 @@ static void drawMiniGameScreen();
 static bool getPngWH(const char *path, int &outW, int &outH);
 static void drawCenteredImageSpr(const char *path, int cx, int cy);
 static void drawCrackedEggBig(int cx, int cy);
+static bool getPngWH(const char *path, int &outW, int &outH);
+static void drawCenteredImageSpr(const char *path, int cx, int cy);
+static void drawCrackedEggBig(int cx, int cy);
 
+// SD image helpers (avoid LGFX template instantiation on fs::SDFS)
+static bool sprDrawJpgFromSD(const char *path, int x, int y);
+static bool sprDrawPngFromSD(const char *path, int x, int y);
+
+// Provide no-arg wrappers for existing bool-signature screens
+static void drawDeathScreen();   // calls drawDeathScreen(bool)
+static void drawNamePetScreen(); // calls drawNamePetScreen(bool)
 // Provide no-arg wrappers for existing bool-signature screens
 static void drawDeathScreen();   // calls drawDeathScreen(bool)
 static void drawNamePetScreen(); // calls drawNamePetScreen(bool)
@@ -143,6 +152,84 @@ static AnimId evoHappyClipFor(PetType type, uint8_t stage)
     return ANIM_NONE;
   }
 }
+
+// -----------------------------------------------------------------------------
+// SD image helpers for sprites
+//
+// IMPORTANT:
+// Do NOT call spr.drawJpgFile(SD, ...) / spr.drawPngFile(SD, ...) on this toolchain.
+// That path instantiates DataWrapperT<fs::...> and fails to compile.
+// Instead, setFileStorage(SD) once, then use the "path-only" overload.
+// -----------------------------------------------------------------------------
+static void ensureSprFileStorage()
+{
+  static bool s_inited = false;
+  if (s_inited) return;
+  s_inited = true;
+
+  spr.setFileStorage(SD);
+}
+
+static bool sprDrawJpgFromSD(const char *path, int x, int y)
+{
+  if (!path || !*path)
+    return false;
+  ensureSprFileStorage();
+  return spr.drawJpgFile(path, x, y);
+}
+
+static bool sprDrawPngFromSD(const char *path, int x, int y)
+{
+  if (!path || !*path)
+    return false;
+  ensureSprFileStorage();
+  return spr.drawPngFile(path, x, y);
+}
+
+// -----------------------------------------------------------------------------
+// LovyanGFX DataWrapper for Arduino fs::File
+// -----------------------------------------------------------------------------
+class RH_FileDataWrapper : public lgfx::v1::DataWrapper
+{
+public:
+  explicit RH_FileDataWrapper(fs::File &f) : _f(&f) {}
+
+  int read(uint8_t *buf, uint32_t len) override
+  {
+    if (!_f)
+      return 0;
+    return (int)_f->read(buf, len);
+  }
+
+  void skip(int32_t offset) override
+  {
+    if (!_f)
+      return;
+    _f->seek(_f->position() + offset);
+  }
+
+  bool seek(uint32_t offset) override
+  {
+    if (!_f)
+      return false;
+    return _f->seek(offset);
+  }
+
+  void close(void) override
+  {
+    // no-op; caller closes the file
+  }
+
+  int32_t tell(void) override
+  {
+    if (!_f)
+      return 0;
+    return (int32_t)_f->position();
+  }
+
+private:
+  fs::File *_f = nullptr;
+};
 
 // -----------------------------------------------------------------------------
 // Nudge offsets (tweak as desired)
@@ -268,10 +355,7 @@ static inline PetUIColorScheme uiSchemeForPet(PetType t)
   }
 }
 
-static inline uint16_t uiPillOutline(PetType t)
-{
-  return uiSchemeForPet(t).topOutline;
-}
+static inline uint16_t uiPillOutline(PetType t) { return uiSchemeForPet(t).topOutline; }
 
 static inline uint16_t uiPillFillSelected(PetType t)
 {
@@ -293,10 +377,7 @@ static inline uint16_t uiPillFillSelected(PetType t)
   }
 }
 
-static inline uint16_t uiModalOutline(PetType t)
-{
-  return uiSchemeForPet(t).topOutline;
-}
+static inline uint16_t uiModalOutline(PetType t) { return uiSchemeForPet(t).topOutline; }
 
 // -----------------------------------------------------------------------------
 // Paths (SD)
@@ -432,16 +513,12 @@ static void formatDateYMD(time_t t, char *out, size_t outSz)
 
   tm lt;
   localtime_r(&t, &lt);
-  snprintf(out, outSz, "%04d/%02d/%02d",
-           lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday);
+  snprintf(out, outSz, "%04d/%02d/%02d", lt.tm_year + 1900, lt.tm_mon + 1, lt.tm_mday);
 }
 
 // IMPORTANT: wire this to whatever you *actually* named your stored birth epoch.
 // For now this returns 0 so it compiles until you point it at the real field.
-static time_t getPetBirthEpoch()
-{
-  return 0;
-}
+static time_t getPetBirthEpoch() { return 0; }
 
 // -----------------------------------------------------------------------------
 // Sleep anim heartbeat (so frames can advance even when nothing else triggers redraw)
@@ -622,10 +699,7 @@ void drawBootNtpWaitScreen(bool connected, bool synced)
 
 static void drawSleepScreenImpl(bool redrawBg);
 
-void drawSleepScreen()
-{
-  drawSleepScreenImpl(true);
-}
+void drawSleepScreen() { drawSleepScreenImpl(true); }
 
 // -----------------------------------------------------------------------------
 // EGG Scaler - Are your eggs TOO SMALL??
@@ -673,8 +747,7 @@ static void drawCreditsScreen();
 void drawConsoleMenu();
 void drawChoosePetScreen(bool redrawBg);
 void drawPowerMenu(); // non-static (renderUI calls it)
-void ui_drawMessageWindow(const char *title, const char *line1, const char *line2,
-                          bool maskLine2, bool showCursor);
+void ui_drawMessageWindow(const char *title, const char *line1, const char *line2, bool maskLine2, bool showCursor);
 void ui_showMessage(const char *msg);
 static void uiDrawToastOverlay();
 
@@ -716,7 +789,7 @@ static void drawSplashScreen(bool forceRedraw)
 
   bool ok = false;
   if (g_sdReady)
-    ok = spr.drawJpgFile(SD, PATH_BG_SPLASH, 0, 0);
+    ok = sprDrawJpgFromSD(PATH_BG_SPLASH, 0, 0);
 
   if (!ok)
   {
@@ -730,7 +803,7 @@ void drawBootSplash()
 
   bool ok = false;
   if (g_sdReady)
-    ok = spr.drawJpgFile(SD, PATH_BG_SPLASH, 0, 0);
+    ok = sprDrawJpgFromSD(PATH_BG_SPLASH, 0, 0);
 
   if (!ok)
   {
@@ -765,7 +838,7 @@ static bool drawJpegBackground(const char *path)
 {
   if (!g_sdReady || !path)
     return false;
-  return spr.drawJpgFile(SD, path, 0, 0);
+  return sprDrawJpgFromSD(path, 0, 0);
 }
 
 void drawBackground(const char *path)
@@ -844,10 +917,7 @@ bool streamRawImage(const char *path, int x, int y, int w, int h)
   return true;
 }
 
-bool streamRawImageFast(const char *path, int x, int y, int w, int h)
-{
-  return streamRawImage(path, x, y, w, h);
-}
+bool streamRawImageFast(const char *path, int x, int y, int w, int h) { return streamRawImage(path, x, y, w, h); }
 
 // -----------------------------------------------------------------------------
 // Time formatting helper (HUD)
@@ -1334,17 +1404,11 @@ static void drawSettingsTopMenu()
   spr.fillRect(0, contentY, SCREEN_W, contentH, TFT_BLACK);
 
   char volumeLine[24];
-  snprintf(volumeLine, sizeof(volumeLine), "Volume: %s",
-           soundVolumeToText(soundGetVolumeLevel()));
+  snprintf(volumeLine, sizeof(volumeLine), "Volume: %s", soundVolumeToText(soundGetVolumeLevel()));
 
-  static const char *labelsStatic[] = {
-      nullptr, // 0 => volumeLine
-      "Controls",
-      "Screen Settings >",
-      "System Settings >",
-      "Game Options >",
-      "Console >",
-      "Credits"};
+  static const char *labelsStatic[] = {nullptr, // 0 => volumeLine
+                                       "Controls",       "Screen Settings >", "System Settings >",
+                                       "Game Options >", "Console >",         "Credits"};
 
   const int totalItems = 7;
 
@@ -1431,16 +1495,13 @@ static void drawGameOptionsMenu()
   spr.fillRect(0, contentY, SCREEN_W, contentH, TFT_BLACK);
 
   char decayLine[32];
-  snprintf(decayLine, sizeof(decayLine), "Decay Mode: %s",
-           decayModeToText(saveManagerGetDecayMode()));
+  snprintf(decayLine, sizeof(decayLine), "Decay Mode: %s", decayModeToText(saveManagerGetDecayMode()));
 
   char deathLine[32];
-  snprintf(deathLine, sizeof(deathLine), "Pet Death: %s",
-           petDeathEnabled ? "ON" : "OFF");
+  snprintf(deathLine, sizeof(deathLine), "Pet Death: %s", petDeathEnabled ? "ON" : "OFF");
 
   char ledLine[32];
-  snprintf(ledLine, sizeof(ledLine), "LED Alerts: %s",
-           ledAlertsEnabled ? "ON" : "OFF");
+  snprintf(ledLine, sizeof(ledLine), "LED Alerts: %s", ledAlertsEnabled ? "ON" : "OFF");
 
   const char *labels[] = {decayLine, deathLine, ledLine};
   const int totalItems = 3;
@@ -1575,13 +1636,7 @@ static void drawDecayModePickerMenu()
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.drawString("Decay Mode", SCREEN_W / 2, contentY + 10);
 
-  static const char *modes[] = {
-      "SUPER SLOW",
-      "SLOW",
-      "NORMAL",
-      "FAST",
-      "SUPER FAST",
-      "INSANE"};
+  static const char *modes[] = {"SUPER SLOW", "SLOW", "NORMAL", "FAST", "SUPER FAST", "INSANE"};
   const int totalItems = 6;
 
   g_ui.decayModeIndex = clampi(g_ui.decayModeIndex, 0, totalItems - 1);
@@ -1717,11 +1772,7 @@ static void drawWifiSettingsMenu()
   char tzLine[36];
   snprintf(tzLine, sizeof(tzLine), "Time Zone: %s", tzName(tzIndex));
 
-  const char *labels[] = {
-      wLine,
-      "Set WiFi Network",
-      "Reset WiFi Settings",
-      tzLine};
+  const char *labels[] = {wLine, "Set WiFi Network", "Reset WiFi Settings", tzLine};
   const int totalItems = 4;
 
   g_wifi.wifiSettingsIndex = clampi(g_wifi.wifiSettingsIndex, 0, totalItems - 1);
@@ -1945,7 +1996,7 @@ static void drawCreditsScreen()
 
   bool ok = false;
   if (g_sdReady)
-    ok = spr.drawJpgFile(SD, PATH_BG_SPLASH, 0, 0);
+    ok = sprDrawJpgFromSD(PATH_BG_SPLASH, 0, 0);
   if (!ok)
     spr.fillRect(0, 0, SCREEN_W, SCREEN_H, TFT_BLACK);
 
@@ -2040,12 +2091,8 @@ static ItemType shopItemTypeForIndexLocal(int idx)
 }
 
 // ---- tiny bars (decls) ----
-static void drawTinyBar(int x, int y, int w, int h,
-                        uint16_t fill, uint16_t outline,
-                        int value01_100);
-static void drawTinyBarV(int x, int y, int w, int h,
-                         uint16_t fill, uint16_t outline,
-                         int value01_100);
+static void drawTinyBar(int x, int y, int w, int h, uint16_t fill, uint16_t outline, int value01_100);
+static void drawTinyBarV(int x, int y, int w, int h, uint16_t fill, uint16_t outline, int value01_100);
 
 void drawShopScreen()
 {
@@ -2201,7 +2248,7 @@ void drawShopScreen()
 
   bool okImg = false;
   if (g_sdReady && imgPath)
-    okImg = spr.drawPngFile(SD, imgPath, imgX, imgY);
+    okImg = sprDrawPngFromSD(imgPath, imgX, imgY);
   if (!okImg)
   {
     spr.fillEllipse(imgX + imgW / 2, imgY + imgH / 2, imgW / 2, imgH / 2, TFT_WHITE);
@@ -2431,14 +2478,6 @@ void drawSleepMenu()
 
   spr.setTextDatum(TL_DATUM);
 }
-
-// ---- tiny bars (decls) ----
-static void drawTinyBar(int x, int y, int w, int h,
-                        uint16_t fill, uint16_t outline,
-                        int value01_100);
-static void drawTinyBarV(int x, int y, int w, int h,
-                         uint16_t fill, uint16_t outline,
-                         int value01_100);
 
 static void drawInventoryLeftStatsPanel(int contentY, int contentH, int boxX)
 {
@@ -2792,7 +2831,7 @@ static void cachePetAreaBackgroundIfNeeded(bool force)
     spr.fillRect(0, PET_AREA_Y, SCREEN_W, PET_AREA_H, TFT_BLACK);
     if (bgPath)
     {
-      (void)spr.drawJpgFile(SD, bgPath, 0, PET_AREA_Y);
+      (void)sprDrawJpgFromSD(bgPath, 0, PET_AREA_Y);
     }
     invalidateBackgroundCache();
     requestUIRedraw();
@@ -2802,9 +2841,7 @@ static void cachePetAreaBackgroundIfNeeded(bool force)
   if (!petLayerReady)
     force = true;
 
-  if (!force &&
-      (g_petBgCachedPath == bgPath) &&
-      (g_petBgCachedType == pet.type) &&
+  if (!force && (g_petBgCachedPath == bgPath) && (g_petBgCachedType == pet.type) &&
       (g_petBgCachedStage == pet.evoStage))
   {
     return;
@@ -2815,7 +2852,14 @@ static void cachePetAreaBackgroundIfNeeded(bool force)
   bool ok = true;
   if (bgPath)
   {
-    ok = petLayer.drawJpgFile(SD, bgPath, 0, 0);
+    // Use sprite file storage + path-only overload.
+    static bool s_petLayerFsInited = false;
+    if (!s_petLayerFsInited)
+    {
+      petLayer.setFileStorage(SD);
+      s_petLayerFsInited = true;
+    }
+    ok = petLayer.drawJpgFile(bgPath, 0, 0);
   }
 
   if (!ok)
@@ -2842,12 +2886,7 @@ static inline void restorePetAreaFromCache()
 {
   if (!petLayerReady)
     return;
-  spr.pushImage(
-      0,
-      PET_AREA_Y,
-      SCREEN_W,
-      PET_AREA_H,
-      (uint16_t *)petLayer.getBuffer());
+  spr.pushImage(0, PET_AREA_Y, SCREEN_W, PET_AREA_H, (uint16_t *)petLayer.getBuffer());
 }
 
 static bool ensurePetLayer()
@@ -2903,17 +2942,11 @@ static void drawPetScreenImpl(bool redrawBg)
   static PetType s_lastBgPetType = (PetType)255;
   static uint8_t s_lastBgEvoStage = 255;
 
-  const bool petChanged =
-      (s_lastBgPetType != pet.type) ||
-      (s_lastBgEvoStage != pet.evoStage);
+  const bool petChanged = (s_lastBgPetType != pet.type) || (s_lastBgEvoStage != pet.evoStage);
 
   const bool cacheMissing = (g_petBgCachedPath == nullptr);
 
-  const bool needPetBg =
-      redrawBg ||
-      petChanged ||
-      cacheMissing ||
-      g_forcePetBgCache;
+  const bool needPetBg = redrawBg || petChanged || cacheMissing || g_forcePetBgCache;
 
   s_lastBgPetType = pet.type;
   s_lastBgEvoStage = pet.evoStage;
@@ -2957,25 +2990,13 @@ static void drawPetScreenImpl(bool redrawBg)
 // -----------------------------------------------------------------------------
 // Missing wrappers + helpers (linker fix)
 // -----------------------------------------------------------------------------
-void drawPetScreen()
-{
-  drawPetScreenImpl(true);
-}
+void drawPetScreen() { drawPetScreenImpl(true); }
 
-static void drawSettingsScreen()
-{
-  drawSettingsMenu();
-}
+static void drawSettingsScreen() { drawSettingsMenu(); }
 
-static void drawInventoryScreen()
-{
-  drawInventoryMenu();
-}
+static void drawInventoryScreen() { drawInventoryMenu(); }
 
-static void drawPetSleepingScreen()
-{
-  drawSleepScreen();
-}
+static void drawPetSleepingScreen() { drawSleepScreen(); }
 
 static void drawMiniGameScreen()
 {
@@ -2999,15 +3020,9 @@ static void drawMiniGameScreen()
   drawMiniGame();
 }
 
-static void drawNamePetScreen()
-{
-  drawNamePetScreen(true);
-}
+static void drawNamePetScreen() { drawNamePetScreen(true); }
 
-static void drawDeathScreen()
-{
-  drawDeathScreen(true);
-}
+static void drawDeathScreen() { drawDeathScreen(true); }
 
 // ----- Set Time UI helpers -----
 static void drawButton(int x, int y, int w, int h, const char *label, bool selected)
@@ -3236,7 +3251,7 @@ static void drawStatsTab(bool redrawBg)
   // If your project guards SD differently, swap g_sdReady for whatever you use.
   if (g_sdReady)
   {
-    spr.drawPngFile(SD, bioPath, bioX, bioY);
+    sprDrawPngFromSD(bioPath, bioX, bioY);
   }
   else
   {
@@ -3334,9 +3349,7 @@ static void drawStatsTab(bool redrawBg)
     const uint32_t need = pet.xpForNextLevel();
     if (need > 0)
     {
-      snprintf(buf, sizeof(buf), "%lu/%lu",
-               (unsigned long)pet.xp,
-               (unsigned long)need);
+      snprintf(buf, sizeof(buf), "%lu/%lu", (unsigned long)pet.xp, (unsigned long)need);
     }
     else
     {
@@ -3536,10 +3549,7 @@ static const char *DEV_BABY_SLEEP_FRAMES[4] = {
     "/raising_hell/graphics/pet/anim/dev/baby/sleeping/dev_baby_sleepbk4.jpg",
 };
 
-static inline bool useDevBabySleepAnim()
-{
-  return (pet.type == PET_DEVIL) && (pet.evoStage == 0);
-}
+static inline bool useDevBabySleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 0); }
 
 // -----------------------------------------------------------------------------
 // DEVIL TEEN sleep background animation (4 JPG frames)
@@ -3553,10 +3563,7 @@ static const char *DEV_TEEN_SLEEP_FRAMES[4] = {
     "/raising_hell/graphics/pet/anim/dev/tn/sleeping/dev_teen_sleepbk4.jpg",
 };
 
-static inline bool useDevTeenSleepAnim()
-{
-  return (pet.type == PET_DEVIL) && (pet.evoStage == 1);
-}
+static inline bool useDevTeenSleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 1); }
 
 // -----------------------------------------------------------------------------
 // DEVIL ADULT sleep background animation (4 PNG frames)
@@ -3570,10 +3577,7 @@ static const char *DEV_ADULT_SLEEP_FRAMES[4] = {
     "/raising_hell/graphics/pet/anim/dev/ad/sleeping/dev_adult_sleepbk4.jpg",
 };
 
-static inline bool useDevAdultSleepAnim()
-{
-  return (pet.type == PET_DEVIL) && (pet.evoStage == 2);
-}
+static inline bool useDevAdultSleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 2); }
 
 // -----------------------------------------------------------------------------
 // DEVIL ELDER sleep background animation (4 PNG frames)
@@ -3623,19 +3627,13 @@ static void freeSleepAnimFrameCache()
   s_sleepAnimFrameCacheReady = false;
 }
 
-static bool ensureSleepAnimFrameCache(uint8_t mode,
-                                      const char *const *frames,
-                                      uint8_t frameCount,
-                                      int drawX,
-                                      int drawY)
+static bool ensureSleepAnimFrameCache(uint8_t mode, const char *const *frames, uint8_t frameCount, int drawX, int drawY)
 {
   if (mode == 0 || !frames || frameCount == 0)
     return false;
 
   // Already built for this mode/count?
-  if (s_sleepAnimFrameCacheReady &&
-      s_sleepAnimFrameCache &&
-      s_sleepAnimFrameCacheMode == mode &&
+  if (s_sleepAnimFrameCacheReady && s_sleepAnimFrameCache && s_sleepAnimFrameCacheMode == mode &&
       s_sleepAnimFrameCacheCnt == frameCount)
   {
     return true;
@@ -3671,9 +3669,9 @@ static bool ensureSleepAnimFrameCache(uint8_t mode,
       const char *ext = strrchr(frames[i], '.');
       const bool isPng = (ext && (strcasecmp(ext, ".png") == 0));
       if (isPng)
-        ok = spr.drawPngFile(SD, frames[i], drawX, drawY);
+        ok = sprDrawPngFromSD(frames[i], drawX, drawY);
       else
-        ok = spr.drawJpgFile(SD, frames[i], drawX, drawY);
+        ok = sprDrawJpgFromSD(frames[i], drawX, drawY);
     }
 
     if (!ok)
@@ -3895,9 +3893,9 @@ static void drawSleepScreenImpl(bool redrawBg)
         const char *ext = strrchr(bgPath, '.');
         const bool isPng = (ext && (strcasecmp(ext, ".png") == 0));
         if (isPng)
-          ok = spr.drawPngFile(SD, bgPath, 0, 18);
+          ok = sprDrawPngFromSD(bgPath, 0, 18);
         else
-          ok = spr.drawJpgFile(SD, bgPath, 0, 18);
+          ok = sprDrawJpgFromSD(bgPath, 0, 18);
       }
     }
 
@@ -4000,7 +3998,7 @@ static void drawMiniStatPreviewAt(int x0, bool showCoin, bool alignRight)
 
     bool okLife = false;
     if (g_sdReady)
-      okLife = spr.drawPngFile(SD, PATH_LIFE_ICON, iconX, lifeY);
+      okLife = sprDrawPngFromSD(PATH_LIFE_ICON, iconX, lifeY);
     (void)okLife;
     spr.drawString(String(pet.health), numRightX, lifeY + TEXT_INSET_Y);
 
@@ -4008,7 +4006,7 @@ static void drawMiniStatPreviewAt(int x0, bool showCoin, bool alignRight)
     {
       bool okCoin = false;
       if (g_sdReady)
-        okCoin = spr.drawPngFile(SD, PATH_INF_COIN, iconX, coinY);
+        okCoin = sprDrawPngFromSD(PATH_INF_COIN, iconX, coinY);
       (void)okCoin;
       spr.drawString(String(pet.inf), numRightX, coinY + TEXT_INSET_Y);
     }
@@ -4027,7 +4025,7 @@ static void drawMiniStatPreviewAt(int x0, bool showCoin, bool alignRight)
 
   bool okLife = false;
   if (g_sdReady)
-    okLife = spr.drawPngFile(SD, PATH_LIFE_ICON, iconX, lifeY);
+    okLife = sprDrawPngFromSD(PATH_LIFE_ICON, iconX, lifeY);
   (void)okLife;
   spr.drawString(String(pet.health), numRightX, lifeY + TEXT_INSET_Y);
 
@@ -4035,7 +4033,7 @@ static void drawMiniStatPreviewAt(int x0, bool showCoin, bool alignRight)
   {
     bool okCoin = false;
     if (g_sdReady)
-      okCoin = spr.drawPngFile(SD, PATH_INF_COIN, iconX, coinY);
+      okCoin = sprDrawPngFromSD(PATH_INF_COIN, iconX, coinY);
     (void)okCoin;
     spr.drawString(String(pet.inf), numRightX, coinY + TEXT_INSET_Y);
   }
@@ -4096,7 +4094,7 @@ static void drawMiniStatPreviewSleepLeft()
 
   bool okLife = false;
   if (g_sdReady)
-    okLife = spr.drawPngFile(SD, PATH_LIFE_ICON, iconX, lifeY);
+    okLife = sprDrawPngFromSD(PATH_LIFE_ICON, iconX, lifeY);
   (void)okLife;
   spr.drawString(String(pet.health), numRightX, lifeY + TEXT_INSET_Y);
 
@@ -4211,12 +4209,9 @@ void drawConsoleScreen()
 static void drawWifiSetupScreen()
 {
   const bool isPass = (g_wifi.setupStage == 1);
-  ui_drawMessageWindow(
-      "WiFi Setup",
-      isPass ? "Password:" : "SSID:",
-      wifiSetupBuf,
-      /*maskLine2=*/isPass,
-      /*showCursor=*/true);
+  ui_drawMessageWindow("WiFi Setup", isPass ? "Password:" : "SSID:", wifiSetupBuf,
+                       /*maskLine2=*/isPass,
+                       /*showCursor=*/true);
 }
 
 // ============================================================================
@@ -4441,7 +4436,7 @@ void renderUI()
   // If nothing changed, we normally throttle renders…
   // BUT if someone requested a redraw (sleep anim heartbeat, etc) we must not skip it.
   const bool redrawRequested = consumeUIRedrawRequest();
-  
+
   if (!tabChanged && !stateChanged && !bgInvalid && !redrawRequested)
   {
     const uint32_t now = millis();
@@ -4483,8 +4478,7 @@ void renderUI()
 // ============================================================================
 // UI: message window (modal)
 // ============================================================================
-void ui_drawMessageWindow(const char *title, const char *line1, const char *line2,
-                          bool maskLine2, bool showCursor)
+void ui_drawMessageWindow(const char *title, const char *line1, const char *line2, bool maskLine2, bool showCursor)
 {
   if (!isScreenOn())
     return;
@@ -4591,10 +4585,7 @@ void uiShowLevelUpPopup(uint16_t newLevel)
   requestUIRedraw();
 }
 
-bool uiIsLevelUpPopupActive()
-{
-  return g_levelUpPopupActive;
-}
+bool uiIsLevelUpPopupActive() { return g_levelUpPopupActive; }
 
 void uiDismissLevelUpPopup()
 {
@@ -4750,10 +4741,7 @@ static void drawPowerMenuOverlay()
   spr.setTextDatum(TL_DATUM);
 }
 
-void drawPowerMenu()
-{
-  drawPowerMenuOverlay();
-}
+void drawPowerMenu() { drawPowerMenuOverlay(); }
 
 // ============================================================================
 // New pet flow screens
@@ -4790,9 +4778,7 @@ static bool getPngWH(const char *path, int &outW, int &outH)
 
   auto be32 = [&](int off) -> int
   {
-    return (int)((uint32_t)hdr[off] << 24 |
-                 (uint32_t)hdr[off + 1] << 16 |
-                 (uint32_t)hdr[off + 2] << 8 |
+    return (int)((uint32_t)hdr[off] << 24 | (uint32_t)hdr[off + 1] << 16 | (uint32_t)hdr[off + 2] << 8 |
                  (uint32_t)hdr[off + 3]);
   };
 
@@ -4815,7 +4801,7 @@ static void drawCenteredImageSpr(const char *path, int cx, int cy)
   bool ok = false;
   if (g_sdReady)
   {
-    ok = spr.drawPngFile(SD, path, x, y);
+    ok = sprDrawPngFromSD(path, x, y);
   }
 
   if (!ok)
@@ -4885,7 +4871,7 @@ void drawChoosePetScreen(bool redrawBg)
   bool ok = false;
   if (g_sdReady && eggPath)
   {
-    ok = spr.drawPngFile(SD, eggPath, eggX, eggY);
+    ok = sprDrawPngFromSD(eggPath, eggX, eggY);
   }
 
   if (!ok)
@@ -4930,12 +4916,8 @@ void drawChoosePetScreen(bool redrawBg)
     const uint32_t sz = saveManagerLastLoadSize();
 
     char buf[96];
-    snprintf(buf, sizeof(buf),
-             "ERR=%u FS=%lu SP=%u SV2=%u",
-             (unsigned)e,
-             (unsigned long)sz,
-             (unsigned)sizeof(SavePayload),
-             (unsigned)sizeof(SavePayloadV2));
+    snprintf(buf, sizeof(buf), "ERR=%u FS=%lu SP=%u SV2=%u", (unsigned)e, (unsigned long)sz,
+             (unsigned)sizeof(SavePayload), (unsigned)sizeof(SavePayloadV2));
 
     spr.setTextSize(1);
     spr.setTextColor(TFT_YELLOW, TFT_BLACK);
@@ -4984,9 +4966,7 @@ static void drawEvolutionScreen()
   }
 
   // Decide which stage we’re showing right now
-  const uint8_t stageShown = (g_app.flow.evo.phase >= 2)
-                                 ? g_app.flow.evo.toStage
-                                 : g_app.flow.evo.fromStage;
+  const uint8_t stageShown = (g_app.flow.evo.phase >= 2) ? g_app.flow.evo.toStage : g_app.flow.evo.fromStage;
 
   const AnimId id = evoHappyClipFor(pet.type, stageShown);
   const AnimClip *clip = animGetClip(id);
@@ -4997,9 +4977,7 @@ static void drawEvolutionScreen()
 
   // Frame select
   const uint32_t now = millis();
-  const uint32_t t = (g_app.flow.evo.phaseStartMs == 0)
-                         ? 0
-                         : (now - g_app.flow.evo.phaseStartMs);
+  const uint32_t t = (g_app.flow.evo.phaseStartMs == 0) ? 0 : (now - g_app.flow.evo.phaseStartMs);
   uint32_t idx = 0;
 
   if (clip->frameMs > 0)
@@ -5023,7 +5001,7 @@ static void drawEvolutionScreen()
   const int x = gotWH ? (cx - (w / 2)) : cx;
   const int y = gotWH ? (cy - (h / 2)) : cy;
 
-  spr.drawPngFile(SD, path, x, y);
+  sprDrawPngFromSD(path, x, y);
 }
 
 void drawHatchingScreen(bool redrawBg)
@@ -5072,7 +5050,7 @@ void drawHatchingScreen(bool redrawBg)
       const bool gotWH = getPngWH(path, w, h);
       const int x = gotWH ? (cx - (w / 2)) : cx;
       const int y = gotWH ? (cy - (h / 2)) : cy;
-      return spr.drawPngFile(SD, path, x, y);
+      return sprDrawPngFromSD(path, x, y);
     };
 
     bool drew = false;
@@ -5103,8 +5081,7 @@ void drawHatchingScreen(bool redrawBg)
 
   // ----- HATCHED / MESSAGE PHASE -----
   // Draw BOTH egg and text in the same pass (no extra returns)
-  drawCenteredImageSpr("/raising_hell/graphics/pet/egg/dev_egg_cracked.png",
-                       centerX, crackedEggY);
+  drawCenteredImageSpr("/raising_hell/graphics/pet/egg/dev_egg_cracked.png", centerX, crackedEggY);
 
   // Single line message (bottom-ish)
   spr.setTextDatum(MC_DATUM);
@@ -5198,17 +5175,16 @@ static void drawBurialScreen()
   static const char *kBurialBg = "/raising_hell/graphics/background/grave.jpg";
 
   spr.fillSprite(TFT_BLACK);
-  if (g_sdReady)
-  {
-    spr.drawJpgFile(SD, kBurialBg, 0, 0);
-  }
+
+  // Use wrapper-based draw to avoid drawJpgFile(SD, ...) template instantiation.
+  sprDrawJpgFromSD(kBurialBg, 0, 0);
 
   const int cx = 120;
   int y = 44;
   const int lineH = 14;
 
   spr.setTextColor(TFT_WHITE);
-  spr.setFreeFont(nullptr);
+  spr.setFont(nullptr);
   spr.setTextDatum(MC_DATUM);
 
   spr.drawString(pet.name, cx, y);
@@ -5226,12 +5202,17 @@ static void drawBurialScreen()
     time_t bt = (time_t)be;
     tm tmb;
     localtime_r(&bt, &tmb);
-    snprintf(birthBuf, sizeof(birthBuf), "%04d-%02d-%02d",
-             tmb.tm_year + 1900, tmb.tm_mon + 1, tmb.tm_mday);
+    snprintf(birthBuf, sizeof(birthBuf), "%04d-%02d-%02d", tmb.tm_year + 1900, tmb.tm_mon + 1, tmb.tm_mday);
   }
   else
   {
-    strncpy(birthBuf, "????-??-??", sizeof(birthBuf) - 1);
+    strncpy(birthBuf,
+            "????"
+            "-"
+            "??"
+            "-"
+            "??",
+            sizeof(birthBuf) - 1);
   }
 
   time_t now = time(nullptr);
@@ -5239,12 +5220,17 @@ static void drawBurialScreen()
   {
     tm tmd;
     localtime_r(&now, &tmd);
-    snprintf(deathBuf, sizeof(deathBuf), "%04d-%02d-%02d",
-             tmd.tm_year + 1900, tmd.tm_mon + 1, tmd.tm_mday);
+    snprintf(deathBuf, sizeof(deathBuf), "%04d-%02d-%02d", tmd.tm_year + 1900, tmd.tm_mon + 1, tmd.tm_mday);
   }
   else
   {
-    strncpy(deathBuf, "????-??-??", sizeof(deathBuf) - 1);
+    strncpy(deathBuf,
+            "????"
+            "-"
+            "??"
+            "-"
+            "??",
+            sizeof(deathBuf) - 1);
   }
 
   spr.drawString(String("Born: ") + birthBuf, cx, y);

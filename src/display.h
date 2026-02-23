@@ -1,5 +1,7 @@
 #pragma once
 #include <Arduino.h>
+#include <FS.h>
+#include <SD.h>
 #include "M5Cardputer.h"
 #include <stdint.h>
 
