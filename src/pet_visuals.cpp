@@ -1,6 +1,6 @@
 #include "pet_visuals.h"
 
-#include "graphics_assets.h"   // for your actual sprite dimensions
+#include "graphics_assets.h" // for your actual sprite dimensions
 
 // -------------------------------------------
 // VISUAL PROFILES FOR EACH PET TYPE
@@ -17,62 +17,19 @@
 const PetVisualProfile PET_PROFILES[6] = {
 
     // PET_DEVIL
-    {
-        96, 96,
-        0, -6,
-        24,
-        7,
-        3,
-        0, 20
-    },
+    {96, 96, 0, -6, 24, 7, 3, 0, 20},
 
     // PET_KAIJU
-    {
-        128, 128,
-        0, -10,
-        28,
-        8,
-        4,
-        0, 24
-    },
+    {128, 128, 0, -10, 28, 8, 4, 0, 24},
 
     // PET_ELDRITCH
-    {
-        96, 96,
-        0, -8,
-        22,
-        6,
-        3,
-        0, 18
-    },
+    {96, 96, 0, -8, 22, 6, 3, 0, 18},
 
     // PET_ALIEN
-    {
-        96, 96,
-        0, -6,
-        24,
-        7,
-        3,
-        0, 20
-    },
+    {96, 96, 0, -6, 24, 7, 3, 0, 20},
 
     // PET_ANUBIS (placeholder)
-    {
-        96, 96,
-        0, -8,
-        26,
-        8,
-        3,
-        0, 18
-    },
+    {96, 96, 0, -8, 26, 8, 3, 0, 18},
 
     // PET_AXOLOTL (placeholder)
-    {
-        96, 96,
-        0, -6,
-        24,
-        7,
-        3,
-        0, 20
-    }
-};
+    {96, 96, 0, -6, 24, 7, 3, 0, 20}};
