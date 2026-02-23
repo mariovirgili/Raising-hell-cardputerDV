@@ -7,93 +7,103 @@
 
 #include "app_state.h"
 #include "auto_screen.h"
+#include "display.h"
+#include "graphics.h"
 #include "input.h"
 #include "input_activity_state.h"
+#include "pet.h"
 #include "save_manager.h"
 #include "settings_flow_state.h"
+#include "sleep_state.h"
+#include "sound.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
 #include "wifi_power.h"
-#include "sound.h"
-#include "display.h"
-#include "graphics.h" 
-#include "pet.h"
-#include "sleep_state.h"
 
 // Suppress wake edges briefly when returning to PET_SLEEPING from overlays
 static uint32_t s_suppressSleepWakeUntilMs = 0;
 
-bool powerMenuSleepWakeSuppressedNow() {
-  return (int32_t)(millis() - s_suppressSleepWakeUntilMs) < 0;
-}
+bool powerMenuSleepWakeSuppressedNow() { return (int32_t)(millis() - s_suppressSleepWakeUntilMs) < 0; }
 
-void openPowerMenuFromHere(uint32_t nowMs) {
-  // Snapshot return target BEFORE switching states.
-  const bool sleepingNow = (pet.isSleeping || isSleeping || g_app.uiState == UIState::PET_SLEEPING);
+void openPowerMenuFromHere(uint32_t nowMs)
+{
+  (void)nowMs; // keep if the caller passes it but you don't need it
 
-  g_settingsFlow.powerMenuReturnToSleep = sleepingNow;
-  g_settingsFlow.powerMenuReturnState   = g_app.uiState;
-  g_settingsFlow.powerMenuReturnTab     = g_app.currentTab;
+  if (g_app.uiState == UIState::POWER_MENU)
+    return;
 
-  // If screen is off, wake it first so the menu is visible.
-  if (!isScreenOn()) {
-    SET_SCREEN_POWER(true);
-    setLastInputActivityMs(nowMs);
-  }
+  // Capture return target in the centralized flow state
+  g_settingsFlow.powerMenuReturnState = g_app.uiState;
+  g_settingsFlow.powerMenuReturnTab   = g_app.currentTab;
 
-  powerMenuIndex       = 0;
-  g_app.uiState        = UIState::POWER_MENU;
-  g_app.uiNeedsRedraw  = true;
+  powerMenuIndex = 0;
+  g_app.uiState = UIState::POWER_MENU;
 
-  requestFullUIRedraw();
-
-  // Prevent the long-press from also producing stray edges
-  inputForceClear();
+  // Consume GO-hold residue so it doesn't instantly select/cancel.
   clearInputLatch();
+  inputForceClear();
+
+  // State switch / overlay open => full redraw (invalidate underlay cache)
+  requestFullUIRedraw();
 }
 
-static inline void drainKb(InputState& in) {
-  while (in.kbHasEvent()) (void)in.kbPop();
+static inline void drainKb(InputState &in)
+{
+  while (in.kbHasEvent())
+    (void)in.kbPop();
 }
 
-void handlePowerMenuInput(InputState& input) {
+void handlePowerMenuInput(InputState &input)
+{
   // Exit keys:
   //  - ESC / MENU edges
   //  - Q and DEL/BACKSPACE from kb queue
   bool exitPressed = (input.menuOnce || input.escOnce);
 
-  if (!exitPressed) {
-    while (input.kbHasEvent()) {
+  if (!exitPressed)
+  {
+    while (input.kbHasEvent())
+    {
       KeyEvent e = input.kbPop();
       const uint8_t c = e.code;
 
       const bool isQ = (c == 'q' || c == 'Q');
-      const bool isDelOrBackspace =
-        (c == (uint8_t)KEY_BACKSPACE) || (c == '\b') || (c == 127) || (c == 0x2A);
+      const bool isDelOrBackspace = (c == (uint8_t)KEY_BACKSPACE) || (c == '\b') || (c == 127) || (c == 0x2A);
       const bool isEsc = (c == 27); // sometimes comes through as ASCII 27
 
-      if (isQ || isDelOrBackspace || isEsc) {
+      if (isQ || isDelOrBackspace || isEsc)
+      {
         exitPressed = true;
         break;
       }
     }
-  } else {
+  }
+  else
+  {
     drainKb(input);
   }
 
-  if (exitPressed) {
+  if (exitPressed)
+  {
     const bool returningToSleep = g_settingsFlow.powerMenuReturnToSleep;
 
-    if (returningToSleep) {
+    if (returningToSleep)
+    {
       g_app.uiState    = UIState::PET_SLEEPING;
       g_app.currentTab = Tab::TAB_PET;
       s_suppressSleepWakeUntilMs = millis() + 400;
-    } else {
+    }
+    else
+    {
       g_app.uiState    = g_settingsFlow.powerMenuReturnState;
       g_app.currentTab = g_settingsFlow.powerMenuReturnTab;
     }
 
     g_settingsFlow.powerMenuReturnToSleep = false;
+
+    // Optional hygiene defaults (recommended)
+    g_settingsFlow.powerMenuReturnState = UIState::PET_SCREEN;
+    g_settingsFlow.powerMenuReturnTab   = Tab::TAB_PET;
 
     requestFullUIRedraw();
 
@@ -108,40 +118,43 @@ void handlePowerMenuInput(InputState& input) {
 
   int mv = 0;
   if (input.upOnce) mv = -1;
-  if (input.downOnce) mv = +1;
-  if (input.encoderDelta < 0) mv = -1;
-  if (input.encoderDelta > 0) mv = +1;
+  else if (input.downOnce) mv = +1;
+  else if (input.encoderDelta < 0) mv = -1;
+  else if (input.encoderDelta > 0) mv = +1;
 
-  if (mv != 0) {
+  if (mv != 0)
+  {
     powerMenuIndex += mv;
-    while (powerMenuIndex < 0) powerMenuIndex += itemCount;
+    while (powerMenuIndex < 0)
+      powerMenuIndex += itemCount;
     powerMenuIndex %= itemCount;
 
-    requestUIRedraw();
     requestUIRedraw();
     playBeep();
 
     input.clearEdges();
-    clearInputLatch();
     return;
   }
 
   const bool doSelect = (input.selectOnce || input.encoderPressOnce);
-  if (doSelect) {
+  if (doSelect)
+  {
     playBeep();
 
     input.clearEdges();
     inputForceClear();
     clearInputLatch();
 
-    if (powerMenuIndex == 0) {
+    if (powerMenuIndex == 0)
+    {
       saveManagerForce();
       delay(40);
       ESP.restart();
       return;
     }
 
-    if (powerMenuIndex == 1) {
+    if (powerMenuIndex == 1)
+    {
       saveManagerForce();
       applyWifiPower(false);
 
@@ -164,5 +177,4 @@ void handlePowerMenuInput(InputState& input) {
   // Otherwise swallow typing so random keys don't affect anything
   drainKb(input);
   input.clearEdges();
-  clearInputLatch();
 }
