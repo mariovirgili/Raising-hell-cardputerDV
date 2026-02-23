@@ -30,6 +30,7 @@
 #include "controls_help_state.h"
 #include "sleep_state.h"
 #include "app_state.h"
+#include "time_persist.h"
 
 static bool dirty = false;
 static uint32_t lastSaveMs = 0;
@@ -835,12 +836,12 @@ void saveManagerFactoryReset()
 
   tryRemove("/raising_hell/save/birth.txt");
 
-  wifiStoreClear();
-
   clearNvsNamespace("rh_settings");
   clearNvsNamespace("rh_wifi");
   clearNvsNamespace("rh_tz");
-
+  clearTimeAnchor();  
+  invalidateTimeNow();
+  
   writeFirstRunFlag();
 
   delay(50);
