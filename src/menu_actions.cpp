@@ -31,6 +31,7 @@
 #include "timezone.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
+#include "ui_state_handlers.h"
 #include "wifi_power.h"
 #include "wifi_setup_state.h"
 #include "wifi_store.h"
@@ -54,8 +55,8 @@ void shopBuyItem();
 // ------------------------------------------------------------------
 // Local prototypes
 // ------------------------------------------------------------------
-static void handleSleepScreenInput(InputState &input);
-static void handleWifiSetupInput(InputState &in);
+void handleSleepScreenInput(InputState &input);
+void handleWifiSetupInput(InputState &in);
 
 void handlePetScreen(const InputState &input);
 void handleSettingsInput(InputState &input);
@@ -64,11 +65,11 @@ void handleShopInput(const InputState &input);
 void handleSleepMenuInput(const InputState &input);
 void handleTimeSetInput(InputState &in);
 void handleMiniGameInput(const InputState &input);
-static void handleDeathInput(InputState &input);
+void handleDeathInput(InputState &input);
 void handlePowerMenuInput(InputState &input);
-static void handleChoosePetInput(InputState &in);
-static void handleNamePetInput(InputState &in);
-static void handleBurialInput(InputState &in);
+void handleChoosePetInput(InputState &in);
+void handleNamePetInput(InputState &in);
+void handleBurialInput(InputState &in);
 static void beginNamePetFlow_local();
 static void finalizeNewPetFromName_local(InputState &in);
 static void useFoodAction();
@@ -228,7 +229,7 @@ static void finalizeNewPetFromName_local(InputState &in) {
   drainKb(in);
 }
 
-static void handleChoosePetInput(InputState &in) {
+void handleChoosePetInput(InputState &in) {
   // Reliable Enter edge (press-level -> edge) for Cardputer:
   // Sometimes selectOnce is missed depending on keyboard change detection.
   g_app.newPetFlowActive = true;
@@ -362,7 +363,7 @@ static void handleChoosePetInput(InputState &in) {
   }
 }
 
-static void handleNamePetInput(InputState &in) {
+void handleNamePetInput(InputState &in) {
   if (g_namePetJustOpened) {
     g_namePetJustOpened = false;
     swallowTypingAndEdges(in);
@@ -544,29 +545,7 @@ bool handleMenuInput(InputState &in) {
     }
   }
 
-  switch (g_app.uiState) {
-    case UIState::PET_SCREEN:        handlePetScreen(in);           break;
-    case UIState::PET_SLEEPING:      handleSleepScreenInput(in);    break;
-    case UIState::INVENTORY:         handleInventoryInput(in);      break;
-    case UIState::SHOP:              handleShopInput(in);           break;
-    case UIState::SLEEP_MENU:        handleSleepMenuInput(in);      break;
-    case UIState::SETTINGS:          handleSettingsInput(in);       break;
-    case UIState::MINI_GAME:         handleMiniGameInput(in);       break;
-    case UIState::SET_TIME:          handleTimeSetInput(in);        break;
-    case UIState::POWER_MENU:        handlePowerMenuInput(in);      break;
-    case UIState::CONSOLE:           handleConsoleInput(in);        break;
-    case UIState::WIFI_SETUP:        handleWifiSetupInput(in);      break;
-    case UIState::DEATH:             handleDeathInput(in);          break;
-    case UIState::BURIAL_SCREEN:     handleBurialInput(in);         break;
-    case UIState::CHOOSE_PET:        handleChoosePetInput(in);      break;
-    case UIState::NAME_PET:          handleNamePetInput(in);        break;
-    case UIState::CONTROLS_HELP:     handleControlsHelpInput(in);   break;
-    case UIState::BOOT_WIFI_PROMPT:  handleBootWifiPromptInput(in); break;
-    case UIState::BOOT_WIFI_WAIT:    handleBootWifiWaitInput(in);   break;
-    case UIState::BOOT_TZ_PICK:      handleBootTzPickInput(in);     break;
-    case UIState::BOOT_NTP_WAIT:     handleBootNtpWaitInput(in);    break;
-    default: break;
-  }
+  uiDispatchToStateHandler(g_app.uiState, in);
 
   return (oldState != g_app.uiState);
 }
@@ -574,7 +553,7 @@ bool handleMenuInput(InputState &in) {
 // ==================================================================
 // SLEEP SCREEN ACTIVE
 // ==================================================================
-static void handleSleepScreenInput(InputState &input) {
+void handleSleepScreenInput(InputState &input) {
   // Suppress immediate wake after returning from power menu
   if (powerMenuSleepWakeSuppressedNow()) {
   drainKb(input);
@@ -1492,7 +1471,7 @@ void handleConsoleInput(InputState &input) {
 // ==================================================================
 // WIFI SETUP WIZARD INPUT
 // ==================================================================
-static void handleWifiSetupInput(InputState &in) {
+void handleWifiSetupInput(InputState &in) {
   // Cancel
   if (in.menuOnce || in.escOnce) {
     inputSetTextCapture(false);
@@ -1631,7 +1610,7 @@ void onResurrectionMiniGameResult(bool success) {
 // ==================================================================
 // DEATH INPUT
 // ==================================================================
-static void handleDeathInput(InputState &in) {
+void handleDeathInput(InputState &in) {
   int move = 0;
   if (in.upOnce) move = -1;
   if (in.downOnce) move = +1;
@@ -1704,7 +1683,7 @@ void settingsToggleLedAlerts() {
   clearInputLatch();
 }
 
-static void handleBurialInput(InputState &in) {
+void handleBurialInput(InputState &in) {
   if (!(in.selectOnce || in.encoderPressOnce)) {
     drainKb(in);
     clearInputLatch();
