@@ -56,12 +56,9 @@ void shopBuyItem();
 // Local prototypes
 // ------------------------------------------------------------------
 void handleSleepScreenInput(InputState &input);
-void handlePetScreen(const InputState &input);
 void handleInventoryInput(const InputState &input);
 void handleShopInput(const InputState &input);
-void handleSleepMenuInput(const InputState &input);
 void handleTimeSetInput(InputState &in);
-void handleMiniGameInput(const InputState &input);
 void handleDeathInput(InputState &input);
 void handlePowerMenuInput(InputState &input);
 void handleChoosePetInput(InputState &in);
@@ -570,81 +567,6 @@ void handleSleepScreenInput(InputState &input) {
 }
 
 // ==================================================================
-// PET SCREEN (main hub)
-// ==================================================================
-void handlePetScreen(const InputState &input) {
-  if (g_app.currentTab == Tab::TAB_FEED) {
-    int mv = 0;
-    if (input.leftOnce || input.upOnce || (input.encoderDelta < 0)) mv = -1;
-    if (input.rightOnce || input.downOnce || (input.encoderDelta > 0)) mv = +1;
-
-    if (mv != 0) {
-      feedMenuIndex += mv;
-      if (feedMenuIndex < 0) feedMenuIndex = 1;
-      if (feedMenuIndex > 1) feedMenuIndex = 0;
-
-      requestUIRedraw();
-      playBeep();
-      clearInputLatch();
-      return;
-    }
-
-    if (input.selectOnce || input.encoderPressOnce) {
-      feedUseSelected();
-      clearInputLatch();
-    }
-    return;
-  }
-
-  if (g_app.currentTab == Tab::TAB_PLAY) {
-    // Play tab games (keep in sync with drawPlayTabMock() labels)
-    static const int kPlayItems = 3;
-
-    int mv = 0;
-    if (input.leftOnce || input.upOnce || (input.encoderDelta < 0)) mv = -1;
-    if (input.rightOnce || input.downOnce || (input.encoderDelta > 0)) mv = +1;
-
-    if (mv != 0) {
-      playMenuIndex += mv;
-      while (playMenuIndex < 0) playMenuIndex += kPlayItems;
-      playMenuIndex %= kPlayItems;
-
-      requestUIRedraw();
-      playBeep();
-      clearInputLatch();
-      return;
-    }
-
-    if (input.selectOnce || input.encoderPressOnce) {
-      // Cost to play: 10 energy (regular Play tab only)
-      if (pet.energy < 10) {
-        ui_showMessage("Too tired!");
-        soundError();
-        clearInputLatch();
-        return;
-      }
-
-      pet.energy = constrain(pet.energy - 10, 0, 100);
-      saveManagerMarkDirty();
-
-      // Launch selected game
-      if (playMenuIndex == 0) {
-        startFlappyFireball();
-      } else if (playMenuIndex == 1) {
-        startInfernalDodger();
-      } else {
-        startCrossyRoad();
-      }
-
-      clearInputLatch();
-      return;
-    }
-
-    return;
-  }
-}
-
-// ==================================================================
 // FEED ACTION (legacy helper; kept)
 // ==================================================================
 static void useFoodAction() {
@@ -762,109 +684,6 @@ void handleShopInput(const InputState &input) {
     requestUIRedraw();
     clearInputLatch();
   }
-}
-
-// ==================================================================
-// SLEEP MENU
-// ==================================================================
-void handleSleepMenuInput(const InputState &input) {
-  const int totalItems = 4;
-
-  if (input.encoderDelta < 0 || input.upOnce) {
-    sleepMenuIndex--;
-    if (sleepMenuIndex < 0) sleepMenuIndex = totalItems - 1;
-    requestUIRedraw();
-  }
-
-  if (input.encoderDelta > 0 || input.downOnce) {
-    sleepMenuIndex++;
-    if (sleepMenuIndex >= totalItems) sleepMenuIndex = 0;
-    requestUIRedraw();
-  }
-
-  if (input.menuOnce || input.escOnce) {
-    g_app.uiState    = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  if (!(input.selectOnce || input.encoderPressOnce)) return;
-
-  auto enterSleep = [&]() {
-    pet.isSleeping    = true;
-    g_app.isSleeping        = true;
-    g_app.uiState     = UIState::PET_SLEEPING;
-    g_app.currentTab  = Tab::TAB_PET;
-    requestUIRedraw();
-
-    // Prevent the ENTER/encoder press that *started* sleep from immediately waking it.
-    g_suppressSleepWakeUntilMs = millis() + 400;
-
-    // Eat any residue so the sleep screen starts "clean"
-    inputForceClear();
-    clearInputLatch();
-
-    g_app.sleepTargetEnergy = 0;
-    invalidateBackgroundCache();
-    saveManagerMarkDirty();
-
-    sleepBgKickNow();
-  };
-
-  switch (sleepMenuIndex) {
-    case 0: // Until Awakened
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = true;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 0;
-      enterSleep();
-      break;
-
-    case 1: // Until Rested
-      g_app.sleepUntilRested   = true;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 0;
-      enterSleep();
-      break;
-
-    case 2: // 4 hours
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 4UL * 60UL * 60UL * 1000UL;
-      enterSleep();
-      break;
-
-    case 3: // 8 hours
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 8UL * 60UL * 60UL * 1000UL;
-      enterSleep();
-      break;
-  }
-
-  clearInputLatch();
-}
-
-// ==================================================================
-// MINI GAME
-// ==================================================================
-void handleMiniGameInput(const InputState &input) {
-  if (input.menuOnce) {
-    g_app.inMiniGame    = false;
-    currentMiniGame     = MiniGame::NONE;
-    g_app.uiState       = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  updateMiniGame(input);
-  requestUIRedraw();
 }
 
 // ==================================================================

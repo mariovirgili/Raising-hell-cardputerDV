@@ -16,6 +16,11 @@ enum class SettingsPage : uint8_t;
 
 // Main dispatcher (called from loop)
 bool handleMenuInput(InputState& in);
+void handleSleepScreenInput(InputState &input);
+void handleDeathInput(InputState &input);
+void handleBurialInput(InputState &in);
+void handleChoosePetInput(InputState &in);
+void handleNamePetInput(InputState &in);
 
 // Power menu
 void openPowerMenuFromHere(uint32_t now);
