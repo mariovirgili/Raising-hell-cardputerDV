@@ -56,8 +56,6 @@ void shopBuyItem();
 // Local prototypes
 // ------------------------------------------------------------------
 void handleSleepScreenInput(InputState &input);
-void handleWifiSetupInput(InputState &in);
-
 void handlePetScreen(const InputState &input);
 void handleInventoryInput(const InputState &input);
 void handleShopInput(const InputState &input);
@@ -933,111 +931,6 @@ void feedUseSelected() {
 
     requestUIRedraw();
     return;
-  }
-}
-
-// ==================================================================
-// WIFI SETUP WIZARD INPUT
-// ==================================================================
-void handleWifiSetupInput(InputState &in) {
-  // Cancel
-  if (in.menuOnce || in.escOnce) {
-    inputSetTextCapture(false);
-    g_textCaptureMode = false;
-
-    if (g_wifiSetupFromBootWizard) {
-      g_app.uiState = UIState::BOOT_WIFI_PROMPT;
-      requestUIRedraw();
-      g_wifiSetupFromBootWizard = false;
-
-      drainKb(in);
-      clearInputLatch();
-      return;
-    }
-
-    g_app.uiState               = UIState::SETTINGS;
-    g_settingsFlow.settingsPage = SettingsPage::WIFI;
-    ui_showMessage("Cancelled");
-    requestUIRedraw();
-
-    drainKb(in);
-    clearInputLatch();
-    return;
-  }
-
-  // Key input
-  while (in.kbHasEvent()) {
-    KeyEvent e = in.kbPop();
-    uint8_t code = e.code;
-
-    const bool isEnter =
-      (code == (uint8_t)KEY_ENTER) || (code == '\n') || (code == '\r') || (code == 0x28);
-
-    const bool isBackspace =
-      (code == (uint8_t)KEY_BACKSPACE) || (code == '\b') || (code == 127) || (code == 0x2A);
-
-    if (isBackspace) {
-      size_t len = strnlen(wifiSetupBuf, sizeof(wifiSetupBuf));
-      if (len > 0) wifiSetupBuf[len - 1] = '\0';
-      requestUIRedraw();
-      continue;
-    }
-
-    if (isEnter) {
-      if (g_wifi.setupStage == 0) {
-        strncpy(wifiSetupSsid, wifiSetupBuf, sizeof(wifiSetupSsid) - 1);
-        wifiSetupSsid[sizeof(wifiSetupSsid) - 1] = '\0';
-
-        g_wifi.setupStage = 1;
-        wifiSetupBuf[0]     = '\0';
-        requestUIRedraw();
-
-        clearInputLatch();
-      } else {
-        strncpy(wifiSetupPass, wifiSetupBuf, sizeof(wifiSetupPass) - 1);
-        wifiSetupPass[sizeof(wifiSetupPass) - 1] = '\0';
-
-        wifiStoreSave(String(wifiSetupSsid), String(wifiSetupPass));
-
-        wifiSetEnabled(true);
-        applyWifiPower(true);
-        settingsSetWifiEnabled(true);
-
-        wifiTimeInit();
-
-        saveSettingsToSD();
-        saveManagerMarkDirty();
-
-        inputSetTextCapture(false);
-        g_textCaptureMode = false;
-
-        if (g_wifiSetupFromBootWizard) {
-          g_wifiSetupFromBootWizard = false;
-          g_app.uiState = UIState::BOOT_WIFI_WAIT;
-          requestUIRedraw();
-
-          clearInputLatch();
-          return;
-        }
-
-        g_app.uiState               = UIState::SETTINGS;
-        g_settingsFlow.settingsPage = SettingsPage::WIFI;
-        ui_showMessage("WiFi saved");
-        requestUIRedraw();
-
-        clearInputLatch();
-      }
-      continue;
-    }
-
-    if (code >= 32 && code <= 126) {
-      size_t len = strnlen(wifiSetupBuf, sizeof(wifiSetupBuf));
-      if (len < sizeof(wifiSetupBuf) - 1) {
-        wifiSetupBuf[len]     = (char)code;
-        wifiSetupBuf[len + 1] = '\0';
-        requestUIRedraw();
-      }
-    }
   }
 }
 
