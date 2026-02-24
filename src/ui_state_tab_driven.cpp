@@ -8,9 +8,8 @@
 void uiPetScreenHandle(InputState& in);
 void uiSleepMenuHandle(InputState& in);
 
-// Legacy handlers still living in menu_actions.cpp (for now)
-void handleInventoryInput(const InputState& input);
-void handleShopInput(const InputState& input);
+void uiInventoryHandle(InputState& in);
+void uiShopHandle(InputState& in);
 
 void uiTabDrivenHandle(InputState& in)
 {
@@ -21,11 +20,11 @@ void uiTabDrivenHandle(InputState& in)
       return;
 
     case Tab::TAB_INV:
-      handleInventoryInput(in);
+      uiInventoryHandle(in);
       return;
 
     case Tab::TAB_SHOP:
-      handleShopInput(in);
+      uiShopHandle(in);
       return;
 
     case Tab::TAB_PET:

@@ -46,6 +46,7 @@
 #include "new_pet_flow_state.h"
 #include "build_flags.h"
 #include "ui_invalidate.h"
+#include "ui_input_router.h"
 
 static bool g_namePetJustOpened = false;
 
@@ -67,7 +68,6 @@ void handleBurialInput(InputState &in);
 static void beginNamePetFlow_local();
 static void finalizeNewPetFromName_local(InputState &in);
 static void useFoodAction();
-static uint32_t g_suppressMenuUntilMs = 0;
 static bool g_bootNamePetFixApplied = false;
 void resetSettingsNav(bool resetTopIndex);
 
@@ -93,23 +93,6 @@ static inline bool timeSyncedNow() {
   time_t now = time(nullptr);
   return (now > 1700000000); // ~late 2023
 }
-
-// After leaving certain screens (like Console), the same ESC/MENU press can
-// still be observed on the next frame and trigger global settings-open logic.
-// This suppresses menu/esc edges for a short time window.
-
-static inline bool menuSuppressedNow() {
-  // signed diff to handle millis wrap safely
-  return (int32_t)(millis() - g_suppressMenuUntilMs) < 0;
-}
-
-void menuActionsSuppressMenuForMs(uint32_t durationMs) {
-  g_suppressMenuUntilMs = millis() + durationMs;
-}
-
-// After returning to PET_SLEEPING from overlays (Power Menu),
-// suppress wake edges briefly so the exit key doesn't immediately wake the pet.
-static uint32_t g_suppressSleepWakeUntilMs = 0;
 
 // NEW: pending pet type through the new-pet flow (egg -> name)
 static PetType g_pendingPetType = PET_DEVIL;
@@ -396,119 +379,10 @@ void handleNamePetInput(InputState &in) {
 // ==================================================================
 // MAIN DISPATCHER (state machine)
 // ==================================================================
-bool handleMenuInput(InputState &in) {
-  // --------------------------------------------------------------
-  // BOOT FIXUP:
-  // Only apply this when we are truly in a bad boot resume.
-  // DO NOT run this during a legitimate new-pet flow (egg->hatch->name).
-  // --------------------------------------------------------------
-  if (!g_bootNamePetFixApplied && g_app.uiState == UIState::NAME_PET) {
-    g_bootNamePetFixApplied = true;
-
-    // If we're actively in the new-pet flow, NAME_PET is valid.
-    if (g_app.newPetFlowActive) {
-      swallowTypingAndEdges(in);
-      return true;
-    }
-
-    // Otherwise, treat NAME_PET as suspicious only if we are not text-capturing.
-    // (Bad resume tends to land here without the keyboard mode enabled.)
-    if (!g_textCaptureMode) {
-      inputSetTextCapture(false);
-      g_textCaptureMode = false;
-
-      g_app.uiState    = UIState::CHOOSE_PET;
-      g_app.currentTab = Tab::TAB_PET;
-
-      g_choosePetBlockHatchUntilRelease = true;
-
-      requestUIRedraw();
-      invalidateBackgroundCache();
-      requestUIRedraw();
-
-      swallowTypingAndEdges(in);
-      inputForceClear();
-      return true;
-    }
-  }
-
-  UIState oldState = g_app.uiState;
-
-  if (menuSuppressedNow() && (in.menuOnce || in.escOnce)) {
-    swallowTypingAndEdges(in);
-    return false;
-  }
-
-  // --------------------------------------------------------------
-  // PET_SCREEN: ESC should open Settings (classic behavior)
-  // --------------------------------------------------------------
-  if ((g_app.uiState == UIState::PET_SCREEN ||
-       g_app.uiState == UIState::INVENTORY ||
-       g_app.uiState == UIState::SHOP ||
-       g_app.uiState == UIState::PET_SLEEPING ||
-       g_app.uiState == UIState::SLEEP_MENU) &&
-      (in.escOnce || in.hotSettings)) {
-
-    g_settingsFlow.settingsReturnState = g_app.uiState;
-    g_settingsFlow.settingsReturnTab   = g_app.currentTab;
-    g_settingsFlow.settingsReturnValid = true;
-
-    resetSettingsNav(true);
-    g_settingsFlow.settingsPage = SettingsPage::TOP;
-
-    g_app.uiState = UIState::SETTINGS;
-    requestUIRedraw();
-
-    drainKb(in);
-    inputForceClear();
-
-    in.escOnce          = false;
-    in.menuOnce         = false;
-    in.selectOnce       = false;
-    in.encoderPressOnce = false;
-
-    return true;
-  }
-
-  // --------------------------------------------------------------
-  // HARD INPUT GATE WHILE SLEEPING
-  //  - ENTER wakes (select/encoderPress)
-  //  - ESC opens Settings WITHOUT waking
-  //  - EVERYTHING ELSE is swallowed
-  // --------------------------------------------------------------
-  if (g_app.uiState == UIState::PET_SLEEPING) {
-    // Use a HELD->edge for wake because selectOnce depends on Keyboard.isChange().
-    static bool s_prevSleepSelectHeld = false;
-    const bool enterEdge              = (in.selectHeld && !s_prevSleepSelectHeld);
-    s_prevSleepSelectHeld             = in.selectHeld;
-
-    const bool wakePressed = (enterEdge || in.encoderPressOnce || in.selectOnce);
-
-    if (in.escOnce && !wakePressed) {
-      resetSettingsNav(true);
-      g_settingsFlow.settingsPage = SettingsPage::TOP;
-      g_app.uiState               = UIState::SETTINGS;
-      requestUIRedraw();
-
-      drainKb(in);
-      inputForceClear();
-
-      in.escOnce  = false;
-      in.menuOnce = false;
-
-      return true;
-    }
-
-    if (!wakePressed) {
-      // Swallow everything without calling clearInputLatch() (it can erase wake edges).
-      drainKb(in);
-      in.clearEdges();
-      return false;
-    }
-  }
-
-  uiDispatchToStateHandler(g_app.uiState, in);
-
+bool handleMenuInput(InputState &in)
+{
+  const UIState oldState = g_app.uiState;
+  uiHandleInput(in);
   return (oldState != g_app.uiState);
 }
 
@@ -608,47 +482,6 @@ void resetSettingsNav(bool resetTopIndex) {
   factoryResetResetUiState();
 
   if (resetTopIndex) g_app.settingsIndex = 0;
-}
-
-// ==================================================================
-// INVENTORY
-// ==================================================================
-void handleInventoryInput(const InputState &input) {
-  if (input.menuOnce) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  int count = g_app.inventory.countItems();
-  if (count == 0) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  int move = input.encoderDelta;
-  if (input.upOnce) move = -1;
-  if (input.downOnce) move = 1;
-
-  if (move != 0) {
-    g_app.inventory.selectedIndex += move;
-    if (g_app.inventory.selectedIndex < 0) g_app.inventory.selectedIndex = count - 1;
-    if (g_app.inventory.selectedIndex >= count) g_app.inventory.selectedIndex = 0;
-
-    requestUIRedraw();
-    playBeep();
-    return;
-  }
-
-  if (input.selectOnce || input.encoderPressOnce) {
-    g_app.inventory.useSelectedItem();
-    saveManagerMarkDirty();
-    requestUIRedraw();
-    clearInputLatch();
-  }
 }
 
 // ==================================================================
