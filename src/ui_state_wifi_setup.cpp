@@ -17,7 +17,6 @@
 #include "wifi_setup_state.h"
 
 #include <cstring>
-#include <cstdint>
 
 // ----------------------------------------------------------------------------
 // Helpers
@@ -32,79 +31,32 @@ static void wifiSetupAppendChar(char c) {
   g_wifi.buf[curLen + 1] = '\0';
 }
 
-static void wifiSetupBackspace() {
+static bool wifiSetupBackspace() {
   const int curLen = (int)strlen(g_wifi.buf);
-  if (curLen <= 0) return;
+  if (curLen <= 0) return false;
   g_wifi.buf[curLen - 1] = '\0';
+  return true;
 }
 
-// ----------------------------------------------------------------------------
-// WiFi Setup (SSID/PASS entry) handler
-// ----------------------------------------------------------------------------
-
-void uiWifiSetupHandle(InputState &in) {
-  // ESC cancels and returns to the caller (boot wizard or settings)
-  if (in.escOnce || in.menuOnce) {
-    if (g_wifiSetupFromBootWizard) {
-      g_wifiSetupFromBootWizard = false;
-      g_app.uiState             = UIState::BOOT_WIFI_PROMPT;
-    } else {
-      g_app.uiState = UIState::SETTINGS;
-    }
-
-    requestUIRedraw();
-    inputSetTextCapture(false);
-    g_textCaptureMode = false;
-
-    uiDrainKb(in);
-    clearInputLatch();
-    playBeep();
-    return;
+static void wifiSetupCancel(InputState &in) {
+  if (g_wifiSetupFromBootWizard) {
+    g_wifiSetupFromBootWizard = false;
+    g_app.uiState             = UIState::BOOT_WIFI_PROMPT;
+  } else {
+    g_app.uiState = UIState::SETTINGS;
   }
 
-  bool changed      = false;
-  bool pressedEnter = false;
+  requestUIRedraw();
 
-  // Pull key events from the keyboard queue
-  while (in.kbHasEvent()) {
-    KeyEvent ev = in.kbPop();
-    const uint8_t kc = ev.code;
+  inputSetTextCapture(false);
+  g_textCaptureMode = false;
 
-    if (kc == 0) break;
+  uiDrainKb(in);
+  clearInputLatch();
+  playBeep();
+}
 
-    // Enter
-    if (kc == RH_KEY_ENTER || kc == '\n' || kc == '\r') {
-      pressedEnter = true;
-      continue;
-    }
-
-    // Backspace
-    if (kc == RH_KEY_BACKSPACE || kc == 0x08) {
-      const int before = (int)strlen(g_wifi.buf);
-      wifiSetupBackspace();
-      if ((int)strlen(g_wifi.buf) != before) changed = true;
-      continue;
-    }
-
-    // Printable ASCII
-    if (kc >= 32 && kc <= 126) {
-      const int before = (int)strlen(g_wifi.buf);
-      wifiSetupAppendChar((char)kc);
-      if ((int)strlen(g_wifi.buf) != before) changed = true;
-      continue;
-    }
-
-    // ignore everything else
-  }
-
-  if (changed) {
-    requestUIRedraw();
-  }
-
-  // Enter (or select/press) advances stages
-  const bool advance = pressedEnter || in.selectOnce || in.encoderPressOnce;
-  if (!advance) return;
-
+static void wifiSetupAdvanceOrFinish(InputState &in) {
   if (g_wifi.setupStage == 0) {
     // Save SSID
     strncpy(g_wifi.ssid, g_wifi.buf, sizeof(g_wifi.ssid) - 1);
@@ -140,6 +92,7 @@ void uiWifiSetupHandle(InputState &in) {
     }
 
     requestUIRedraw();
+
     inputSetTextCapture(false);
     g_textCaptureMode = false;
 
@@ -148,4 +101,77 @@ void uiWifiSetupHandle(InputState &in) {
     playBeep();
     return;
   }
+}
+
+// ----------------------------------------------------------------------------
+// WiFi Setup (SSID/PASS entry) handler
+// ----------------------------------------------------------------------------
+
+void uiWifiSetupHandle(InputState &in) {
+  bool changed      = false;
+  bool pressedEnter = false;
+  bool pressedEsc   = false;
+
+  // Read keyboard events directly. In text-capture mode, the *_Once shortcuts
+  // (menuOnce/selectOnce/escOnce) may be suppressed by input_cardputer.cpp,
+  // so we must handle Enter/Backspace/Esc via the KeyEvent queue.
+  while (in.kbHasEvent()) {
+    const KeyEvent ev = in.kbPop();
+    const uint8_t  kc = ev.code;
+
+    if (kc == 0) break;
+
+    // Treat ASCII ESC as cancel
+    if (kc == 27) {
+      pressedEsc = true;
+      continue;
+    }
+
+    // In your mapping, '`' / '~' normally acts like ESC when NOT in text capture.
+    // When text capture is enabled, it becomes a normal character, so we make it cancel here.
+    if (kc == '`' || kc == '~') {
+      pressedEsc = true;
+      continue;
+    }
+
+    // Enter variants
+    if (kc == '\n' || kc == '\r') {
+      pressedEnter = true;
+      continue;
+    }
+
+    // Backspace variants
+    if (kc == '\b' || kc == 127) {
+      if (wifiSetupBackspace()) changed = true;
+      continue;
+    }
+
+    // Printable ASCII
+    if (kc >= 32 && kc <= 126) {
+      const int before = (int)strlen(g_wifi.buf);
+      wifiSetupAppendChar((char)kc);
+      if ((int)strlen(g_wifi.buf) != before) changed = true;
+      continue;
+    }
+
+    // ignore everything else
+  }
+
+  // Also allow hardware/menu flags if they still come through.
+  if (in.escOnce || in.menuOnce) pressedEsc = true;
+
+  if (pressedEsc) {
+    wifiSetupCancel(in);
+    return;
+  }
+
+  if (changed) {
+    requestUIRedraw();
+  }
+
+  // Advance on Enter, or encoder press/select if available.
+  const bool advance = pressedEnter || in.selectOnce || in.encoderPressOnce;
+  if (!advance) return;
+
+  wifiSetupAdvanceOrFinish(in);
 }
