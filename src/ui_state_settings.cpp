@@ -47,6 +47,7 @@
 #include "ui_input_utils.h" // uiDrainKb (new shared helper)
 #include "ui_settings_pages.h"
 #include "ui_input_utils.h"
+#include "ui_settings_menu.h"
 
 void resetSettingsNav(bool resetTopIndex);
 
@@ -89,14 +90,29 @@ void uiSettingsHandle(InputState& input) {
     if (input.upOnce) move = -1;
     if (input.downOnce) move = 1;
   
+    // Data-driven pages first
+    if (UiSettingsMenu::Handle(input, move)) {
+      return;
+    }
+    
+    // Legacy pages (pickers + System hook page)
     switch (g_settingsFlow.settingsPage) {
-      case SettingsPage::TOP:        UiSettingsPages::Handle_TOP(input, move);        return;
-      case SettingsPage::SCREEN:     UiSettingsPages::Handle_SCREEN(input, move);     return;
-      case SettingsPage::SYSTEM:     UiSettingsPages::Handle_SYSTEM(input, move);     return;
-      case SettingsPage::WIFI:       UiSettingsPages::Handle_WIFI(input, move);       return;
-      case SettingsPage::GAME:       UiSettingsPages::Handle_GAME(input, move);       return;
-      case SettingsPage::AUTO_SCREEN:UiSettingsPages::Handle_AUTO_SCREEN(input, move);return;
-      case SettingsPage::DECAY_MODE: UiSettingsPages::Handle_DECAY_MODE(input, move); return;
+      case SettingsPage::SYSTEM:
+        UiSettingsPages::Handle_SYSTEM(input, move);
+        return;
+    
+      case SettingsPage::AUTO_SCREEN:
+        UiSettingsPages::Handle_AUTO_SCREEN(input, move);
+        return;
+    
+      case SettingsPage::DECAY_MODE:
+        UiSettingsPages::Handle_DECAY_MODE(input, move);
+        return;
+    
+      case SettingsPage::CREDITS:
+        // No input needed here; ESC/MENU handled at top of uiSettingsHandle()
+        return;
+    
       default:
         return;
     }

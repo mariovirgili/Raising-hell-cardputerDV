@@ -18,6 +18,8 @@
 
 #include <cstring>
 
+void ui_showMessage(const char* msg);
+
 // ----------------------------------------------------------------------------
 // Helpers
 // ----------------------------------------------------------------------------
@@ -46,6 +48,7 @@ static void wifiSetupCancel(InputState &in) {
     g_app.uiState = UIState::SETTINGS;
   }
 
+  ui_showMessage("Canceled");
   requestUIRedraw();
 
   inputSetTextCapture(false);
