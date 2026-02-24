@@ -1,7 +1,93 @@
 #include "ui_state_choose_pet.h"
-#include "menu_actions.h"
+
+#include <string.h>
+
+#include "app_state.h"
+#include "input.h"
+#include "name_entry_state.h"
+#include "new_pet_flow_state.h"
+#include "pet.h"
+#include "sound.h"
+#include "ui_new_pet_flow.h"
+#include "ui_runtime.h"
 
 void uiChoosePetHandle(InputState& in)
 {
-  handleChoosePetInput(in);
+  // Reliable Enter edge (press-level -> edge) for Cardputer:
+  // Sometimes selectOnce is missed depending on keyboard change detection.
+  g_app.newPetFlowActive = true;
+  static bool s_prevSelectHeld = false;
+
+  // ---------------------------------------------------------------------------
+  // Entry gate to prevent instant hatch
+  // ---------------------------------------------------------------------------
+  if (g_choosePetBlockHatchUntilRelease) {
+    if (!in.selectHeld) {
+      g_choosePetBlockHatchUntilRelease = false;
+    } else {
+      // swallow everything while held
+      while (in.kbHasEvent()) (void)in.kbPop();
+      in.clearEdges();
+      clearInputLatch();
+      return;
+    }
+  }
+
+  // Enter edge derived from held state (more reliable than selectOnce)
+  const bool enterEdge = (in.selectHeld && !s_prevSelectHeld);
+  s_prevSelectHeld = in.selectHeld;
+
+  int move = 0;
+  if (in.upOnce) move = -1;
+  if (in.downOnce) move = +1;
+  if (in.encoderDelta < 0) move = -1;
+  if (in.encoderDelta > 0) move = +1;
+
+  // This is your existing choice list ordering.
+  // Keep identical to legacy:
+  static const PetType kChoices[] = {
+    PET_DEVIL,
+    PET_ELDRITCH,
+    PET_ALIEN,
+    PET_KAIJU,
+    PET_ANUBIS,
+    PET_AXOLOTL,
+  };
+
+  const int choiceCount = (int)(sizeof(kChoices) / sizeof(kChoices[0]));
+
+  // Find current index from pending type
+  int curIdx = 0;
+  for (int i = 0; i < choiceCount; ++i) {
+    if (kChoices[i] == g_pendingPetType) { curIdx = i; break; }
+  }
+
+  if (move != 0) {
+    int nextIdx = curIdx + (move > 0 ? 1 : -1);
+    if (nextIdx < 0) nextIdx = choiceCount - 1;
+    if (nextIdx >= choiceCount) nextIdx = 0;
+
+    const PetType nextType = kChoices[nextIdx];
+    if (nextType != g_pendingPetType) {
+      g_pendingPetType = nextType;
+      pet.type = g_pendingPetType; // keep previews consistent
+      requestUIRedraw();
+      playBeep();
+    }
+    clearInputLatch();
+    return;
+  }
+
+  // Select to proceed to naming
+  if (enterEdge || in.selectOnce || in.encoderPressOnce) {
+    beginNamePetFlow();
+    while (in.kbHasEvent()) (void)in.kbPop();
+    inputForceClear();
+    clearInputLatch();
+    return;
+  }
+
+  // swallow typing
+  while (in.kbHasEvent()) (void)in.kbPop();
+  clearInputLatch();
 }

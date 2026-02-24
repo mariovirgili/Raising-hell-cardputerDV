@@ -48,8 +48,6 @@
 #include "ui_invalidate.h"
 #include "ui_input_router.h"
 
-static bool g_namePetJustOpened = false;
-
 // Shop helper (from shop_actions.cpp)
 void shopBuyItem();
 
@@ -94,8 +92,109 @@ static inline bool timeSyncedNow() {
   return (now > 1700000000); // ~late 2023
 }
 
-// NEW: pending pet type through the new-pet flow (egg -> name)
-static PetType g_pendingPetType = PET_DEVIL;
+void handleSleepScreenInput(InputState &input) {
+  // Suppress immediate wake after returning from power menu
+  if (powerMenuSleepWakeSuppressedNow()) {
+    drainKb(input);
+    input.clearEdges();
+    return;
+  }
+
+  // Wake detection: use selectHeld rising edge (robust even if isChange() misses)
+  static bool s_prevSelectHeld = false;
+  const bool enterEdge         = (input.selectHeld && !s_prevSelectHeld);
+  s_prevSelectHeld             = input.selectHeld;
+
+  if (enterEdge || input.encoderPressOnce || input.selectOnce) {
+    pet.isSleeping        = false;
+    g_app.isSleeping      = false;
+    g_app.sleepingByTimer = false;
+
+    saveManagerMarkDirty();
+
+    g_app.uiState    = UIState::PET_SCREEN;
+    g_app.currentTab = Tab::TAB_PET;
+    requestUIRedraw();
+
+    g_app.sleepUntilRested   = false;
+    g_app.sleepUntilAwakened = false;
+    g_app.sleepTargetEnergy  = 0;
+
+    swallowTypingAndEdges(input);
+    return;
+  }
+
+  if (input.escOnce) {
+    resetSettingsNav(true);
+    g_settingsFlow.settingsPage = SettingsPage::TOP;
+    g_app.uiState               = UIState::SETTINGS;
+    requestUIRedraw();
+
+    drainKb(input);
+    inputForceClear();
+
+    input.escOnce  = false;
+    input.menuOnce = false;
+    return;
+  }
+
+  // Otherwise swallow
+  drainKb(input);
+  input.clearEdges();
+}
+
+void handleDeathInput(InputState &in) {
+  int move = 0;
+  if (in.upOnce) move = -1;
+  if (in.downOnce) move = +1;
+  if (in.encoderDelta < 0) move = -1;
+  if (in.encoderDelta > 0) move = +1;
+
+  if (move != 0) {
+    deathMenuIndex += (move > 0) ? 1 : -1;
+    if (deathMenuIndex < 0) deathMenuIndex = 1;
+    if (deathMenuIndex > 1) deathMenuIndex = 0;
+
+    requestUIRedraw();
+    playBeep();
+    clearInputLatch();
+    return;
+  }
+
+  if (!(in.selectOnce || in.encoderPressOnce)) return;
+
+  clearInputLatch();
+  inputForceClear();
+
+  if (deathMenuIndex == 0) {
+    g_app.inMiniGame = true;
+    g_app.gameOver   = false;
+    g_app.uiState    = UIState::MINI_GAME;
+    requestUIRedraw();
+
+    invalidateBackgroundCache();
+
+    startResurrectionRun();
+    currentMiniGame = MiniGame::RESURRECTION;
+
+    inputForceClear();
+    clearInputLatch();
+    return;
+
+  } else {
+    soundResetDeathDirgeLatch();
+    soundFuneralDirge();
+
+    g_app.uiState = UIState::BURIAL_SCREEN;
+    requestUIRedraw();
+
+    invalidateBackgroundCache();
+
+    inputForceClear();
+    clearInputLatch();
+    return;
+  }
+}
 
 // ==================================================================
 // TIME ZONE: cycle/apply/persist immediately
@@ -387,60 +486,6 @@ bool handleMenuInput(InputState &in)
 }
 
 // ==================================================================
-// SLEEP SCREEN ACTIVE
-// ==================================================================
-void handleSleepScreenInput(InputState &input) {
-  // Suppress immediate wake after returning from power menu
-  if (powerMenuSleepWakeSuppressedNow()) {
-  drainKb(input);
-    input.clearEdges();
-    return;
-  }
-
-  // Wake detection: use selectHeld rising edge (robust even if isChange() misses)
-  static bool s_prevSelectHeld = false;
-  const bool enterEdge         = (input.selectHeld && !s_prevSelectHeld);
-  s_prevSelectHeld             = input.selectHeld;
-
-  if (enterEdge || input.encoderPressOnce || input.selectOnce) {
-    pet.isSleeping  = false;
-    g_app.isSleeping      = false;
-    g_app.sleepingByTimer = false;
-
-    saveManagerMarkDirty();
-
-    g_app.uiState    = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
-    requestUIRedraw();
-
-    g_app.sleepUntilRested   = false;
-    g_app.sleepUntilAwakened = false;
-    g_app.sleepTargetEnergy  = 0;
-
-    swallowTypingAndEdges(input);
-    return;
-  }
-
-  if (input.escOnce) {
-    resetSettingsNav(true);
-    g_settingsFlow.settingsPage = SettingsPage::TOP;
-    g_app.uiState               = UIState::SETTINGS;
-    requestUIRedraw();
-
-    drainKb(input);
-    inputForceClear();
-
-    input.escOnce  = false;
-    input.menuOnce = false;
-    return;
-  }
-
-  // Otherwise swallow
-  drainKb(input);
-  input.clearEdges();
-}
-
-// ==================================================================
 // FEED ACTION (legacy helper; kept)
 // ==================================================================
 static void useFoodAction() {
@@ -620,62 +665,6 @@ void onResurrectionMiniGameResult(bool success) {
   clearInputLatch();
 }
 
-// ==================================================================
-// DEATH INPUT
-// ==================================================================
-void handleDeathInput(InputState &in) {
-  int move = 0;
-  if (in.upOnce) move = -1;
-  if (in.downOnce) move = +1;
-  if (in.encoderDelta < 0) move = -1;
-  if (in.encoderDelta > 0) move = +1;
-
-  if (move != 0) {
-    deathMenuIndex += (move > 0) ? 1 : -1;
-    if (deathMenuIndex < 0) deathMenuIndex = 1;
-    if (deathMenuIndex > 1) deathMenuIndex = 0;
-
-    requestUIRedraw();
-    playBeep();
-    clearInputLatch();
-    return;
-  }
-
-  if (!(in.selectOnce || in.encoderPressOnce)) return;
-
-  clearInputLatch();
-  inputForceClear();
-
-  if (deathMenuIndex == 0) {
-    g_app.inMiniGame = true;
-    g_app.gameOver   = false;
-    g_app.uiState    = UIState::MINI_GAME;
-    requestUIRedraw();
-
-    invalidateBackgroundCache();
-
-    startResurrectionRun();
-    currentMiniGame = MiniGame::RESURRECTION;
-
-    inputForceClear();
-    clearInputLatch();
-    return;
-
-  } else {
-    soundResetDeathDirgeLatch();
-    soundFuneralDirge();
-
-    g_app.uiState = UIState::BURIAL_SCREEN;
-    requestUIRedraw();
-
-    invalidateBackgroundCache();
-
-    inputForceClear();
-    clearInputLatch();
-    return;
-  }
-}
-
 void settingsToggleLedAlerts() {
   ledAlertsEnabled = !ledAlertsEnabled;
 
@@ -694,28 +683,4 @@ void settingsToggleLedAlerts() {
   requestUIRedraw();
   playBeep();
   clearInputLatch();
-}
-
-void handleBurialInput(InputState &in) {
-  if (!(in.selectOnce || in.encoderPressOnce)) {
-    drainKb(in);
-    clearInputLatch();
-    return;
-  }
-
-  // Show the toast and FORCE a render pass so it actually appears before reboot.
-  ui_showMessage("Rest in peace...");
-  forceRenderUIOnce();
-
-  // Let the player actually see it (ui_showMessage toast duration is ~900ms).
-  delay(950);
-
-  soundResetDeathDirgeLatch();
-
-  saveManagerDeletePetOnly();
-
-  // Small settle delay for SD removes (optional but harmless)
-  delay(50);
-
-  ESP.restart();
 }
