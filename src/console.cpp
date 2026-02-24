@@ -956,6 +956,9 @@ void consoleUpdate(InputState &in)
         g_buf[g_len] = '\0';
         histCancelNav();
         touched = true;
+        if (touched) {
+          requestUIRedraw();
+        }
       }
     }
   }
