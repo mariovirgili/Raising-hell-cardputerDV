@@ -38,8 +38,7 @@ bool uiDispatchToStateHandler(UIState state, InputState& in) {
     case UIState::INVENTORY:         handleInventoryInput(in);      return true;
     case UIState::SHOP:              handleShopInput(in);           return true;
     case UIState::SLEEP_MENU:        handleSleepMenuInput(in);      return true;
-    case UIState::SETTINGS:          handleSettingsInput(in);       return true;
-    case UIState::MINI_GAME:         handleMiniGameInput(in);       return true;
+    case UIState::SETTINGS:          uiSettingsHandle(in);          return true;    case UIState::MINI_GAME:         handleMiniGameInput(in);       return true;
     case UIState::SET_TIME:          handleTimeSetInput(in);        return true;
     case UIState::POWER_MENU:        handlePowerMenuInput(in);      return true;
     case UIState::CONSOLE:           handleConsoleInput(in);        return true;

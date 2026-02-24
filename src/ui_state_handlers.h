@@ -1,7 +1,7 @@
-// ui_state_handlers.h
 #pragma once
 
 #include "ui_defs.h"
+#include "ui_state_settings.h"
 
 struct InputState;
 
