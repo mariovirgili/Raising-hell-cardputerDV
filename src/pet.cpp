@@ -214,13 +214,13 @@ void Pet::petSleepTick()
 {
   // Pre-birth: never allow sleep flags or sleep tick to run.
   if (isPreBirthUiState(g_app.uiState)) {
-    if (isSleeping || ::isSleeping || sleepingByTimer || sleepUntilRested || sleepUntilAwakened) {
-      isSleeping = false;
-      ::isSleeping = false;
-      sleepingByTimer = false;
-      sleepUntilRested = false;
-      sleepUntilAwakened = false;
-      sleepTargetEnergy = 0;
+    if (g_app.isSleeping || g_app.isSleeping || g_app.sleepingByTimer || g_app.sleepUntilRested || g_app.sleepUntilAwakened) {
+      g_app.isSleeping = false;
+      g_app.isSleeping = false;
+      g_app.sleepingByTimer = false;
+      g_app.sleepUntilRested = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepTargetEnergy = 0;
 
       saveManagerMarkDirty();
       requestUIRedraw();
@@ -237,13 +237,13 @@ void Pet::petSleepTick()
       isSettingsState(ui);
 
   if (!allowSleepUi) {
-    if (isSleeping || ::isSleeping || sleepingByTimer || sleepUntilRested || sleepUntilAwakened) {
-      isSleeping = false;
-      ::isSleeping = false;
-      sleepingByTimer = false;
-      sleepUntilRested = false;
-      sleepUntilAwakened = false;
-      sleepTargetEnergy = 0;
+    if (g_app.isSleeping || g_app.isSleeping || g_app.sleepingByTimer || g_app.sleepUntilRested || g_app.sleepUntilAwakened) {
+      g_app.isSleeping = false;
+      g_app.isSleeping = false;
+      g_app.sleepingByTimer = false;
+      g_app.sleepUntilRested = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepTargetEnergy = 0;
 
       saveManagerMarkDirty();
       requestUIRedraw();
@@ -251,7 +251,7 @@ void Pet::petSleepTick()
     return;
   }
 
-  if (!isSleeping) return;
+  if (!g_app.isSleeping) return;
 
   static uint32_t lastSleepUpdate = 0;
   static uint32_t sleepAccMs = 0;
@@ -352,16 +352,16 @@ void Pet::petSleepTick()
     }
 
     // "Until rested" ends at full energy
-    if (sleepUntilRested && energy >= 100) {
+    if (g_app.sleepUntilRested && energy >= 100) {
       energy = 100;
 
-      isSleeping = false;
-      ::isSleeping = false;
-      sleepingByTimer = false;
+      g_app.isSleeping = false;
+      g_app.isSleeping = false;
+      g_app.sleepingByTimer = false;
 
-      sleepUntilRested = false;
-      sleepUntilAwakened = false;
-      sleepTargetEnergy = 0;
+      g_app.sleepUntilRested = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepTargetEnergy = 0;
 
       saveManagerMarkDirty();
       requestUIRedraw();
@@ -374,17 +374,17 @@ void Pet::petSleepTick()
     }
 
     // Timer-based sleep ends when time is up
-    if (sleepingByTimer) {
-      if (sleepDurationMs > 0) {
-        uint32_t elapsed = now - sleepStartTime;
-        if (elapsed >= sleepDurationMs) {
-          isSleeping = false;
-          ::isSleeping = false;
-          sleepingByTimer = false;
+    if (g_app.sleepingByTimer) {
+      if (g_app.sleepDurationMs > 0) {
+        uint32_t elapsed = now - g_app.sleepStartTime;
+        if (elapsed >= g_app.sleepDurationMs) {
+          g_app.isSleeping = false;
+          g_app.isSleeping = false;
+          g_app.sleepingByTimer = false;
 
-          sleepUntilRested = false;
-          sleepUntilAwakened = false;
-          sleepTargetEnergy = 0;
+          g_app.sleepUntilRested = false;
+          g_app.sleepUntilAwakened = false;
+          g_app.sleepTargetEnergy = 0;
 
           saveManagerMarkDirty();
           requestUIRedraw();
@@ -468,13 +468,13 @@ void Pet::update() {
     s_hpAccMs     = 0;
     s_regenAccMs  = 0;
 
-    if (this->isSleeping || ::isSleeping || sleepingByTimer || sleepUntilRested || sleepUntilAwakened) {
+    if (this->isSleeping || g_app.isSleeping || g_app.sleepingByTimer || g_app.sleepUntilRested || g_app.sleepUntilAwakened) {
       this->isSleeping = false;
-      ::isSleeping = false;
-      ::sleepingByTimer = false;
-      sleepUntilRested = false;
-      sleepUntilAwakened = false;
-      sleepTargetEnergy = 0;
+      g_app.isSleeping = false;
+      g_app.sleepingByTimer = false;
+      g_app.sleepUntilRested = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepTargetEnergy = 0;
     }
 
     return;
@@ -486,10 +486,10 @@ void Pet::update() {
   // -------------------------------------------------
   const bool sleepingNow =
     this->isSleeping ||
-    ::isSleeping ||
-    sleepingByTimer ||
-    sleepUntilRested ||
-    sleepUntilAwakened;
+    g_app.isSleeping ||
+    g_app.sleepingByTimer ||
+    g_app.sleepUntilRested ||
+    g_app.sleepUntilAwakened;
 
   const bool allowSleepUi =
     (ui == UIState::PET_SLEEPING) ||
@@ -498,10 +498,10 @@ void Pet::update() {
 
   if (sleepingNow && !allowSleepUi) {
     this->isSleeping = false;
-    ::isSleeping = false;
-    ::sleepingByTimer = false;
-    sleepUntilRested = false;
-    sleepUntilAwakened = false;
+    g_app.isSleeping = false;
+    g_app.sleepingByTimer = false;
+    g_app.sleepUntilRested = false;
+    g_app.sleepUntilAwakened = false;
   }
 
   // -------------------------------------------------

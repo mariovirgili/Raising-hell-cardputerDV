@@ -18,7 +18,7 @@
 #include "ui_invalidate.h"
 
 #include "settings_state.h"
-#include "settings_toggles_state.h"   // wifiEnabled, autoScreenOffEnabled
+#include "settings_toggles_state.h"   // wifiEnabled, g_app.autoScreenOffEnabled
 #include "display_state.h"
 #include "time_state.h"
 #include "brightness_state.h"
@@ -297,13 +297,13 @@ static void migrateV2ToRuntime(const SavePayloadV2& p2) {
 
   // Always reboot awake
   pet.isSleeping        = false;
-  isSleeping            = false;
-  sleepingByTimer       = false;
-  sleepUntilRested      = false;
-  sleepUntilAwakened    = false;
-  sleepTargetEnergy     = 0;
-  sleepStartTime        = 0;
-  sleepDurationMs       = 0;
+  g_app.isSleeping            = false;
+  g_app.sleepingByTimer       = false;
+  g_app.sleepUntilRested      = false;
+  g_app.sleepUntilAwakened    = false;
+  g_app.sleepTargetEnergy     = 0;
+  g_app.sleepStartTime        = 0;
+  g_app.sleepDurationMs       = 0;
 
   if (g_app.uiState == UIState::PET_SLEEPING) {
     g_app.uiState    = UIState::PET_SCREEN;
@@ -343,13 +343,13 @@ static void unpack(const SavePayload &p) {
 
   // Always come up awake
   pet.isSleeping      = false;
-  isSleeping          = false;
-  sleepingByTimer     = false;
-  sleepUntilRested    = false;
-  sleepUntilAwakened  = false;
-  sleepTargetEnergy   = 0;
-  sleepStartTime      = 0;
-  sleepDurationMs     = 0;
+  g_app.isSleeping          = false;
+  g_app.sleepingByTimer     = false;
+  g_app.sleepUntilRested    = false;
+  g_app.sleepUntilAwakened  = false;
+  g_app.sleepTargetEnergy   = 0;
+  g_app.sleepStartTime      = 0;
+  g_app.sleepDurationMs     = 0;
 
   uint32_t be = p.birth_epoch;
   if (be == 0) be = getNowEpochOrZero();
@@ -522,7 +522,7 @@ static bool loadSettingsFromSD_internal(bool* outLoadedOld) {
   soundEnabled         = (g_settings.soundEnabled != 0);
 
   autoScreenTimeoutSel = g_settings.autoScreenTimeoutSel;
-  autoScreenOffEnabled = (autoScreenTimeoutSel != 0);
+  g_app.autoScreenOffEnabled = (autoScreenTimeoutSel != 0);
 
   petDeathEnabled      = (g_settings.petDeathEnabled != 0);
   ledAlertsEnabled     = (g_settings.ledAlertsEnabled != 0);
@@ -546,7 +546,7 @@ static void saveSettingsToSD_internal() {
   if (!ensureSaveDir()) return;
 
   g_settings.brightnessLevel      = brightnessLevel;
-  g_settings.autoScreenOffEnabled = autoScreenOffEnabled;
+  g_settings.autoScreenOffEnabled = g_app.autoScreenOffEnabled;
   g_settings.soundEnabled         = soundEnabled;
   g_settings.wifiEnabled          = wifiIsEnabled() ? 1 : 0;
   g_settings.tzIndex              = tzIndex;

@@ -277,10 +277,10 @@ void ledUpdatePetStatus(LedPetMode mode) {
 
 bool isPetSleepingNow() {
   return pet.isSleeping ||
-         isSleeping ||
-         sleepingByTimer ||
-         sleepUntilRested ||
-         sleepUntilAwakened ||
+         g_app.isSleeping ||
+         g_app.sleepingByTimer ||
+         g_app.sleepUntilRested ||
+         g_app.sleepUntilAwakened ||
          (g_app.uiState == UIState::PET_SLEEPING);
 }
 

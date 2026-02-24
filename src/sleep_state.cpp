@@ -7,19 +7,6 @@
 #include "auto_screen.h"
 #include "brightness_state.h"
 
-// Sleep globals
-bool isSleeping = false;
-bool sleepingByTimer = false;
-
-// Sleep modes
-bool sleepUntilRested = false;
-bool sleepUntilAwakened = false;
-
-// Sleep session details
-uint8_t  sleepTargetEnergy = 0;
-uint32_t sleepStartTime = 0;
-uint32_t sleepDurationMs = 0;
-
 void sleepMiniStatsHeartbeat(uint32_t now) {
 if (g_app.uiState != UIState::PET_SLEEPING) return;
 

@@ -589,8 +589,8 @@ static void handleSleepScreenInput(InputState &input) {
 
   if (enterEdge || input.encoderPressOnce || input.selectOnce) {
     pet.isSleeping  = false;
-    isSleeping      = false;
-    sleepingByTimer = false;
+    g_app.isSleeping      = false;
+    g_app.sleepingByTimer = false;
 
     saveManagerMarkDirty();
 
@@ -598,9 +598,9 @@ static void handleSleepScreenInput(InputState &input) {
     g_app.currentTab = Tab::TAB_PET;
     requestUIRedraw();
 
-    sleepUntilRested   = false;
-    sleepUntilAwakened = false;
-    sleepTargetEnergy  = 0;
+    g_app.sleepUntilRested   = false;
+    g_app.sleepUntilAwakened = false;
+    g_app.sleepTargetEnergy  = 0;
 
     swallowTypingAndEdges(input);
     return;
@@ -1295,7 +1295,7 @@ void handleSleepMenuInput(const InputState &input) {
 
   auto enterSleep = [&]() {
     pet.isSleeping    = true;
-    isSleeping        = true;
+    g_app.isSleeping        = true;
     g_app.uiState     = UIState::PET_SLEEPING;
     g_app.currentTab  = Tab::TAB_PET;
     requestUIRedraw();
@@ -1307,7 +1307,7 @@ void handleSleepMenuInput(const InputState &input) {
     inputForceClear();
     clearInputLatch();
 
-    sleepTargetEnergy = 0;
+    g_app.sleepTargetEnergy = 0;
     invalidateBackgroundCache();
     saveManagerMarkDirty();
 
@@ -1316,34 +1316,34 @@ void handleSleepMenuInput(const InputState &input) {
 
   switch (sleepMenuIndex) {
     case 0: // Until Awakened
-      sleepUntilRested   = false;
-      sleepUntilAwakened = true;
-      sleepStartTime     = millis();
-      sleepDurationMs    = 0;
+      g_app.sleepUntilRested   = false;
+      g_app.sleepUntilAwakened = true;
+      g_app.sleepStartTime     = millis();
+      g_app.sleepDurationMs    = 0;
       enterSleep();
       break;
 
     case 1: // Until Rested
-      sleepUntilRested   = true;
-      sleepUntilAwakened = false;
-      sleepStartTime     = millis();
-      sleepDurationMs    = 0;
+      g_app.sleepUntilRested   = true;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepStartTime     = millis();
+      g_app.sleepDurationMs    = 0;
       enterSleep();
       break;
 
     case 2: // 4 hours
-      sleepUntilRested   = false;
-      sleepUntilAwakened = false;
-      sleepStartTime     = millis();
-      sleepDurationMs    = 4UL * 60UL * 60UL * 1000UL;
+      g_app.sleepUntilRested   = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepStartTime     = millis();
+      g_app.sleepDurationMs    = 4UL * 60UL * 60UL * 1000UL;
       enterSleep();
       break;
 
     case 3: // 8 hours
-      sleepUntilRested   = false;
-      sleepUntilAwakened = false;
-      sleepStartTime     = millis();
-      sleepDurationMs    = 8UL * 60UL * 60UL * 1000UL;
+      g_app.sleepUntilRested   = false;
+      g_app.sleepUntilAwakened = false;
+      g_app.sleepStartTime     = millis();
+      g_app.sleepDurationMs    = 8UL * 60UL * 60UL * 1000UL;
       enterSleep();
       break;
   }

@@ -15,8 +15,6 @@ struct AppState {
   bool     uiNeedsRedraw = true;
   PetFlowState flow;
   Inventory inventory;
-  bool gameOver          = false;
-  bool newPetFlowActive  = false;
   
   // Primary UI routing
   UIState  uiState = UIState::BOOT;
@@ -44,6 +42,23 @@ struct AppState {
   int playIndex           = 0;
   int autoScreenIndex     = 0;
   int decayModeIndex      = 0;
+
+  // Runtime flags
+  bool gameOver         = false;
+  bool newPetFlowActive = false;
+
+  // Sleep state
+  bool     isSleeping         = false;
+  bool     sleepingByTimer    = false;
+  bool     sleepUntilRested   = false;
+  bool     sleepUntilAwakened = false;
+  uint8_t  sleepTargetEnergy  = 0;
+  uint32_t sleepStartTime     = 0;
+  uint32_t sleepDurationMs    = 0;
+
+  // Settings toggles
+  bool wifiEnabled          = false;
+  bool autoScreenOffEnabled = true;
 };
 
 extern AppState g_app;
