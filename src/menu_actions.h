@@ -39,9 +39,5 @@ void doFactoryResetNow();
 void feedUseSelected();
 
 // Legacy transitional handlers (still implemented in menu_actions.cpp)
-void handleNamePetInput(InputState &in);
-void handleSleepScreenInput(InputState &input);
-void handleDeathInput(InputState &input);
 void handleBurialInput(InputState &in);
-
 void menuActionsSuppressMenuForMs(uint32_t ms);

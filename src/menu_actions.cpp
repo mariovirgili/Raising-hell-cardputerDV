@@ -92,57 +92,6 @@ static inline bool timeSyncedNow() {
   return (now > 1700000000); // ~late 2023
 }
 
-void handleSleepScreenInput(InputState &input) {
-  // Suppress immediate wake after returning from power menu
-  if (powerMenuSleepWakeSuppressedNow()) {
-    drainKb(input);
-    input.clearEdges();
-    return;
-  }
-
-  // Wake detection: use selectHeld rising edge (robust even if isChange() misses)
-  static bool s_prevSelectHeld = false;
-  const bool enterEdge         = (input.selectHeld && !s_prevSelectHeld);
-  s_prevSelectHeld             = input.selectHeld;
-
-  if (enterEdge || input.encoderPressOnce || input.selectOnce) {
-    pet.isSleeping        = false;
-    g_app.isSleeping      = false;
-    g_app.sleepingByTimer = false;
-
-    saveManagerMarkDirty();
-
-    g_app.uiState    = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
-    requestUIRedraw();
-
-    g_app.sleepUntilRested   = false;
-    g_app.sleepUntilAwakened = false;
-    g_app.sleepTargetEnergy  = 0;
-
-    swallowTypingAndEdges(input);
-    return;
-  }
-
-  if (input.escOnce) {
-    resetSettingsNav(true);
-    g_settingsFlow.settingsPage = SettingsPage::TOP;
-    g_app.uiState               = UIState::SETTINGS;
-    requestUIRedraw();
-
-    drainKb(input);
-    inputForceClear();
-
-    input.escOnce  = false;
-    input.menuOnce = false;
-    return;
-  }
-
-  // Otherwise swallow
-  drainKb(input);
-  input.clearEdges();
-}
-
 void handleDeathInput(InputState &in) {
   int move = 0;
   if (in.upOnce) move = -1;
