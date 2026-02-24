@@ -218,7 +218,10 @@ void clearInputLatch() {
   // fresh "Enter press" next tick -> selectOnce -> wakes pet on PET_SLEEPING.
   auto st = M5Cardputer.Keyboard.keysState();
 
-  s_settingsKeyLatched = false;     // ok to reset; it's edge-only for ` / ~
+  // Preserve held state so clearing latches while ESC key is held
+  // doesn't synthesize a fresh escOnce next tick.
+  const bool escHeld = kbHeldChar('`') || kbHeldChar('~');
+  s_settingsKeyLatched = escHeld;
   s_enterLatched       = st.enter;  // preserve held state
   s_delLatched         = st.del;    // preserve held state
 
@@ -476,8 +479,27 @@ static void readKeyboard(InputState& out) {
     out.selectHeld = st.enter;
   }
 
-  // If nothing changed, don't generate edges / queue events this tick.
-  if (!changed) return;
+  // -------------------------------------------------------
+  // Map keyboard ENTER to a UI "selectOnce" edge (like G)
+  // Many UI handlers (SET_TIME, BOOT_WIFI_PROMPT, etc.) rely on selectOnce.
+  // -------------------------------------------------------
+  if (!g_textCaptureMode && !inMiniGameUi) {
+    static bool s_enterLatched = false;
+
+    if (st.enter) {
+      if (!s_enterLatched) {
+        out.selectOnce = true;
+      }
+      s_enterLatched = true;
+    } else {
+      s_enterLatched = false;
+    }
+  }
+
+  // If nothing changed AND no keys are held, we can skip work.
+  // NOTE: Some keys (ENTER, FN-layer punctuation arrows) don't always trigger isChange(),
+  // so we must still run when any key is held.
+  if (!changed && out.kbHeldCount == 0) return;
 
   out.kbChanged = true;
 
@@ -562,10 +584,14 @@ static void readKeyboard(InputState& out) {
   // Release edge latches when idle
   if (out.kbHeldCount == 0) {
     s_qLatched = false;
-    s_settingsKeyLatched = false;
     s_cLatched = false;
     s_gLatched = false;
     s_spaceLatched = false;
+
+    // Allow Enter/Backspace word-stream edges (0x28/0x2A) to fire again
+    // even when the keyboard library doesn't set st.enter/st.del.
+    s_enterLatched = false;
+    s_delLatched   = false;
   }
 
   // Track whether keys are present in st.word this tick (for latch release)
@@ -652,105 +678,126 @@ if (!mgSelectHeld) s_mgSelectLatched = false;
   }
 
   // --------------------------------------------------------------------------
-  // NOT in mini-game: restore the legacy UI mappings from st.word.
-  // This drives tab hotkeys and menu navigation.
-  //
-  // IMPORTANT:
-  //  - Do NOT rely on st.word for punctuation arrows (; . , /). Those are now
-  //    handled via held-state (kbHeldUpArrow/Down/Left/Right) so they're reliable.
-  //  - st.word remains the source for letter hotkeys (tabs, Q, \, G, I, etc.)
+  // Word stream (printable keys + some HID usage IDs) should only be processed
+  // when the keyboard reports a change. Otherwise some firmwares will repeat
+  // the previous word contents across ticks, causing "eeeeeeee" for one press.
   // --------------------------------------------------------------------------
-  for (auto c : st.word) {
-    if (!c) continue;
+  if (changed) {
+    for (auto c : st.word) {
+      if (!c) continue;
 
-    // Some cores put HID usage IDs into st.word for special keys.
-    if ((uint8_t)c == 0x28) { out.kbPush((uint8_t)'\n'); continue; }  // Enter
-    if ((uint8_t)c == 0x2A) { out.kbPush((uint8_t)'\b'); continue; }  // Backspace
-
-    // ` or ~ already handled via heldTilde (but keep sawSettingsKeyThisTick for safety)
-    if (c == '`' || c == '~') {
-      sawSettingsKeyThisTick = true;
-      continue;
-    }
-
-    const char lc = (char)tolower((unsigned char)c);
-
-    // UI nav mapping only when NOT in text capture mode
-    if (!g_textCaptureMode) {
-      // Q -> menu edge
-      if (lc == 'q') {
-        if (!s_qLatched && acceptNav(s_navMenuMs)) out.menuOnce = true;
-        s_qLatched = true;
+      // Some cores put HID usage IDs into st.word for special keys.
+      // IMPORTANT: In this build, Enter/Backspace may NOT set st.enter/st.del,
+      // so we must translate them into UI edges here (when not text-capturing).
+      if ((uint8_t)c == 0x28) { // Enter
+        if (g_textCaptureMode) {
+          out.kbPush((uint8_t)'\n');
+        } else {
+          // UI select edge (one-shot)
+          if (!s_enterLatched && acceptNav(s_navSelMs)) out.selectOnce = true;
+          s_enterLatched = true;
+        }
+        continue;
+      }
+      
+      if ((uint8_t)c == 0x2A) { // Backspace
+        if (g_textCaptureMode) {
+          out.kbPush((uint8_t)'\b');
+        } else {
+          // Treat backspace as MENU/BACK in UI (one-shot)
+          if (!s_delLatched && acceptNav(s_navMenuMs)) out.menuOnce = true;
+          s_delLatched = true;
+        }
+        continue;
+      }
+      
+      // ` or ~ already handled via heldTilde (but keep sawSettingsKeyThisTick for safety)
+      if (c == '`' || c == '~') {
+        sawSettingsKeyThisTick = true;
         continue;
       }
 
-      // '\' -> open console (edge-triggered; NOT in mini-games handled above)
+      const char lc = (char)tolower((unsigned char)c);
+
+      // Backslash always suppressed from kb queue (console toggle key)
       if (c == '\\') {
-        if (!s_cLatched && acceptNav(s_navConMs)) {
-          out.consoleOnce = true;
-          s_cLatched = true;
+        if (!g_textCaptureMode) {
+          if (!s_cLatched && acceptNav(s_navConMs)) {
+            out.consoleOnce = true;
+            s_cLatched = true;
+          }
         }
-        continue; // do NOT push into kb queue
+        continue; // NEVER push \ into kb queue regardless of text capture mode
       }
 
-      // G -> selectOnce (Enter equivalent), UI mode only
-      if (lc == 'g') {
-        if (!s_gLatched && acceptNav(s_navSelMs)) {
-          out.selectOnce = true;
-          s_gLatched = true;
+      // UI nav mapping only when NOT in text capture mode
+      if (!g_textCaptureMode) {
+        // Q -> menu edge
+        if (lc == 'q') {
+          if (!s_qLatched && acceptNav(s_navMenuMs)) out.menuOnce = true;
+          s_qLatched = true;
+          continue;
         }
-        continue; // do NOT push into kb queue
+
+        // G -> selectOnce (Enter equivalent), UI mode only
+        if (lc == 'g') {
+          if (!s_gLatched && acceptNav(s_navSelMs)) {
+            out.selectOnce = true;
+            s_gLatched = true;
+          }
+          continue; // do NOT push into kb queue
+        }
+
+        // I -> Controls help overlay hotkey (UI mode only)
+        if (lc == 'i') {
+          out.controlsOnce = true;
+          continue; // do NOT push into kb queue
+        }
+
+        // Bottom row -> direct tab jumps (do NOT push into kb queue)
+        // z pet, x stats, c feed, v play, b sleep, n inventory, m shop
+        switch (lc) {
+          case 'z': out.tabJump = 0; continue; // Tab::TAB_PET
+          case 'x': out.tabJump = 1; continue; // Tab::TAB_STATS
+          case 'c': out.tabJump = 2; continue; // Tab::TAB_FEED
+          case 'v': out.tabJump = 3; continue; // Tab::TAB_PLAY
+          case 'b': out.tabJump = 4; continue; // Tab::TAB_SLEEP
+          case 'n': out.tabJump = 5; continue; // Tab::TAB_INV
+          case 'm': out.tabJump = 6; continue; // Tab::TAB_SHOP
+          default: break;
+        }
+
+        // Existing nav cluster (latched + cooldown)
+        // NOTE: punctuation arrows (; . , /) are handled via held-state elsewhere.
+        if (lc == 'e' || lc == 'w' || lc == 'o') {
+          sawUpThisTick = true;
+          if (!s_navUpLatched && acceptNav(s_navUpMs)) out.upOnce = true;
+          s_navUpLatched = true;
+          continue;
+        }
+        if (lc == 'a' || lc == 'j') {
+          sawLeftThisTick = true;
+          if (!s_navLeftLatched && acceptNav(s_navLeftMs)) out.leftOnce = true;
+          s_navLeftLatched = true;
+          continue;
+        }
+        if (lc == 's' || lc == 'k') {
+          sawDownThisTick = true;
+          if (!s_navDownLatched && acceptNav(s_navDownMs)) out.downOnce = true;
+          s_navDownLatched = true;
+          continue;
+        }
+        if (lc == 'd' || lc == 'l') {
+          sawRightThisTick = true;
+          if (!s_navRightLatched && acceptNav(s_navRightMs)) out.rightOnce = true;
+          s_navRightLatched = true;
+          continue;
+        }
       }
 
-      // I -> Controls help overlay hotkey (UI mode only)
-      if (lc == 'i') {
-        out.controlsOnce = true;
-        continue; // do NOT push into kb queue
-      }
-
-      // Bottom row -> direct tab jumps (do NOT push into kb queue)
-      // z pet, x stats, c feed, v play, b sleep, n inventory, m shop
-      switch (lc) {
-        case 'z': out.tabJump = 0; continue; // Tab::TAB_PET
-        case 'x': out.tabJump = 1; continue; // Tab::TAB_STATS
-        case 'c': out.tabJump = 2; continue; // Tab::TAB_FEED
-        case 'v': out.tabJump = 3; continue; // Tab::TAB_PLAY
-        case 'b': out.tabJump = 4; continue; // Tab::TAB_SLEEP
-        case 'n': out.tabJump = 5; continue; // Tab::TAB_INV
-        case 'm': out.tabJump = 6; continue; // Tab::TAB_SHOP
-        default: break;
-      }
-
-      // Existing nav cluster (latched + cooldown)
-      // NOTE: punctuation arrows (; . , /) are handled via held-state elsewhere.
-      if (lc == 'e' || lc == 'w' || lc == 'o') {
-        sawUpThisTick = true;
-        if (!s_navUpLatched && acceptNav(s_navUpMs)) out.upOnce = true;
-        s_navUpLatched = true;
-        continue;
-      }
-      if (lc == 'a' || lc == 'j') {
-        sawLeftThisTick = true;
-        if (!s_navLeftLatched && acceptNav(s_navLeftMs)) out.leftOnce = true;
-        s_navLeftLatched = true;
-        continue;
-      }
-      if (lc == 's' || lc == 'k') {
-        sawDownThisTick = true;
-        if (!s_navDownLatched && acceptNav(s_navDownMs)) out.downOnce = true;
-        s_navDownLatched = true;
-        continue;
-      }
-      if (lc == 'd' || lc == 'l') {
-        sawRightThisTick = true;
-        if (!s_navRightLatched && acceptNav(s_navRightMs)) out.rightOnce = true;
-        s_navRightLatched = true;
-        continue;
-      }
+      // Otherwise: normal printable char goes to text queue
+      out.kbPush((uint8_t)c);
     }
-
-    // Otherwise: normal printable char goes to text queue
-    out.kbPush((uint8_t)c);
   }
 
   // Release nav latches when the key is no longer present in st.word.
@@ -759,10 +806,6 @@ if (!mgSelectHeld) s_mgSelectLatched = false;
   if (!sawDownThisTick) s_navDownLatched = false;
   if (!sawLeftThisTick) s_navLeftLatched = false;
   if (!sawRightThisTick) s_navRightLatched = false;
-
-  // Allow another escOnce when not holding ` or ~
-  if (out.kbHeldCount == 0) s_settingsKeyLatched = false;
-  else if (!sawSettingsKeyThisTick) s_settingsKeyLatched = false;
 
   // Backspace/Delete (edge) + optional UI menu mapping
   if (st.del) {

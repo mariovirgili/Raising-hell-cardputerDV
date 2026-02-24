@@ -56,22 +56,27 @@ void openControlsHelpFromAnywhere() {
 }
 
 void handleControlsHelpInput(InputState& in) {
+  bool kbDismiss = false;
+
+  // Treat keyboard Enter / Backspace as dismiss too
+  while (in.kbHasEvent()) {
+    const KeyEvent ev = in.kbPop();
+    const uint8_t c = ev.code;
+
+    // Enter can arrive as '\n' (10) or '\r' (13) depending on source
+    // Backspace is '\b' (8)
+    if (c == '\n' || c == '\r' || c == '\b') {
+      kbDismiss = true;
+    }
+  }  
   // Any of these dismisses
-  if (in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce) {
+  if (kbDismiss || in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce) {
     controlsHelpDismiss();
 
-    // Prevent the same dismiss key from being re-consumed next tick
-    // (e.g., ESC/MENU immediately opening Settings or advancing another screen).
     menuActionsSuppressMenuForMs(250);
-
-    // Consume current-tick edges too.
     in.clearEdges();
-
-    // swallow any residue
-    drainKb(in);
     clearInputLatch();
 
-    // If we opened this from Settings->Controls, return there deterministically
     if (s_returnToSettings) {
       s_returnToSettings = false;
 
@@ -89,6 +94,5 @@ void handleControlsHelpInput(InputState& in) {
   }
 
   // otherwise swallow everything (no accidental actions)
-  drainKb(in);
   clearInputLatch();
 }

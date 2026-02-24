@@ -156,6 +156,26 @@ static void adjustField(int delta) {
 }
 
 void handleTimeSetInput(InputState &in) {
+  // Map keyboard arrow/enter keys into edge-style behavior
+  bool kbLeft = false;
+  bool kbRight = false;
+  bool kbUp = false;
+  bool kbDown = false;
+  bool kbEnter = false;
+
+  while (in.kbHasEvent()) {
+    const KeyEvent ev = in.kbPop();
+    const uint8_t c = ev.code;
+
+    if (c == '\n' || c == '\r') kbEnter = true;
+    else if (c == 0x1B) {} // ignore ESC here (handled elsewhere)
+    else if (c == 0x08) {} // ignore backspace
+    else if (c == 'A') kbUp = true;     // adjust if your arrow mapping differs
+    else if (c == 'B') kbDown = true;
+    else if (c == 'C') kbRight = true;
+    else if (c == 'D') kbLeft = true;
+  }
+
   if (in.escOnce || in.menuOnce) {
     if (g_setTimeForceNoCancel) {
       requestUIRedraw();
@@ -186,14 +206,14 @@ void handleTimeSetInput(InputState &in) {
     return;
   }
 
-  if (in.leftOnce) {
+  if (in.leftOnce || kbLeft) {
     g_setTimeField--;
     if (g_setTimeField < 0) g_setTimeField = 5;
     requestUIRedraw();
     clearInputLatch();
     return;
   }
-  if (in.rightOnce) {
+  if (in.rightOnce  || kbRight) {
     g_setTimeField++;
     if (g_setTimeField > 5) g_setTimeField = 0;
     requestUIRedraw();
@@ -202,11 +222,11 @@ void handleTimeSetInput(InputState &in) {
   }
 
   if (g_setTimeField <= 4) {
-    if (in.upOnce)   { adjustField(+1); requestUIRedraw(); clearInputLatch(); return; }
-    if (in.downOnce) { adjustField(-1); requestUIRedraw(); clearInputLatch(); return; }
+    if (in.upOnce || kbUp)   { adjustField(+1); requestUIRedraw(); clearInputLatch(); return; }
+    if (in.downOnce || kbDown) { adjustField(-1); requestUIRedraw(); clearInputLatch(); return; }
   }
 
-  if (in.selectOnce || in.encoderPressOnce) {
+  if (in.selectOnce || kbEnter ||in.encoderPressOnce) {
     if (g_setTimeField < 5) {
       g_setTimeField++;
       if (g_setTimeField > 5) g_setTimeField = 5;

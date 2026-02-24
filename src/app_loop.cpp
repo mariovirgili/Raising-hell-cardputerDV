@@ -5,40 +5,40 @@
 // - sdcard.h       : initSD, sdAssetsPresent, g_sdReady
 // ...
 
-#include <Arduino.h>
-#include <cstring>
 #include "M5Cardputer.h"
-#include "no_legacy_aliases.h"
-#include "power_button.h"
-#include "input.h"
+#include "anim_engine.h"
+#include "app_state.h"
+#include "auto_screen.h"
+#include "boot_pipeline.h"
+#include "build_flags.h"
+#include "console.h"
+#include "debug_state.h"
 #include "display.h"
 #include "display_state.h"
-#include "sound.h"
-#include "wifi_time.h"
-#include "save_manager.h"
-#include "time_persist.h"
-#include "auto_screen.h"
-#include "pet.h"
-#include "anim_engine.h"
-#include "led_status.h"
-#include "app_state.h"
-#include "boot_pipeline.h"
-#include "hatching_flow.h"
 #include "evolution_flow.h"
-#include "ui_tabs.h"
-#include "debug_state.h"
-#include "sleep_state.h"
-#include "time_state.h"
-#include "motion.h"
-#include "ui_runtime.h"
-#include "sdcard.h"
-#include "graphics.h"
-#include "console.h"
-#include "input_activity_state.h"
 #include "game_options_state.h"
-#include "ui_level_popup.h"
+#include "graphics.h"
+#include "hatching_flow.h"
+#include "input.h"
+#include "input_activity_state.h"
+#include "led_status.h"
 #include "menu_actions.h"
-#include "build_flags.h"
+#include "motion.h"
+#include "no_legacy_aliases.h"
+#include "pet.h"
+#include "power_button.h"
+#include "save_manager.h"
+#include "sdcard.h"
+#include "sleep_state.h"
+#include "sound.h"
+#include "time_persist.h"
+#include "time_state.h"
+#include "ui_level_popup.h"
+#include "ui_runtime.h"
+#include "ui_tabs.h"
+#include "wifi_time.h"
+#include <Arduino.h>
+#include <cstring>
 
 bool handleMenuInput(InputState &in);
 
@@ -118,8 +118,7 @@ void appMainLoopTick()
     }
 
     // Near-death beep MUST work even with screen off.
-    soundLowHealthTick((uint8_t)pet.health,
-                       sleepingNow_off,
+    soundLowHealthTick((uint8_t)pet.health, sleepingNow_off,
                        /*screenOn=*/false,
                        /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
 
@@ -259,11 +258,8 @@ void appMainLoopTick()
   // FAST TAB SWITCH PATH (apply state immediately, do NOT render here)
   // ---------------------------------------------------------------------------
   {
-    const bool allowTabLR_fast =
-        (g_app.uiState == UIState::PET_SCREEN) ||
-        (g_app.uiState == UIState::SLEEP_MENU) ||
-        (g_app.uiState == UIState::INVENTORY) ||
-        (g_app.uiState == UIState::SHOP);
+    const bool allowTabLR_fast = (g_app.uiState == UIState::PET_SCREEN) || (g_app.uiState == UIState::SLEEP_MENU) ||
+                                 (g_app.uiState == UIState::INVENTORY) || (g_app.uiState == UIState::SHOP);
 
     if (allowTabLR_fast && (input.leftOnce || input.rightOnce))
     {
@@ -285,418 +281,388 @@ void appMainLoopTick()
     }
   }
 
-  // ---------------------------------------------------------------------------
-  // GLOBAL UI SFX
-  // ---------------------------------------------------------------------------
-  if (input.upOnce || input.downOnce || (input.encoderDelta != 0))
-    soundMenuTick();
-  if (input.leftOnce || input.rightOnce)
-    soundClick();
-  if (input.selectOnce || input.encoderPressOnce)
-    soundConfirm();
-  if (input.menuOnce || input.escOnce)
-    soundCancel();
-
-  // AUTO SCREEN
-  if (hasUserActivity(input))
-    noteUserActivity();
-
-  // ---------------------------------------------------------------------------
-  // BOOT KEEP-AWAKE (prevents auto_screen from blanking during early init)
-  // ---------------------------------------------------------------------------
-  if (!s_bootKeepAwakeInited)
+  if (g_app.uiState != UIState::CONSOLE)
   {
-    s_bootKeepAwakeInited = true;
-    s_bootKeepAwakeUntilMs = now + 6000; // 6 seconds
+    if (input.upOnce || input.downOnce || (input.encoderDelta != 0))
+      soundMenuTick();
+    if (input.leftOnce || input.rightOnce)
+      soundClick();
+    if (input.selectOnce || input.encoderPressOnce)
+      soundConfirm();
+    if (input.menuOnce || input.escOnce)
+      soundCancel();
   }
 
-  if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
-  {
-    // Feed the project's inactivity timer + ensure we render at least once.
-    noteUserActivity();
-    requestUIRedraw();
+    // AUTO SCREEN
+    if (hasUserActivity(input))
+      noteUserActivity();
 
-    // If something already blanked the screen during boot, force it back on.
+    // ---------------------------------------------------------------------------
+    // BOOT KEEP-AWAKE (prevents auto_screen from blanking during early init)
+    // ---------------------------------------------------------------------------
+    if (!s_bootKeepAwakeInited)
+    {
+      s_bootKeepAwakeInited = true;
+      s_bootKeepAwakeUntilMs = now + 6000; // 6 seconds
+    }
+
+    if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
+    {
+      // Feed the project's inactivity timer + ensure we render at least once.
+      noteUserActivity();
+      requestUIRedraw();
+
+      // If something already blanked the screen during boot, force it back on.
+      if (!isScreenOn())
+      {
+        SET_SCREEN_POWER(true);
+        invalidateBackgroundCache();
+        requestUIRedraw();
+        clearInputLatch();
+      }
+    }
+
+    autoScreenTick();
+
     if (!isScreenOn())
     {
-      SET_SCREEN_POWER(true);
-      invalidateBackgroundCache();
-      requestUIRedraw();
-      clearInputLatch();
-    }
-  }
-
-  autoScreenTick();
-
-  if (!isScreenOn())
-  {
 #if LED_STATUS_ENABLED
-    ledSetScreenOff(true);
-    ledUpdatePetStatus(computeLedMode());
+      ledSetScreenOff(true);
+      ledUpdatePetStatus(computeLedMode());
 #endif
-    delay(5);
-    return;
-  }
-
-  // DEATH/BURIAL special flow (unchanged)
-  if (g_app.uiState == UIState::DEATH)
-  {
-    const UIState before = g_app.uiState;
-    handleMenuInput(input);
-
-    if (g_app.uiState != before)
-    {
-      g_app.uiNeedsRedraw = true;
-      renderUI();
+      delay(5);
       return;
     }
 
-    if (input.upOnce || input.downOnce || input.selectOnce ||
-        input.encoderPressOnce || (input.encoderDelta != 0))
+    // DEATH/BURIAL special flow (unchanged)
+    if (g_app.uiState == UIState::DEATH)
     {
-      requestUIRedraw();
-    }
+      const UIState before = g_app.uiState;
+      handleMenuInput(input);
 
-    renderUI();
-    return;
-  }
-
-  if (g_app.uiState == UIState::BURIAL_SCREEN)
-  {
-    handleMenuInput(input);
-    if (input.selectOnce || input.encoderPressOnce)
-      requestUIRedraw();
-    renderUI();
-    return;
-  }
-
-  // AUTO-RETURN TO PET TAB
-  if (g_app.uiState == UIState::PET_SCREEN && g_app.currentTab != Tab::TAB_PET)
-  {
-    const uint32_t nowMs = millis();
-    if ((uint32_t)(nowMs - getLastInputActivityMs()) >= 60000UL)
-    {
-      g_app.currentTab = Tab::TAB_PET;
-      requestUIRedraw();
-      clearInputLatch();
-    }
-  }
-
-  // ---------------------------------------------------------------------------
-  // HOTKEYS: Console + Settings (must run BEFORE handleMenuInput)
-  // ---------------------------------------------------------------------------
-
-  // SET TIME: lock out global hotkeys so the editor can't be bypassed
-  if (g_app.uiState == UIState::SET_TIME)
-  {
-    input.tabJump = 255;
-    input.consoleOnce = false;
-    input.hotSettings = false;
-  }
-
-  // If sleeping, block focus-stealing tab hotkeys.
-  const bool sleepingNow = isPetSleepingNow();
-  if (sleepingNow)
-  {
-    input.tabJump = 255;
-
-    if (g_app.uiState == UIState::PET_SLEEPING)
-    {
-      input.upOnce = false;
-      input.downOnce = false;
-      input.leftOnce = false;
-      input.rightOnce = false;
-    }
-  }
-
-  // Don't allow ESC/C/Q to steal focus on New Pet flow screens
-  if (g_app.uiState == UIState::CHOOSE_PET)
-  {
-    input.consoleOnce = false;
-    input.escOnce = false;
-    input.hotSettings = false;
-    input.menuOnce = false;
-    input.tabJump = 255;
-  }
-  else
-  {
-    // Bottom-row tab hotkeys (z x c v b n m) — only when not in restricted screens
-    if (g_app.uiState != UIState::NAME_PET &&
-        g_app.uiState != UIState::SET_TIME)
-    {
-
-      if (sleepingNow && input.tabJump != 255)
+      if (g_app.uiState != before)
       {
-        input.tabJump = 255;
-        clearInputLatch();
-      }
-
-      // Don't allow ESC/C/Q/tab jumps to steal focus during Hatching/Evolution
-      if (g_app.uiState == UIState::HATCHING ||
-          g_app.flow.evo.active ||
-          g_app.uiState == UIState::EVOLUTION)
-      {
-        input.tabJump = 255;
-        input.consoleOnce = false;
-        input.escOnce = false;
-        input.hotSettings = false;
-        input.menuOnce = false;
-      }
-
-      if (input.tabJump != 255)
-      {
-        noteUserActivity();
-
-        g_app.currentTab = (Tab)input.tabJump;
-        syncUiToTab();
-
-        invalidateBackgroundCache();
-        requestUIRedraw();
-        clearInputLatch();
+        g_app.uiNeedsRedraw = true;
+        renderUI();
         return;
       }
-    }
 
-#if !PUBLIC_BUILD
-    // C toggles console
-    if (g_app.uiState != UIState::SET_TIME && input.consoleOnce)
-    {
-      noteUserActivity();
-
-      if (g_app.uiState != UIState::CONSOLE)
+      if (input.upOnce || input.downOnce || input.selectOnce || input.encoderPressOnce || (input.encoderDelta != 0))
       {
-        consoleOpen();
-        g_app.uiState = UIState::CONSOLE;
-      }
-      else
-      {
-        consoleClose();
-        if (sleepingNow)
-        {
-          g_app.uiState = UIState::PET_SLEEPING;
-        }
-        else
-        {
-          g_app.uiState = UIState::PET_SCREEN;
-          g_app.currentTab = Tab::TAB_PET;
-        }
-      }
-
-      invalidateBackgroundCache();
-      requestUIRedraw();
-      return;
-    }
-
-    // ESC inside console exits back to pet screen (NOT settings)
-    if (g_app.uiState == UIState::CONSOLE && input.escOnce)
-    {
-      noteUserActivity();
-
-      consoleClose();
-      if (sleepingNow)
-      {
-        g_app.uiState = UIState::PET_SLEEPING;
-      }
-      else
-      {
-        g_app.uiState = UIState::PET_SCREEN;
-        g_app.currentTab = Tab::TAB_PET;
-      }
-
-      invalidateBackgroundCache();
-      requestUIRedraw();
-      return;
-    }
-#endif
-
-    // I opens Controls help overlay (non-interrupting, including pet sleep)
-    if (g_app.uiState != UIState::SET_TIME && input.controlsOnce)
-    {
-      noteUserActivity();
-      openControlsHelpFromAnywhere();
-      return;
-    }
-  }
-
-  // Q/menu key returns to pet tab/root
-  // IMPORTANT: do NOT run this while POWER_MENU is open (it steals menuOnce
-  // from handlePowerMenuInput)
-  if (g_app.uiState != UIState::SET_TIME &&
-      g_app.uiState != UIState::POWER_MENU &&
-      input.menuOnce)
-  {
-
-    // While sleeping, do NOT hijack menuOnce here.
-    // Let handleMenuInput() decide.
-    if (g_app.uiState != UIState::PET_SLEEPING)
-    {
-      noteUserActivity();
-
-      if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET)
-      {
-        g_app.uiState = UIState::PET_SCREEN;
-        g_app.currentTab = Tab::TAB_PET;
-
-        invalidateBackgroundCache();
         requestUIRedraw();
-        return;
+      }
+
+      renderUI();
+      return;
+    }
+
+    if (g_app.uiState == UIState::BURIAL_SCREEN)
+    {
+      handleMenuInput(input);
+      if (input.selectOnce || input.encoderPressOnce)
+        requestUIRedraw();
+      renderUI();
+      return;
+    }
+
+    // AUTO-RETURN TO PET TAB
+    if (g_app.uiState == UIState::PET_SCREEN && g_app.currentTab != Tab::TAB_PET)
+    {
+      const uint32_t nowMs = millis();
+      if ((uint32_t)(nowMs - getLastInputActivityMs()) >= 60000UL)
+      {
+        g_app.currentTab = Tab::TAB_PET;
+        requestUIRedraw();
+        clearInputLatch();
       }
     }
-  }
 
-  // ---------------------------------------------------------------------------
-  // Waking from sleep screen state
-  // ---------------------------------------------------------------------------
-  if (g_app.uiState == UIState::PET_SLEEPING && !isPetSleepingNow())
-  {
-    petResetUpdateTimers();
-    g_app.uiState = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
-    invalidateBackgroundCache();
-    requestUIRedraw();
-  }
+    // ---------------------------------------------------------------------------
+    // HOTKEYS: Console + Settings (must run BEFORE handleMenuInput)
+    // ---------------------------------------------------------------------------
 
-  // ---------------------------------------------------------------------------
-  // Input-driven redraw hint (single copy)
-  // ---------------------------------------------------------------------------
-  if (input.menuOnce || input.selectOnce || input.upOnce || input.downOnce ||
-      (input.encoderDelta != 0))
-  {
-    requestUIRedraw();
-  }
-
-  // ---------------------------------------------------------------------------
-  // HATCHING: modal tick, then render, then return
-  // ---------------------------------------------------------------------------
-  if (g_app.uiState == UIState::HATCHING)
-  {
-    updateHatching();
-    if (isScreenOn())
-      requestUIRedraw();
-
-    if (consumeUIRedrawRequest())
+    // SET TIME: lock out global hotkeys so the editor can't be bypassed
+    if (g_app.uiState == UIState::SET_TIME)
     {
-      renderUI();
+      input.tabJump = 255;
+      input.consoleOnce = false;
+      input.hotSettings = false;
     }
 
-    wifiTimeTick();
-    if (g_timeAnchorAttempted || timeIsSynced())
-      updateTime();
-    updateBattery();
-    saveManagerTick();
-    maybePeriodicTimeSave();
-
-#if LED_STATUS_ENABLED
-    ledSetScreenOff(false);
-    ledUpdatePetStatus(computeLedMode());
-#endif
-    return;
-  }
-
-  // ---------------------------------------------------------------------------
-  // EVOLUTION: modal tick, then render, then return
-  // ---------------------------------------------------------------------------
-  if (g_app.flow.evo.active || g_app.uiState == UIState::EVOLUTION)
-  {
-    updateEvolution();
-    if (isScreenOn())
-      requestUIRedraw();
-
-    if (consumeUIRedrawRequest())
+    // If sleeping, block focus-stealing tab hotkeys.
+    const bool sleepingNow = isPetSleepingNow();
+    if (sleepingNow)
     {
-      renderUI();
+      input.tabJump = 255;
+
+      if (g_app.uiState == UIState::PET_SLEEPING)
+      {
+        input.upOnce = false;
+        input.downOnce = false;
+        input.leftOnce = false;
+        input.rightOnce = false;
+      }
     }
-    wifiTimeTick();
-    if (g_timeAnchorAttempted || timeIsSynced())
-      updateTime();
-    updateBattery();
-    saveManagerTick();
-    maybePeriodicTimeSave();
 
-#if LED_STATUS_ENABLED
-    ledSetScreenOff(false);
-    ledUpdatePetStatus(computeLedMode());
-#endif
-
-    return;
-  }
-
-  // ---------------------------------------------------------------------------
-  // Pet tick (ALWAYS run even if Console is open)
-  // ---------------------------------------------------------------------------
-
-  const bool inDeathFlow =
-      (g_app.uiState == UIState::DEATH) ||
-      (g_app.uiState == UIState::MINI_GAME) ||
-      (g_app.uiState == UIState::BURIAL_SCREEN);
-
-  if (!inDeathFlow)
-  {
-    if (isPetSleepingNow())
+    // Don't allow ESC/C/Q to steal focus on New Pet flow screens
+    if (g_app.uiState == UIState::CHOOSE_PET)
     {
-      pet.petSleepTick();
-      petResetUpdateTimers();
+      input.consoleOnce = false;
+      input.escOnce = false;
+      input.hotSettings = false;
+      input.menuOnce = false;
+      input.tabJump = 255;
     }
     else
     {
-      pet.update();
+      // Bottom-row tab hotkeys (z x c v b n m) — only when not in restricted screens
+      if (g_app.uiState != UIState::NAME_PET && g_app.uiState != UIState::SET_TIME)
+      {
 
-      // Detect level-ups right after the pet tick updates XP/level.
-      uiMaybeShowLevelUpPopup();
+        if (sleepingNow && input.tabJump != 255)
+        {
+          input.tabJump = 255;
+          clearInputLatch();
+        }
+
+        // Don't allow ESC/C/Q/tab jumps to steal focus during Hatching/Evolution
+        if (g_app.uiState == UIState::HATCHING || g_app.flow.evo.active || g_app.uiState == UIState::EVOLUTION)
+        {
+          input.tabJump = 255;
+          input.consoleOnce = false;
+          input.escOnce = false;
+          input.hotSettings = false;
+          input.menuOnce = false;
+        }
+
+        if (input.tabJump != 255)
+        {
+          noteUserActivity();
+
+          g_app.currentTab = (Tab)input.tabJump;
+          syncUiToTab();
+
+          invalidateBackgroundCache();
+          requestUIRedraw();
+          clearInputLatch();
+          return;
+        }
+      }
+
+#if !PUBLIC_BUILD
+      // C toggles console
+      if (g_app.uiState != UIState::SET_TIME && input.consoleOnce)
+      {
+        noteUserActivity();
+  
+        if (g_app.uiState != UIState::CONSOLE)
+        {
+          consoleOpen();
+          g_app.uiState = UIState::CONSOLE;
+        }
+        else
+        {
+          consoleClose();
+          if (sleepingNow)
+            g_app.uiState = UIState::PET_SLEEPING;
+          else
+          {
+            g_app.uiState = UIState::PET_SCREEN;
+            g_app.currentTab = Tab::TAB_PET;
+          }
+        }
+  
+        invalidateBackgroundCache();
+        requestUIRedraw();
+        // Clear ALL edge flags so nothing leaks into the new state this frame
+        input = InputState{};
+        clearInputLatch();
+        return;
+      }
+      
+      // I opens Controls help overlay (non-interrupting, including pet sleep)
+      if (g_app.uiState != UIState::SET_TIME && input.controlsOnce)
+      {
+        noteUserActivity();
+        openControlsHelpFromAnywhere();
+        return;
+      }
+    }
+#endif
+
+    // Q/menu key returns to pet tab/root
+    // IMPORTANT: do NOT run this while POWER_MENU is open (it steals menuOnce
+    // from handlePowerMenuInput)
+    if (g_app.uiState != UIState::SET_TIME && g_app.uiState != UIState::POWER_MENU && input.menuOnce)
+    {
+
+      // While sleeping, do NOT hijack menuOnce here.
+      // Let handleMenuInput() decide.
+      if (g_app.uiState != UIState::PET_SLEEPING)
+      {
+        noteUserActivity();
+
+        if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET)
+        {
+          g_app.uiState = UIState::PET_SCREEN;
+          g_app.currentTab = Tab::TAB_PET;
+
+          invalidateBackgroundCache();
+          requestUIRedraw();
+          return;
+        }
+      }
     }
 
-    if (pet.health <= 0 && petDeathEnabled && g_app.uiState != UIState::DEATH)
+    // ---------------------------------------------------------------------------
+    // Waking from sleep screen state
+    // ---------------------------------------------------------------------------
+    if (g_app.uiState == UIState::PET_SLEEPING && !isPetSleepingNow())
     {
-      petEnterDeathState();
+      petResetUpdateTimers();
+      g_app.uiState = UIState::PET_SCREEN;
+      g_app.currentTab = Tab::TAB_PET;
       invalidateBackgroundCache();
       requestUIRedraw();
-      clearInputLatch();
     }
-  }
 
-  // ---------------------------------------------------------------------------
-  // Menu input
-  // ---------------------------------------------------------------------------
-  handleMenuInput(input);
+    // ---------------------------------------------------------------------------
+    // Input-driven redraw hint (single copy)
+    // ---------------------------------------------------------------------------
+    if (input.menuOnce || input.selectOnce || input.upOnce || input.downOnce || (input.encoderDelta != 0))
+    {
+      requestUIRedraw();
+    }
 
-  const bool sleepingNow2 = isPetSleepingNow();
+    // ---------------------------------------------------------------------------
+    // HATCHING: modal tick, then render, then return
+    // ---------------------------------------------------------------------------
+    if (g_app.uiState == UIState::HATCHING)
+    {
+      updateHatching();
+      if (isScreenOn())
+        requestUIRedraw();
 
-  if (!s_prevSleeping && sleepingNow2)
-    soundSleep();
-  if (s_prevSleeping && !sleepingNow2)
-    soundWake();
-  s_prevSleeping = sleepingNow2;
+      if (consumeUIRedrawRequest())
+      {
+        renderUI();
+      }
 
-  soundLowHealthTick((uint8_t)pet.health,
-                     sleepingNow2,
-                     /*screenOn=*/isScreenOn(),
-                     /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
-
-  // Anim tick
-  if (g_sdReady)
-  {
-    animTick();
-  }
-
-  // Anim heartbeat (sleep background frames)
-  sleepAnimHeartbeat(now);
-  sleepMiniStatsHeartbeat(now);
-
-  // Render
-  if (consumeUIRedrawRequest())
-  {
-    renderUI();
-  }
-  // Maintenance AFTER render
-  wifiTimeTick();
-  if (g_timeAnchorAttempted || timeIsSynced())
-    updateTime();
-  updateBattery();
-  saveManagerTick();
-  maybePeriodicTimeSave();
+      wifiTimeTick();
+      if (g_timeAnchorAttempted || timeIsSynced())
+        updateTime();
+      updateBattery();
+      saveManagerTick();
+      maybePeriodicTimeSave();
 
 #if LED_STATUS_ENABLED
-  ledSetScreenOff(false);
-  ledUpdatePetStatus(computeLedMode());
+      ledSetScreenOff(false);
+      ledUpdatePetStatus(computeLedMode());
 #endif
-}
+      return;
+    }
+
+    // ---------------------------------------------------------------------------
+    // EVOLUTION: modal tick, then render, then return
+    // ---------------------------------------------------------------------------
+    if (g_app.flow.evo.active || g_app.uiState == UIState::EVOLUTION)
+    {
+      updateEvolution();
+      if (isScreenOn())
+        requestUIRedraw();
+
+      if (consumeUIRedrawRequest())
+      {
+        renderUI();
+      }
+      wifiTimeTick();
+      if (g_timeAnchorAttempted || timeIsSynced())
+        updateTime();
+      updateBattery();
+      saveManagerTick();
+      maybePeriodicTimeSave();
+
+#if LED_STATUS_ENABLED
+      ledSetScreenOff(false);
+      ledUpdatePetStatus(computeLedMode());
+#endif
+
+      return;
+    }
+
+    // ---------------------------------------------------------------------------
+    // Pet tick (ALWAYS run even if Console is open)
+    // ---------------------------------------------------------------------------
+
+    const bool inDeathFlow = (g_app.uiState == UIState::DEATH) || (g_app.uiState == UIState::MINI_GAME) ||
+                             (g_app.uiState == UIState::BURIAL_SCREEN);
+
+    if (!inDeathFlow)
+    {
+      if (isPetSleepingNow())
+      {
+        pet.petSleepTick();
+        petResetUpdateTimers();
+      }
+      else
+      {
+        pet.update();
+
+        // Detect level-ups right after the pet tick updates XP/level.
+        uiMaybeShowLevelUpPopup();
+      }
+
+      if (pet.health <= 0 && petDeathEnabled && g_app.uiState != UIState::DEATH)
+      {
+        petEnterDeathState();
+        invalidateBackgroundCache();
+        requestUIRedraw();
+        clearInputLatch();
+      }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Menu input
+    // ---------------------------------------------------------------------------
+    handleMenuInput(input);
+
+    const bool sleepingNow2 = isPetSleepingNow();
+
+    if (!s_prevSleeping && sleepingNow2)
+      soundSleep();
+    if (s_prevSleeping && !sleepingNow2)
+      soundWake();
+    s_prevSleeping = sleepingNow2;
+
+    soundLowHealthTick((uint8_t)pet.health, sleepingNow2,
+                       /*screenOn=*/isScreenOn(),
+                       /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
+
+    // Anim tick
+    if (g_sdReady)
+    {
+      animTick();
+    }
+
+    // Anim heartbeat (sleep background frames)
+    sleepAnimHeartbeat(now);
+    sleepMiniStatsHeartbeat(now);
+
+    // Render
+    if (consumeUIRedrawRequest())
+    {
+      renderUI();
+    }
+    // Maintenance AFTER render
+    wifiTimeTick();
+    if (g_timeAnchorAttempted || timeIsSynced())
+      updateTime();
+    updateBattery();
+    saveManagerTick();
+    maybePeriodicTimeSave();
+
+#if LED_STATUS_ENABLED
+    ledSetScreenOff(false);
+    ledUpdatePetStatus(computeLedMode());
+#endif
+  }
