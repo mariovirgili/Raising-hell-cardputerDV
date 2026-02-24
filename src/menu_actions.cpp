@@ -81,8 +81,6 @@ static bool consumeOneSoulFood();
 static int  consumeSoulFoodUntilFull();
 void        feedUseSelected();
 
-void handleConsoleInput(InputState &input);
-
 static inline void drainKb(InputState &in) {
   while (in.kbHasEvent()) (void)in.kbPop();
 }
@@ -99,31 +97,6 @@ static inline bool isEnterHeldLevel(const InputState &in) { return in.selectHeld
 static inline bool timeSyncedNow() {
   time_t now = time(nullptr);
   return (now > 1700000000); // ~late 2023
-}
-
-// ------------------------------------------------------------------
-// Console return target (so Console can return where it was opened from)
-// ------------------------------------------------------------------
-static UIState      g_consoleReturnState      = UIState::PET_SCREEN;
-static Tab          g_consoleReturnTab        = Tab::TAB_PET;
-static SettingsPage g_consoleReturnPage       = SettingsPage::TOP;
-static bool         g_consoleReturnToSettings = false;
-
-void openConsoleWithReturn(UIState retState,
-                           Tab retTab,
-                           bool retToSettings,
-                           SettingsPage retSettingsPage) {
-  g_consoleReturnState      = retState;
-  g_consoleReturnTab        = retTab;
-  g_consoleReturnToSettings = retToSettings;
-  g_consoleReturnPage       = retSettingsPage;
-
-  g_app.uiState = UIState::CONSOLE;
-  consoleOpen(); // consoleOpen already enables text capture + g_textCaptureMode
-
-  // Clear any “open console” keystroke residue
-  clearInputLatch();
-  requestUIRedraw();
 }
 
 // After leaving certain screens (like Console), the same ESC/MENU press can
@@ -462,11 +435,6 @@ bool handleMenuInput(InputState &in) {
       inputForceClear();
       return true;
     }
-  }
-
-  if (g_app.uiState == UIState::CONSOLE && (in.escOnce || in.menuOnce)) {
-    handleConsoleInput(in);
-    return true;
   }
 
   UIState oldState = g_app.uiState;
@@ -966,60 +934,6 @@ void feedUseSelected() {
     requestUIRedraw();
     return;
   }
-}
-
-// ==================================================================
-// CONSOLE
-// ==================================================================
-void handleConsoleInput(InputState &input) {
-  if (!consoleIsOpen()) {
-    g_suppressMenuUntilMs = millis() + 250;
-
-    drainKb(input);
-    clearInputLatch();
-
-    if (g_consoleReturnToSettings) {
-      g_app.uiState               = UIState::SETTINGS;
-      g_settingsFlow.settingsPage = g_consoleReturnPage;
-    } else {
-      g_app.uiState    = g_consoleReturnState;
-      g_app.currentTab = g_consoleReturnTab;
-    }
-
-    requestUIRedraw();
-    invalidateBackgroundCache();
-    requestUIRedraw();
-    return;
-  }
-
-  if (input.escOnce || input.menuOnce) {
-    consoleClose();
-
-    g_suppressMenuUntilMs = millis() + 250;
-
-    drainKb(input);
-    clearInputLatch();
-
-    input.escOnce          = false;
-    input.menuOnce         = false;
-    input.selectOnce       = false;
-    input.encoderPressOnce = false;
-
-    if (g_consoleReturnToSettings) {
-      g_app.uiState               = UIState::SETTINGS;
-      g_settingsFlow.settingsPage = g_consoleReturnPage;
-    } else {
-      g_app.uiState    = g_consoleReturnState;
-      g_app.currentTab = g_consoleReturnTab;
-    }
-
-    requestUIRedraw();
-    invalidateBackgroundCache();
-    requestUIRedraw();
-    return;
-  }
-
-  consoleUpdate(input);
 }
 
 // ==================================================================

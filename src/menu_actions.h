@@ -37,3 +37,5 @@ void doFactoryResetNow();
 
 // Feed action
 void feedUseSelected();
+
+void menuActionsSuppressMenuForMs(uint32_t ms);
