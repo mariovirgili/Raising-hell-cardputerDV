@@ -274,3 +274,7 @@ void handleTimeSetInput(InputState &in) {
     return;
   }
 }
+
+void uiSetTimeHandle(InputState& in) {
+  handleTimeSetInput(in);
+}

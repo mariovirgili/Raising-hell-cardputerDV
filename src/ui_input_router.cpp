@@ -12,9 +12,8 @@
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
 #include "ui_state_handlers.h"
-
-// resetSettingsNav() currently lives in ui_state_settings.cpp (no header yet).
-void resetSettingsNav(bool resetTopIndex);
+#include "settings_nav_state.h"
+#include "flow_power_menu.h"
 
 // --------------------------------------------------------------
 // Local helpers (kept private to the router)
@@ -67,7 +66,7 @@ static bool handleGlobalInterceptors(InputState &in)
   // --------------------------------------------------------------
   if (g_app.uiState == UIState::POWER_MENU)
   {
-    handlePowerMenuInput(in);
+    uiPowerMenuHandle(in);
     return true;
   }
 

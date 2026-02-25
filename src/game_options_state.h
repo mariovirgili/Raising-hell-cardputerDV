@@ -9,7 +9,4 @@
 // Game options / settings
 extern bool petDeathEnabled;
 
-// Death screen menu cursor
-extern int  deathMenuIndex;
-
 // Factory reset confirm modal state

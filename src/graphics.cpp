@@ -12,6 +12,7 @@
 
 #include "console.h"
 #include "game_options_state.h"
+#include "death_state.h"
 #include "input.h"
 #include "sound.h"
 
@@ -50,6 +51,7 @@
 #include "version.h"
 #include "wifi_setup_state.h"
 #include <lgfx/v1/misc/DataWrapper.hpp>
+#include "death_state.h"
 
 bool g_forcePetBgCache = false;
 static void drawBurialScreen();

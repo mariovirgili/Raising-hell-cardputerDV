@@ -46,8 +46,7 @@
 #include "ui_settings_menu.h"
 #include "ui_input_common.h"
 #include "ui_settings_actions.h"
-
-void resetSettingsNav(bool resetTopIndex);
+#include "settings_nav_state.h"
 
 void uiSettingsHandle(InputState& input)
 {

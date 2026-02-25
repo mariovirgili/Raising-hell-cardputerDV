@@ -15,3 +15,5 @@ void beginForcedSetTimeBootGate(UIState returnState, Tab returnTab);
 
 // Existing handler for UIState::SET_TIME
 void handleTimeSetInput(InputState& in);
+
+void uiSetTimeHandle(InputState& in);

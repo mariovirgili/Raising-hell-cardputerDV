@@ -10,3 +10,7 @@ void onResurrectionMiniGameResult(bool success);
 
 // Called by settings actions
 void settingsToggleLedAlerts();
+
+extern int deathMenuIndex;
+
+void resetDeathMenu();

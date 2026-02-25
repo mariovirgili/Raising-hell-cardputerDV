@@ -9,6 +9,7 @@
 #include "ui_state_utils.h"
 
 #include "game_options_state.h"
+#include "death_state.h"
 #include "user_toggles_state.h"
 #include "input.h"
 #include "sleep_state.h"
@@ -791,7 +792,7 @@ void petEnterDeathState()
     consoleClose();
   }
 
-  deathMenuIndex = 0;
+  resetDeathMenu();
   requestUIRedraw();
   invalidateBackgroundCache();
 }

@@ -9,10 +9,10 @@
 #include "ui_runtime.h"
 #include "ui_input_common.h"
 #include "pet.h"
+#include "settings_nav_state.h"
 
 // These exist elsewhere; keep as forward decls for now.
 bool powerMenuSleepWakeSuppressedNow();
-void resetSettingsNav(bool resetTopIndex);
 
 void uiPetSleepingHandle(InputState& input)
 {

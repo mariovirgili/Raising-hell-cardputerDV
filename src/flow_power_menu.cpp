@@ -179,3 +179,7 @@ void handlePowerMenuInput(InputState &input)
   drainKb(input);
   input.clearEdges();
 }
+
+void uiPowerMenuHandle(InputState& in) {
+  handlePowerMenuInput(in);
+}
