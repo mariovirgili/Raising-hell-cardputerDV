@@ -95,25 +95,10 @@ void uiSettingsHandle(InputState& input) {
       return;
     }
     
-    // Legacy pages (pickers + System hook page)
-    switch (g_settingsFlow.settingsPage) {
-      case SettingsPage::SYSTEM:
-        UiSettingsPages::Handle_SYSTEM(input, move);
-        return;
-    
-      case SettingsPage::AUTO_SCREEN:
-        UiSettingsPages::Handle_AUTO_SCREEN(input, move);
-        return;
-    
-      case SettingsPage::DECAY_MODE:
-        UiSettingsPages::Handle_DECAY_MODE(input, move);
-        return;
-    
-      case SettingsPage::CREDITS:
-        // No input needed here; ESC/MENU handled at top of uiSettingsHandle()
-        return;
-    
-      default:
-        return;
+    // All normal settings pages are now data-driven.
+    // Only remaining special-case page is CREDITS (view-only).
+    if (g_settingsFlow.settingsPage == SettingsPage::CREDITS) {
+      return;
     }
-  }
+
+    return;  }
