@@ -54,9 +54,7 @@ void shopBuyItem();
 // ------------------------------------------------------------------
 // Local prototypes
 // ------------------------------------------------------------------
-void handleSleepScreenInput(InputState &input);
 void handleInventoryInput(const InputState &input);
-void handleShopInput(const InputState &input);
 void handleTimeSetInput(InputState &in);
 void handleDeathInput(InputState &input);
 void handlePowerMenuInput(InputState &input);
@@ -143,44 +141,6 @@ void handleDeathInput(InputState &in) {
     clearInputLatch();
     return;
   }
-}
-
-// ==================================================================
-// TIME ZONE: cycle/apply/persist immediately
-// ==================================================================
-void settingsCycleTimeZone(int dir) {
-  const int count = (int)tzCount();
-  if (count <= 0) return;
-
-  // wrap-safe
-  int next = (int)tzIndex + dir;
-  while (next < 0) next += count;
-  next %= count;
-
-  tzIndex = (uint8_t)next;
-
-  // Apply immediately so localtime_r() and UI hour are correct right away
-  applyTimezoneIndex(tzIndex);
-
-  // Force a HUD recompute immediately (prevents “old hour” until next tick)
-  updateTime();
-
-  // Persist immediately even if the game isn't "dirty"
-  saveSettingsToSD();
-  saveTzIndexToNVS(tzIndex);
-
-  uint8_t rb = 255;
-  if (loadTzIndexFromNVS(&rb)) {
-    DBG_ON("[TZ] saved idx=%u readback=%u\n", (unsigned)tzIndex, (unsigned)rb);
-  } else {
-    DBG_ON("[TZ] saved idx=%u readback FAILED\n", (unsigned)tzIndex);
-  }
-
-  requestUIRedraw();
-  playBeep();
-
-  // Prevent double-advances / extra key effects
-  clearInputLatch();
 }
 
 // ==================================================================
@@ -476,41 +436,6 @@ void resetSettingsNav(bool resetTopIndex) {
   factoryResetResetUiState();
 
   if (resetTopIndex) g_app.settingsIndex = 0;
-}
-
-// ==================================================================
-// SHOP MENU
-// ==================================================================
-void handleShopInput(const InputState &input) {
-  if (input.menuOnce) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  int move = input.encoderDelta;
-  if (input.upOnce) move = -1;
-  if (input.downOnce) move = 1;
-
-  if (move != 0) {
-    const int totalItems = SHOP_ITEM_COUNT; // no Exit pill
-    if (totalItems > 0) {
-      // True round-robin, supports move magnitudes > 1
-      shopIndex = (shopIndex + move) % totalItems;
-      if (shopIndex < 0) shopIndex += totalItems;
-
-      requestUIRedraw();
-      playBeep();
-    }
-    return;
-  }
-
-  if (input.selectOnce || input.encoderPressOnce) {
-    shopBuyItem();
-    requestUIRedraw();
-    clearInputLatch();
-  }
 }
 
 // ==================================================================

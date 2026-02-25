@@ -18,5 +18,4 @@ enum class SettingsPage : uint8_t;
 bool handleMenuInput(InputState& in);
 
 // Legacy transitional handlers (still implemented in menu_actions.cpp)
-void handleBurialInput(InputState &in);
 void menuActionsSuppressMenuForMs(uint32_t ms);

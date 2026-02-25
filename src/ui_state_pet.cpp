@@ -12,6 +12,7 @@
 #include "save_manager.h"
 #include "sound.h"
 #include "ui_menu_state.h"  // feedMenuIndex, playMenuIndex
+#include "feed_menu_actions.h"
 
 // This is the exact function body that used to live in menu_actions.cpp.
 static void handlePetScreen_local(const InputState &input) {
