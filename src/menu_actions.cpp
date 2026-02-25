@@ -8,9 +8,9 @@
 #include "ui_input_router.h"
 #include "ui_invalidate.h"
 #include "ui_runtime.h"
-
+#include "ui_state_settings.h"
 #include "death_state.h"
-#include "graphics.h"  // invalidateBackgroundCache()
+#include "graphics.h"  
 
 // ==================================================================
 // MAIN DISPATCHER (thin wrapper)

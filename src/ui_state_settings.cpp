@@ -50,54 +50,60 @@
 
 void resetSettingsNav(bool resetTopIndex);
 
-void uiSettingsHandle(InputState& input) {
-    // ESC or MENU exits settings OR backs out of picker subpages
-    if (input.menuOnce || input.escOnce) {
-      // If inside picker pages, go back one level
-      if (g_settingsFlow.settingsPage == SettingsPage::DECAY_MODE ||
-          g_settingsFlow.settingsPage == SettingsPage::AUTO_SCREEN) {
-        g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
-        requestUIRedraw();
-        playBeep();
-        clearInputLatch();
-        return;
-      }
-  
-      // Otherwise exit settings completely
-      resetSettingsNav(true);
-  
-      UIState retState = UIState::PET_SCREEN;
-      Tab     retTab   = Tab::TAB_PET;
-  
-      if (g_settingsFlow.settingsReturnValid) {
-        retState = g_settingsFlow.settingsReturnState;
-        retTab   = g_settingsFlow.settingsReturnTab;
-      }
-  
-      g_settingsFlow.settingsReturnValid = false;
-  
-      g_app.uiState    = retState;
-      g_app.currentTab = retTab;
+void uiSettingsHandle(InputState& input)
+{
+  auto backToReturnPage = [&]() -> bool {
+    if (g_settingsFlow.settingsPage == SettingsPage::DECAY_MODE ||
+        g_settingsFlow.settingsPage == SettingsPage::AUTO_SCREEN) {
+      g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
       requestUIRedraw();
-  
       playBeep();
       clearInputLatch();
-      return;
+      return true;
     }
-  
-    int move = input.encoderDelta;
-    if (input.upOnce) move = -1;
-    if (input.downOnce) move = 1;
-  
-    // Data-driven pages first
-    if (UiSettingsMenu::Handle(input, move)) {
-      return;
-    }
-    
-    // All normal settings pages are now data-driven.
-    // Only remaining special-case page is CREDITS (view-only).
-    if (g_settingsFlow.settingsPage == SettingsPage::CREDITS) {
-      return;
+    return false;
+  };
+
+  auto exitSettings = [&]() {
+    resetSettingsNav(true);
+
+    UIState retState = UIState::PET_SCREEN;
+    Tab     retTab   = Tab::TAB_PET;
+
+    if (g_settingsFlow.settingsReturnValid) {
+      retState = g_settingsFlow.settingsReturnState;
+      retTab   = g_settingsFlow.settingsReturnTab;
     }
 
-    return;  }
+    g_settingsFlow.settingsReturnValid = false;
+
+    g_app.uiState    = retState;
+    g_app.currentTab = retTab;
+
+    requestUIRedraw();
+    playBeep();
+    clearInputLatch();
+  };
+
+  // ESC or MENU: back out of picker subpages, otherwise exit settings
+  if (input.menuOnce || input.escOnce) {
+    if (!backToReturnPage()) {
+      exitSettings();
+    }
+    return;
+  }
+
+  int move = input.encoderDelta;
+  if (input.upOnce) move = -1;
+  if (input.downOnce) move = 1;
+
+  // Data-driven settings pages
+  if (UiSettingsMenu::Handle(input, move)) {
+    return;
+  }
+
+  // View-only page: no input behavior (yet)
+  if (g_settingsFlow.settingsPage == SettingsPage::CREDITS) {
+    return;
+  }
+}
