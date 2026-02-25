@@ -23,15 +23,15 @@ static bool s_bootNamePetFixApplied = false;
 // -----------------------------------------------------------------------------
 // Input utilities
 // -----------------------------------------------------------------------------
-static inline void drainKb(InputState& in)
+static inline void uiActionDrainKb(InputState& in)
 {
   while (in.kbHasEvent())
     (void)in.kbPop();
 }
 
-static inline void swallowAllInput(InputState& in)
+static inline void uiActionSwallowAll(InputState& in)
 {
-  drainKb(in);
+  uiActionDrainKb(in);
   in.clearEdges();
   inputForceClear();
   clearInputLatch();
@@ -68,7 +68,7 @@ static void openSettingsFromHere(InputState& in)
 
   // Prevent the same ESC/MENU press from being re-consumed immediately.
   uiSuppressMenuForMs(250);
-  swallowAllInput(in);
+  uiActionSwallowAll(in);
 }
 
 // // --------------------------------------------------------------
@@ -90,7 +90,7 @@ static bool handlePowerMenuOpen(InputState& in)
   if (!g_textCaptureMode && in.goLongHold)
   {
     openPowerMenuFromHere(millis());
-    swallowAllInput(in);
+    uiActionSwallowAll(in);
     return true;
   }
   return false;
@@ -108,7 +108,7 @@ static bool handleBootNamePetFixup(InputState& in)
     // If we're actively in the new-pet flow, NAME_PET is valid.
     if (g_app.newPetFlowActive)
     {
-      swallowAllInput(in);
+      uiActionSwallowAll(in);
       return true;
     }
 
@@ -127,7 +127,7 @@ static bool handleBootNamePetFixup(InputState& in)
       invalidateBackgroundCache();
       requestUIRedraw();
 
-      swallowAllInput(in);
+      uiActionSwallowAll(in);
       return true;
     }
   }
@@ -140,7 +140,7 @@ static bool handleMenuSuppression(InputState& in)
   // Suppress menu/esc edges for a brief window after leaving overlays.
   if (menuSuppressedNow() && (in.menuOnce || in.escOnce))
   {
-    swallowAllInput(in);
+    uiActionSwallowAll(in);
     return true;
   }
   return false;
@@ -180,7 +180,7 @@ static bool handleSleepingGate(InputState& in)
     if (!wakePressed)
     {
       // swallow everything except the wake action
-      drainKb(in);
+      uiActionDrainKb(in);
       in.clearEdges();
       return true;
     }
