@@ -169,3 +169,23 @@ void handleBootNtpWaitInput(InputState& in) {
   drainKb(in);
   clearInputLatch();
 }
+
+void uiBootWifiPromptHandle(InputState& in)
+{
+  handleBootWifiPromptInput(in);
+}
+
+void uiBootWifiWaitHandle(InputState& in)
+{
+  handleBootWifiWaitInput(in);
+}
+
+void uiBootTzPickHandle(InputState& in)
+{
+  handleBootTzPickInput(in);
+}
+
+void uiBootNtpWaitHandle(InputState& in)
+{
+  handleBootNtpWaitInput(in);
+}

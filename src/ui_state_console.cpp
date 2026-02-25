@@ -8,6 +8,7 @@
 #include "ui_input_common.h"
 #include "ui_runtime.h"
 #include "ui_input_common.h"
+#include "ui_suppress.h"
 
 // From menu_actions.cpp: prevents menu/esc from bouncing immediately after returning.
 void menuActionsSuppressMenuForMs(uint32_t ms);
@@ -55,16 +56,14 @@ void uiConsoleHandle(InputState& input) {
       g_app.uiState = UIState::SETTINGS;
       requestUIRedraw();
       swallowTypingAndEdges(input);
-      menuActionsSuppressMenuForMs(250);
-      return;
+      uiSuppressMenuForMs(250);      return;
     }
 
     g_app.uiState    = g_consoleReturnState;
     g_app.currentTab = g_consoleReturnTab;
     requestUIRedraw();
     swallowTypingAndEdges(input);
-    menuActionsSuppressMenuForMs(250);
-    return;
+    uiSuppressMenuForMs(250);    return;
   }
 
   // Let the console module handle keystrokes, cursor, etc.

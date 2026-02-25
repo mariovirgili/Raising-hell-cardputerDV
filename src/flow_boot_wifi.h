@@ -13,3 +13,8 @@ void handleBootWifiPromptInput(InputState& in);
 void handleBootWifiWaitInput(InputState& in);
 void handleBootTzPickInput(InputState& in);
 void handleBootNtpWaitInput(InputState& in);
+
+void uiBootWifiPromptHandle(InputState& in);
+void uiBootWifiWaitHandle(InputState& in);
+void uiBootTzPickHandle(InputState& in);
+void uiBootNtpWaitHandle(InputState& in);

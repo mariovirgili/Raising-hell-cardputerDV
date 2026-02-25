@@ -9,3 +9,5 @@ void openControlsHelpFromAnywhere();
 
 // Handler called by menu_actions dispatcher
 void handleControlsHelpInput(InputState& in);
+
+void uiControlsHelpHandle(InputState& in);

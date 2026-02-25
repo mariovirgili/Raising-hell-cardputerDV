@@ -5,27 +5,23 @@
 
 #include "app_state.h"
 #include "controls_help_state.h"
-#include "input.h"
-#include "menu_actions_internal.h"
-#include "settings_flow_state.h"
-#include "ui_runtime.h"
 #include "display.h"
 #include "graphics.h"
+#include "input.h"
+#include "ui_suppress.h"
+#include "settings_flow_state.h"
+#include "ui_runtime.h"
 
 // Controls Help return target (so Settings->Controls can return back to Settings)
-static bool         s_returnToSettings = false;
-static SettingsPage s_returnPage       = SettingsPage::TOP;
-static int          s_returnTopIndex   = 0;
+static bool s_returnToSettings = false;
+static SettingsPage s_returnPage = SettingsPage::TOP;
+static int s_returnTopIndex = 0;
 
-// Small helper to drain queued key events safely
-static inline void drainKb(InputState& in) {
-  while (in.kbHasEvent()) (void)in.kbPop();
-}
-
-void openControlsHelpFromSettings() {
+void openControlsHelpFromSettings()
+{
   s_returnToSettings = true;
-  s_returnPage       = SettingsPage::TOP;
-  s_returnTopIndex   = g_app.settingsIndex;
+  s_returnPage = SettingsPage::TOP;
+  s_returnTopIndex = g_app.settingsIndex;
 
   g_app.uiState = UIState::CONTROLS_HELP;
   requestFullUIRedraw();
@@ -35,11 +31,14 @@ void openControlsHelpFromSettings() {
   inputForceClear();
 }
 
-void openControlsHelpFromAnywhere() {
-  if (g_app.uiState == UIState::CONTROLS_HELP) return;
+void openControlsHelpFromAnywhere()
+{
+  if (g_app.uiState == UIState::CONTROLS_HELP)
+    return;
 
   // If we're in Settings, preserve the current Settings cursor via the existing path.
-  if (g_app.uiState == UIState::SETTINGS) {
+  if (g_app.uiState == UIState::SETTINGS)
+  {
     openControlsHelpFromSettings();
     return;
   }
@@ -55,34 +54,39 @@ void openControlsHelpFromAnywhere() {
   inputForceClear();
 }
 
-void handleControlsHelpInput(InputState& in) {
+void handleControlsHelpInput(InputState &in)
+{
   bool kbDismiss = false;
 
   // Treat keyboard Enter / Backspace as dismiss too
-  while (in.kbHasEvent()) {
+  while (in.kbHasEvent())
+  {
     const KeyEvent ev = in.kbPop();
     const uint8_t c = ev.code;
 
     // Enter can arrive as '\n' (10) or '\r' (13) depending on source
     // Backspace is '\b' (8)
-    if (c == '\n' || c == '\r' || c == '\b') {
+    if (c == '\n' || c == '\r' || c == '\b')
+    {
       kbDismiss = true;
     }
-  }  
+  }
   // Any of these dismisses
-  if (kbDismiss || in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce) {
+  if (kbDismiss || in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce)
+  {
     controlsHelpDismiss();
 
-    menuActionsSuppressMenuForMs(250);
+    uiSuppressMenuForMs(250);
     in.clearEdges();
     clearInputLatch();
 
-    if (s_returnToSettings) {
+    if (s_returnToSettings)
+    {
       s_returnToSettings = false;
 
-      g_app.uiState                = UIState::SETTINGS;
-      g_settingsFlow.settingsPage  = s_returnPage;
-      g_app.settingsIndex          = s_returnTopIndex;
+      g_app.uiState = UIState::SETTINGS;
+      g_settingsFlow.settingsPage = s_returnPage;
+      g_app.settingsIndex = s_returnTopIndex;
 
       requestFullUIRedraw();
 
@@ -96,3 +100,5 @@ void handleControlsHelpInput(InputState& in) {
   // otherwise swallow everything (no accidental actions)
   clearInputLatch();
 }
+
+void uiControlsHelpHandle(InputState &in) { handleControlsHelpInput(in); }
