@@ -3,14 +3,15 @@
 #include <Arduino.h>
 
 #include "app_state.h"
+#include "flow_power_menu.h"
+#include "graphics.h"
 #include "input.h"
 #include "menu_actions_internal.h"
 #include "new_pet_flow_state.h"
+#include "settings_flow_state.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
 #include "ui_state_handlers.h"
-#include "graphics.h"
-#include "settings_flow_state.h"
 
 // resetSettingsNav() currently lives in ui_state_settings.cpp (no header yet).
 void resetSettingsNav(bool resetTopIndex);
@@ -18,12 +19,13 @@ void resetSettingsNav(bool resetTopIndex);
 // --------------------------------------------------------------
 // Local helpers (kept private to the router)
 // --------------------------------------------------------------
-static inline void drainKb(InputState& in)
+static inline void drainKb(InputState &in)
 {
-  while (in.kbHasEvent()) (void)in.kbPop();
+  while (in.kbHasEvent())
+    (void)in.kbPop();
 }
 
-static inline void swallowTypingAndEdges(InputState& in)
+static inline void swallowTypingAndEdges(InputState &in)
 {
   drainKb(in);
   in.clearEdges();
@@ -56,8 +58,28 @@ static bool s_bootNamePetFixApplied = false;
 // Global interceptors
 // Return true if handled (and input is swallowed/mutated accordingly)
 // --------------------------------------------------------------
-static bool handleGlobalInterceptors(InputState& in)
+static bool handleGlobalInterceptors(InputState &in)
 {
+  // --------------------------------------------------------------
+  // POWER MENU trigger
+  //  - GO long-hold opens it (unless text capture is active).
+  //  - Actual POWER_MENU handling is dispatched via ui_state_handlers.cpp
+  // --------------------------------------------------------------
+  if (!g_textCaptureMode && in.goLongHold)
+  {
+    openPowerMenuFromHere(millis());
+    swallowTypingAndEdges(in);
+    return true;
+  }
+  
+  if (!menuSuppressedNow() && in.menuOnce)
+  {
+    openPowerMenuFromHere(millis());
+    requestUIRedraw();
+    swallowTypingAndEdges(in);
+    return true;
+  }
+  
   // --------------------------------------------------------------
   // BOOT FIXUP:
   // Only apply this when we are truly in a bad boot resume.
@@ -81,7 +103,7 @@ static bool handleGlobalInterceptors(InputState& in)
       inputSetTextCapture(false);
       g_textCaptureMode = false;
 
-      g_app.uiState    = UIState::CHOOSE_PET;
+      g_app.uiState = UIState::CHOOSE_PET;
       g_app.currentTab = Tab::TAB_PET;
 
       g_choosePetBlockHatchUntilRelease = true;
@@ -96,25 +118,24 @@ static bool handleGlobalInterceptors(InputState& in)
     }
   }
 
+  // --------------------------------------------------------------
   // Suppress menu/esc edges for a brief window after leaving overlays.
+  // --------------------------------------------------------------
   if (menuSuppressedNow() && (in.menuOnce || in.escOnce))
   {
     swallowTypingAndEdges(in);
-    return false; // "not handled" but we did swallow the edges
+    return true; // swallow AND stop dispatch this tick
   }
 
   // --------------------------------------------------------------
   // PET_SCREEN + main tabs: ESC should open Settings (classic behavior)
   // --------------------------------------------------------------
-  if ((g_app.uiState == UIState::PET_SCREEN ||
-       g_app.uiState == UIState::INVENTORY ||
-       g_app.uiState == UIState::SHOP ||
-       g_app.uiState == UIState::PET_SLEEPING ||
-       g_app.uiState == UIState::SLEEP_MENU) &&
+  if ((g_app.uiState == UIState::PET_SCREEN || g_app.uiState == UIState::INVENTORY || g_app.uiState == UIState::SHOP ||
+       g_app.uiState == UIState::PET_SLEEPING || g_app.uiState == UIState::SLEEP_MENU) &&
       (in.escOnce || in.hotSettings))
   {
     g_settingsFlow.settingsReturnState = g_app.uiState;
-    g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+    g_settingsFlow.settingsReturnTab = g_app.currentTab;
     g_settingsFlow.settingsReturnValid = true;
 
     resetSettingsNav(true);
@@ -126,9 +147,9 @@ static bool handleGlobalInterceptors(InputState& in)
     drainKb(in);
     inputForceClear();
 
-    in.escOnce          = false;
-    in.menuOnce         = false;
-    in.selectOnce       = false;
+    in.escOnce = false;
+    in.menuOnce = false;
+    in.selectOnce = false;
     in.encoderPressOnce = false;
 
     return true;
@@ -142,10 +163,9 @@ static bool handleGlobalInterceptors(InputState& in)
   // --------------------------------------------------------------
   if (g_app.uiState == UIState::PET_SLEEPING)
   {
-    // Use a HELD->edge for wake because selectOnce depends on Keyboard.isChange().
     static bool s_prevSleepSelectHeld = false;
-    const bool  enterEdge             = (in.selectHeld && !s_prevSleepSelectHeld);
-    s_prevSleepSelectHeld             = in.selectHeld;
+    const bool enterEdge = (in.selectHeld && !s_prevSleepSelectHeld);
+    s_prevSleepSelectHeld = in.selectHeld;
 
     const bool wakePressed = (enterEdge || in.encoderPressOnce || in.selectOnce);
 
@@ -153,13 +173,13 @@ static bool handleGlobalInterceptors(InputState& in)
     {
       resetSettingsNav(true);
       g_settingsFlow.settingsPage = SettingsPage::TOP;
-      g_app.uiState               = UIState::SETTINGS;
+      g_app.uiState = UIState::SETTINGS;
       requestUIRedraw();
 
       drainKb(in);
       inputForceClear();
 
-      in.escOnce  = false;
+      in.escOnce = false;
       in.menuOnce = false;
 
       return true;
@@ -167,19 +187,17 @@ static bool handleGlobalInterceptors(InputState& in)
 
     if (!wakePressed)
     {
-      // Swallow everything without calling clearInputLatch() (it can erase wake edges).
       drainKb(in);
       in.clearEdges();
-      return false;
+      return true; // swallow AND stop dispatch
     }
   }
 
   return false;
 }
 
-bool uiHandleInput(InputState& in)
+bool uiHandleInput(InputState &in)
 {
-  // Interceptors may swallow input and/or change states.
   if (handleGlobalInterceptors(in))
     return true;
 

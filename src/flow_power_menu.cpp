@@ -19,6 +19,7 @@
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
 #include "wifi_power.h"
+#include <stdint.h>
 
 // Suppress wake edges briefly when returning to PET_SLEEPING from overlays
 static uint32_t s_suppressSleepWakeUntilMs = 0;
