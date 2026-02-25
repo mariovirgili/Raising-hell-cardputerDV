@@ -21,9 +21,10 @@
 #include "flow_time_editor.h"
 #include "game_options_state.h"
 #include "graphics.h"       // ui_showMessage
-#include "menu_actions.h"   // openConsoleWithReturn, settingsCycleTimeZone
 #include "ui_input_utils.h" // uiDrainKb
 #include "input.h" 
+#include "flow_console.h"
+#include "ui_settings_actions.h"
 
 // ------------------------------------------------------------
 // Minimal embedded menu model

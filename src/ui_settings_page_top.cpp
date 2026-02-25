@@ -12,6 +12,7 @@
 #include "menu_actions.h"
 #include "graphics.h"
 #include "ui_input_utils.h"
+#include "flow_console.h"
 
 namespace UiSettingsPages {
 

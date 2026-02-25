@@ -14,8 +14,8 @@
 #include "wifi_setup_state.h"
 #include "wifi_time.h"
 #include "graphics.h"
-#include "menu_actions.h"
 #include "ui_input_utils.h"
+#include "ui_settings_actions.h"
 
 namespace UiSettingsPages {
 

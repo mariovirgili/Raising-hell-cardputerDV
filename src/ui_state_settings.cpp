@@ -40,12 +40,12 @@
 
 #include "settings_nav_state.h"
 #include "time_persist.h"
-#include "menu_actions.h"   // openConsoleWithReturn, settingsCycleTimeZone, (we’ll add resetSettingsNav to this header)
 #include "wifi_time.h"      // wifiIsEnabled, wifiSetEnabled
 #include "graphics.h"       // ui_showMessage
 #include "ui_settings_pages.h"
 #include "ui_settings_menu.h"
 #include "ui_input_common.h"
+#include "ui_settings_actions.h"
 
 void resetSettingsNav(bool resetTopIndex);
 

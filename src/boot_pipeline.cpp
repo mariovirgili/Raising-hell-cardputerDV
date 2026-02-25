@@ -35,6 +35,7 @@
 #include "ui_menu_state.h"
 #include "app_state.h"
 #include "display_dims_state.h"
+#include "flow_boot_wizard.h"
 
 // -----------------------------------------------------------------------------
 // SD Asset Check (all builds)

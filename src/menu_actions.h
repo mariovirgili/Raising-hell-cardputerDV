@@ -17,21 +17,6 @@ enum class SettingsPage : uint8_t;
 // Main dispatcher (called from loop)
 bool handleMenuInput(InputState& in);
 
-// Controls help
-void openControlsHelpFromSettings();
-void openControlsHelpFromAnywhere();
-
-// Boot flow
-void bootWizardBegin(UIState afterState, Tab afterTab);
-void beginForcedSetTimeBootGate(UIState returnState, Tab returnTab);
-extern void settingsCycleTimeZone(int dir);
-
-// Console
-void openConsoleWithReturn(UIState returnState, Tab returnTab, bool retToSettings, SettingsPage retSettingsPage);
-
-// Factory reset
-void doFactoryResetNow();
-
 // Feed action
 void feedUseSelected();
 

@@ -18,6 +18,8 @@
 #include "graphics.h"
 #include "new_pet_flow_state.h"
 #include "menu_actions.h"
+#include "flow_boot_wizard.h"
+#include "ui_settings_actions.h"
 
 // Wizard state (moved out of menu_actions.cpp)
 static bool    s_bootWifiWizardActive = false;

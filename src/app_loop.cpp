@@ -34,6 +34,7 @@
 #include "wifi_time.h"
 #include <Arduino.h>
 #include <cstring>
+#include "flow_controls_help.h"
 
 bool handleMenuInput(InputState &in);
 
