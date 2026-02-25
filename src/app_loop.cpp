@@ -486,8 +486,8 @@ void appMainLoopTick()
         openControlsHelpFromAnywhere();
         return;
       }
-    }
 #endif
+    }
 
     // Q/menu key returns to pet tab/root
     // IMPORTANT: do NOT run this while POWER_MENU is open (it steals menuOnce

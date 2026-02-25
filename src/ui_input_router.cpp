@@ -61,25 +61,24 @@ static bool s_bootNamePetFixApplied = false;
 static bool handleGlobalInterceptors(InputState &in)
 {
   // --------------------------------------------------------------
-  // POWER MENU trigger
-  //  - GO long-hold opens it (unless text capture is active).
-  //  - Actual POWER_MENU handling is dispatched via ui_state_handlers.cpp
+  // POWER MENU OVERLAY (highest priority)
+  //  - When open, it consumes ALL input.
+  //  - Opens via GO long-hold (below).
   // --------------------------------------------------------------
+  if (g_app.uiState == UIState::POWER_MENU)
+  {
+    handlePowerMenuInput(in);
+    return true;
+  }
+
+  // Open power menu ONLY via GO long-hold (do not tie to menuOnce/escOnce).
   if (!g_textCaptureMode && in.goLongHold)
   {
     openPowerMenuFromHere(millis());
     swallowTypingAndEdges(in);
     return true;
   }
-  
-  if (!menuSuppressedNow() && in.menuOnce)
-  {
-    openPowerMenuFromHere(millis());
-    requestUIRedraw();
-    swallowTypingAndEdges(in);
-    return true;
-  }
-  
+
   // --------------------------------------------------------------
   // BOOT FIXUP:
   // Only apply this when we are truly in a bad boot resume.
@@ -97,7 +96,6 @@ static bool handleGlobalInterceptors(InputState &in)
     }
 
     // Otherwise, treat NAME_PET as suspicious only if we are not text-capturing.
-    // (Bad resume tends to land here without the keyboard mode enabled.)
     if (!g_textCaptureMode)
     {
       inputSetTextCapture(false);
