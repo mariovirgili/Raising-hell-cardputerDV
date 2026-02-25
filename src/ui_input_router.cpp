@@ -26,19 +26,7 @@
 #include "ui_state_sleep_menu.h"
 #include "ui_state_tab_driven.h"
 #include "ui_state_wifi_setup.h"
-
-// Local “safe swallow” for boot/flow states that should not accept random edges
-static inline void drainKb(InputState &in)
-{
-  while (in.kbHasEvent())
-    (void)in.kbPop();
-}
-
-static inline void swallowEdgesOnly(InputState &in)
-{
-  drainKb(in);
-  in.clearEdges();
-}
+#include "ui_actions.h"
 
 static inline bool isNoInputState(UIState s)
 {
@@ -62,7 +50,7 @@ bool uiHandleInput(InputState &in)
   // Explicitly “no input” states: swallow edges so nothing leaks in from buffers.
   if (isNoInputState(g_app.uiState))
   {
-    swallowEdgesOnly(in);
+    uiActionSwallowEdges(in);;
     return true;
   }
 

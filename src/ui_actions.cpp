@@ -3,8 +3,10 @@
 #include "app_state.h"
 #include "input.h"
 #include "ui_runtime.h"
-#include "graphics.h"    // invalidateBackgroundCache()
-#include "display.h"     // requestFullUIRedraw()
+#include "graphics.h"    
+#include "display.h" 
+#include "ui_input_common.h"
+#include "ui_state_lifecycle.h"
 
 void uiActionRequestRedraw()
 {
@@ -18,8 +20,7 @@ void uiActionRequestFullRedraw()
 
 void uiActionDrainKb(InputState& in)
 {
-  while (in.kbHasEvent())
-    (void)in.kbPop();
+  uiDrainKb(in);
 }
 
 void uiActionSwallowEdges(InputState& in)
@@ -37,8 +38,17 @@ void uiActionSwallowAll(InputState& in)
 
 void uiActionEnterState(UIState state, Tab tab, bool redraw)
 {
+  const UIState old = g_app.uiState;
+
+  if (old != state)
+    uiStateOnExit(old);
+
   g_app.uiState = state;
   g_app.currentTab = tab;
+
+  if (old != state)
+    uiStateOnEnter(state);
+
   if (redraw)
     requestUIRedraw();
 }

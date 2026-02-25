@@ -8,6 +8,7 @@
 #include "ui_input_utils.h"
 #include "ui_runtime.h"
 #include "ui_suppress.h"
+#include "ui_actions.h"
 
 // Console return target
 static UIState g_consoleReturnState = UIState::PET_SCREEN;
@@ -27,10 +28,9 @@ void openConsoleWithReturn(UIState returnState, Tab returnTab, bool retToSetting
   requestUIRedraw();
 }
 
-static inline void swallowTypingAndEdges(InputState &in)
+static inline void swallowTypingAndEdges(InputState& in)
 {
-  // If we just returned from text-entry states, the key buffer can still have junk.
-  uiDrainKb(in);
+  uiActionDrainKb(in);
 
   // Clear one-shot edges so we don't immediately close/submit.
   in.escOnce = false;

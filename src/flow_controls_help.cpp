@@ -8,9 +8,10 @@
 #include "display.h"
 #include "graphics.h"
 #include "input.h"
-#include "ui_suppress.h"
 #include "settings_flow_state.h"
+#include "ui_actions.h"
 #include "ui_runtime.h"
+#include "ui_suppress.h"
 
 // Controls Help return target (so Settings->Controls can return back to Settings)
 static bool s_returnToSettings = false;
@@ -77,6 +78,7 @@ static void handleControlsHelpInput(InputState &in)
     controlsHelpDismiss();
 
     uiSuppressMenuForMs(250);
+    uiActionDrainKb(in);
     in.clearEdges();
     clearInputLatch();
 
@@ -91,6 +93,7 @@ static void handleControlsHelpInput(InputState &in)
       requestFullUIRedraw();
 
       inputForceClear();
+      uiActionSwallowEdges(in);
       clearInputLatch();
     }
 

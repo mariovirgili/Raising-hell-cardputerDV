@@ -21,7 +21,7 @@
 #include "ui_runtime.h"
 #include "ui_suppress.h"
 #include "wifi_power.h"
-
+#include "ui_input_common.h"
 bool powerMenuSleepWakeSuppressedNow() { return uiIsSleepWakeSuppressed(); }
 
 void openPowerMenuFromHere(uint32_t nowMs)
@@ -41,12 +41,6 @@ void openPowerMenuFromHere(uint32_t nowMs)
   inputForceClear();
 
   requestFullUIRedraw();
-}
-
-static inline void drainKb(InputState& in)
-{
-  while (in.kbHasEvent())
-    (void)in.kbPop();
 }
 
 static void handlePowerMenuInput(InputState& input)
@@ -74,7 +68,7 @@ static void handlePowerMenuInput(InputState& input)
   }
   else
   {
-    drainKb(input);
+    uiDrainKb(input);
   }
 
   if (exitPressed)
@@ -164,7 +158,7 @@ static void handlePowerMenuInput(InputState& input)
     return;
   }
 
-  drainKb(input);
+  uiDrainKb(input);
   input.clearEdges();
 }
 
