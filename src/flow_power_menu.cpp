@@ -49,7 +49,7 @@ static inline void drainKb(InputState& in)
     (void)in.kbPop();
 }
 
-void handlePowerMenuInput(InputState& input)
+static void handlePowerMenuInput(InputState& input)
 {
   bool exitPressed = (input.menuOnce || input.escOnce);
 

@@ -61,7 +61,7 @@ void bootWizardBegin(UIState afterState, Tab afterTab) {
   clearInputLatch();
   }
 
-void handleBootWifiPromptInput(InputState& in) {
+static void handleBootWifiPromptInput(InputState& in) {
   if (in.escOnce || in.menuOnce) {
     bootWizardSkipToManualTime();
     return;
@@ -90,7 +90,7 @@ void handleBootWifiPromptInput(InputState& in) {
   clearInputLatch();
 }
 
-void handleBootWifiWaitInput(InputState& in) {
+static void handleBootWifiWaitInput(InputState& in) {
   if (in.escOnce || in.menuOnce) {
     bootWizardSkipToManualTime();
     return;
@@ -107,7 +107,7 @@ void handleBootWifiWaitInput(InputState& in) {
   clearInputLatch();
 }
 
-void handleBootTzPickInput(InputState& in) {
+static void handleBootTzPickInput(InputState& in) {
   if (in.escOnce || in.menuOnce) {
     g_app.uiState = UIState::BOOT_NTP_WAIT;
     requestUIRedraw();
@@ -141,7 +141,7 @@ void handleBootTzPickInput(InputState& in) {
   clearInputLatch();
 }
 
-void handleBootNtpWaitInput(InputState& in) {
+static void handleBootNtpWaitInput(InputState& in) {
   if (in.escOnce || in.menuOnce) {
     bootWizardSkipToManualTime();
     return;

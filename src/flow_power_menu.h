@@ -5,7 +5,7 @@
 
 struct InputState;
 
-// Power menu interceptors (called from menu_actions dispatcher)
+// Power menu interceptors (called from ui_input_interceptors)
 void openPowerMenuFromHere(uint32_t now);
 
 void uiPowerMenuHandle(InputState& in);
