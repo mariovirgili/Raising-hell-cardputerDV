@@ -2,14 +2,12 @@
 
 #include <Arduino.h>
 
-#include "graphics.h"
 #include "input.h"
-#include "ui_runtime.h"
 
 // -----------------------------------------------------------------------------
 // Internal timers (millis-based, wrap-safe with signed diff)
 // -----------------------------------------------------------------------------
-static uint32_t s_suppressMenuUntilMs = 0;
+static uint32_t s_suppressMenuUntilMs      = 0;
 static uint32_t s_suppressSleepWakeUntilMs = 0;
 
 // -----------------------------------------------------------------------------
@@ -60,9 +58,6 @@ void uiGuardTransition(InputState& input, uint32_t menuSuppressMs)
 {
   if (menuSuppressMs)
     uiSuppressMenuForMs(menuSuppressMs);
-
-  // State switch / overlay open => full redraw (invalidate underlay cache)
-  requestFullUIRedraw();
 
   // Kill any residue input that would double-trigger
   input.clearEdges();

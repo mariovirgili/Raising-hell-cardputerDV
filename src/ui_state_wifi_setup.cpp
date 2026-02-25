@@ -9,6 +9,7 @@
 #include "sound.h"
 #include "ui_runtime.h"
 #include "ui_input_utils.h"
+#include "ui_input_common.h"
 
 #include "save_manager.h"
 #include "wifi_power.h"
@@ -17,6 +18,7 @@
 #include "wifi_setup_state.h"
 
 #include <cstring>
+#include "ui_input_common.h"
 
 void ui_showMessage(const char* msg);
 

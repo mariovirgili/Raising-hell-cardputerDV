@@ -1,10 +1,12 @@
 #include "ui_settings_menu.h"
 
 #include "app_state.h"
+#include "menu_actions.h"
 #include "save_manager.h"
 #include "sdcard.h"
 #include "settings_flow_state.h"
 #include "sound.h"
+#include "ui_input_common.h"
 #include "ui_runtime.h"
 
 #include "auto_screen.h"
@@ -22,7 +24,6 @@
 #include "game_options_state.h"
 #include "graphics.h"       // ui_showMessage
 #include "ui_input_utils.h" // uiDrainKb
-#include "input.h" 
 #include "flow_console.h"
 #include "ui_settings_actions.h"
 
@@ -495,7 +496,7 @@ bool Handle(InputState &input, int move)
   // Disabled items: block select/left/right (still allow moving)
   if (item.isEnabled && !item.isEnabled())
   {
-    if (input.selectOnce || input.encoderPressOnce || input.leftOnce || input.rightOnce)
+    if (uiIsSelect(input) || input.leftOnce || input.rightOnce)
     {
       soundError();
       clearInputLatch();
@@ -517,7 +518,7 @@ bool Handle(InputState &input, int move)
   }
 
   // Select
-  if ((input.selectOnce || input.encoderPressOnce) && item.onSelect)
+  if ((uiIsSelect(input)) && item.onSelect)
   {
     item.onSelect(input);
     return true;

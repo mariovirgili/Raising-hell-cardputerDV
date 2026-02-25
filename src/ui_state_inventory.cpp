@@ -4,13 +4,12 @@
 #include "input.h"
 #include "save_manager.h"
 #include "sound.h"
+#include "ui_input_utils.h"
 #include "ui_runtime.h"
-#include "ui_input_common.h"
 
 void uiInventoryHandle(InputState& in)
 {
-  // Preserve existing behavior: MENU exits inventory back to pet screen.
-  if (in.menuOnce) {
+  if (uiIsBack(in)) {
     g_app.uiState = UIState::PET_SCREEN;
     requestUIRedraw();
     clearInputLatch();
@@ -27,15 +26,13 @@ void uiInventoryHandle(InputState& in)
 
   const int move = uiNavMove(in);
   if (move != 0) {
-    g_app.inventory.selectedIndex += move;
-    uiWrapIndex(g_app.inventory.selectedIndex, count);
-
+    uiWrapIndex(g_app.inventory.selectedIndex, move, count);
     requestUIRedraw();
     playBeep();
     return;
   }
 
-  if (uiSelectPressed(in)) {
+  if (uiIsSelect(in)) {
     g_app.inventory.useSelectedItem();
     saveManagerMarkDirty();
     requestUIRedraw();

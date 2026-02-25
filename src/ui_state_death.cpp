@@ -5,34 +5,24 @@
 #include "input.h"
 #include "mini_games.h"
 #include "sound.h"
-#include "ui_invalidate.h"
-#include "ui_state_utils.h" 
-#include "game_options_state.h" 
-#include "death_state.h"
+#include "ui_input_common.h"
+#include "ui_input_utils.h"
+#include "ui_runtime.h"
 
-extern void startResurrectionRun();
-extern void soundResetDeathDirgeLatch();
-extern void soundFuneralDirge();
+extern int deathMenuIndex;
 
-void uiDeathHandle(InputState& in) {
-  int move = 0;
-  if (in.upOnce) move = -1;
-  if (in.downOnce) move = +1;
-  if (in.encoderDelta < 0) move = -1;
-  if (in.encoderDelta > 0) move = +1;
-
+void uiDeathHandle(InputState& in)
+{
+  const int move = uiNavMove(in);
   if (move != 0) {
-    deathMenuIndex += (move > 0) ? 1 : -1;
-    if (deathMenuIndex < 0) deathMenuIndex = 1;
-    if (deathMenuIndex > 1) deathMenuIndex = 0;
-
+    uiWrapIndex(deathMenuIndex, move, 2);
     requestUIRedraw();
     playBeep();
     clearInputLatch();
     return;
   }
 
-  if (!(in.selectOnce || in.encoderPressOnce)) return;
+  if (!uiIsSelect(in)) return;
 
   clearInputLatch();
   inputForceClear();

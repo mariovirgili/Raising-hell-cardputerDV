@@ -5,7 +5,9 @@
 #include "input.h"
 #include "settings_flow_state.h"
 #include "ui_input_utils.h"
+#include "ui_input_common.h"
 #include "ui_runtime.h"
+#include "ui_input_common.h"
 
 // From menu_actions.cpp: prevents menu/esc from bouncing immediately after returning.
 void menuActionsSuppressMenuForMs(uint32_t ms);
