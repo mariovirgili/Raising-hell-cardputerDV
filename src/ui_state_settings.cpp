@@ -40,13 +40,11 @@
 
 #include "settings_nav_state.h"
 #include "time_persist.h"
-#include "wifi_time.h"      // wifiIsEnabled, wifiSetEnabled
-#include "graphics.h"       // ui_showMessage
-#include "ui_settings_pages.h"
+#include "wifi_time.h"      
+#include "graphics.h"      
 #include "ui_settings_menu.h"
 #include "ui_input_common.h"
 #include "ui_settings_actions.h"
-#include "settings_nav_state.h"
 
 void uiSettingsHandle(InputState& input)
 {

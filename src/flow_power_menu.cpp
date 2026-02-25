@@ -18,13 +18,11 @@
 #include "sound.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
+#include "ui_suppress.h"
 #include "wifi_power.h"
 #include <stdint.h>
 
-// Suppress wake edges briefly when returning to PET_SLEEPING from overlays
-static uint32_t s_suppressSleepWakeUntilMs = 0;
-
-bool powerMenuSleepWakeSuppressedNow() { return (int32_t)(millis() - s_suppressSleepWakeUntilMs) < 0; }
+bool powerMenuSleepWakeSuppressedNow() { return uiIsSleepWakeSuppressed(); }
 
 void openPowerMenuFromHere(uint32_t nowMs)
 {
@@ -35,7 +33,7 @@ void openPowerMenuFromHere(uint32_t nowMs)
 
   // Capture return target in the centralized flow state
   g_settingsFlow.powerMenuReturnState = g_app.uiState;
-  g_settingsFlow.powerMenuReturnTab   = g_app.currentTab;
+  g_settingsFlow.powerMenuReturnTab = g_app.currentTab;
 
   powerMenuIndex = 0;
   g_app.uiState = UIState::POWER_MENU;
@@ -90,13 +88,12 @@ void handlePowerMenuInput(InputState &input)
 
     if (returningToSleep)
     {
-      g_app.uiState    = UIState::PET_SLEEPING;
+      g_app.uiState = UIState::PET_SLEEPING;
       g_app.currentTab = Tab::TAB_PET;
-      s_suppressSleepWakeUntilMs = millis() + 400;
     }
     else
     {
-      g_app.uiState    = g_settingsFlow.powerMenuReturnState;
+      g_app.uiState = g_settingsFlow.powerMenuReturnState;
       g_app.currentTab = g_settingsFlow.powerMenuReturnTab;
     }
 
@@ -104,13 +101,9 @@ void handlePowerMenuInput(InputState &input)
 
     // Optional hygiene defaults (recommended)
     g_settingsFlow.powerMenuReturnState = UIState::PET_SCREEN;
-    g_settingsFlow.powerMenuReturnTab   = Tab::TAB_PET;
+    g_settingsFlow.powerMenuReturnTab = Tab::TAB_PET;
 
-    requestFullUIRedraw();
-
-    input.clearEdges();
-    inputForceClear();
-    clearInputLatch();
+    uiGuardTransition(input, returningToSleep ? 400 : 0);
     return;
   }
 
@@ -118,10 +111,14 @@ void handlePowerMenuInput(InputState &input)
   const int itemCount = 2;
 
   int mv = 0;
-  if (input.upOnce) mv = -1;
-  else if (input.downOnce) mv = +1;
-  else if (input.encoderDelta < 0) mv = -1;
-  else if (input.encoderDelta > 0) mv = +1;
+  if (input.upOnce)
+    mv = -1;
+  else if (input.downOnce)
+    mv = +1;
+  else if (input.encoderDelta < 0)
+    mv = -1;
+  else if (input.encoderDelta > 0)
+    mv = +1;
 
   if (mv != 0)
   {
@@ -180,6 +177,4 @@ void handlePowerMenuInput(InputState &input)
   input.clearEdges();
 }
 
-void uiPowerMenuHandle(InputState& in) {
-  handlePowerMenuInput(in);
-}
+void uiPowerMenuHandle(InputState &in) { handlePowerMenuInput(in); }

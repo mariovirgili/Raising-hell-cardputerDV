@@ -7,6 +7,3 @@ bool handleMenuInput(InputState& in);
 
 // Called by mini_games.cpp when the resurrection game ends
 void onResurrectionMiniGameResult(bool success);
-
-// Called by settings actions
-void settingsToggleLedAlerts();

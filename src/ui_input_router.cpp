@@ -9,43 +9,36 @@
 #include "menu_actions_internal.h"
 #include "new_pet_flow_state.h"
 #include "settings_flow_state.h"
+#include "settings_nav_state.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
 #include "ui_state_handlers.h"
-#include "settings_nav_state.h"
-#include "flow_power_menu.h"
+#include "ui_suppress.h"
 
 // --------------------------------------------------------------
 // Local helpers (kept private to the router)
 // --------------------------------------------------------------
-static inline void drainKb(InputState &in)
+static inline void drainKb(InputState& in)
 {
   while (in.kbHasEvent())
     (void)in.kbPop();
 }
 
-static inline void swallowTypingAndEdges(InputState &in)
+static inline void swallowAllInput(InputState& in)
 {
   drainKb(in);
   in.clearEdges();
+  inputForceClear();
   clearInputLatch();
 }
 
-// --------------------------------------------------------------
-// Menu/ESC suppression window (used by overlays so an ESC press
-// doesn't immediately re-open Settings on the next tick).
-// --------------------------------------------------------------
-static uint32_t s_suppressMenuUntilMs = 0;
+// Menu/ESC suppression is centralized in ui_suppress.*
+static inline bool menuSuppressedNow() { return uiIsMenuSuppressed(); }
 
-static inline bool menuSuppressedNow()
-{
-  // signed diff to handle millis wrap safely
-  return (int32_t)(millis() - s_suppressMenuUntilMs) < 0;
-}
-
+// Legacy hook used by some menu-actions code (route it to ui_suppress)
 void menuActionsSuppressMenuForMs(uint32_t durationMs)
 {
-  s_suppressMenuUntilMs = millis() + durationMs;
+  uiSuppressMenuForMs(durationMs);
 }
 
 // --------------------------------------------------------------
@@ -54,10 +47,30 @@ void menuActionsSuppressMenuForMs(uint32_t durationMs)
 static bool s_bootNamePetFixApplied = false;
 
 // --------------------------------------------------------------
+// Settings open helper
+// --------------------------------------------------------------
+static void openSettingsFromHere(InputState& in)
+{
+  g_settingsFlow.settingsReturnState = g_app.uiState;
+  g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+  g_settingsFlow.settingsReturnValid = true;
+
+  resetSettingsNav(true);
+  g_settingsFlow.settingsPage = SettingsPage::TOP;
+
+  g_app.uiState = UIState::SETTINGS;
+  requestUIRedraw();
+
+  // Prevent the same ESC/MENU press from being re-consumed immediately.
+  uiSuppressMenuForMs(250);
+  swallowAllInput(in);
+}
+
+// --------------------------------------------------------------
 // Global interceptors
 // Return true if handled (and input is swallowed/mutated accordingly)
 // --------------------------------------------------------------
-static bool handleGlobalInterceptors(InputState &in)
+static bool handleGlobalInterceptors(InputState& in)
 {
   // --------------------------------------------------------------
   // POWER MENU OVERLAY (highest priority)
@@ -74,7 +87,7 @@ static bool handleGlobalInterceptors(InputState &in)
   if (!g_textCaptureMode && in.goLongHold)
   {
     openPowerMenuFromHere(millis());
-    swallowTypingAndEdges(in);
+    swallowAllInput(in);
     return true;
   }
 
@@ -90,7 +103,7 @@ static bool handleGlobalInterceptors(InputState &in)
     // If we're actively in the new-pet flow, NAME_PET is valid.
     if (g_app.newPetFlowActive)
     {
-      swallowTypingAndEdges(in);
+      swallowAllInput(in);
       return true;
     }
 
@@ -100,7 +113,7 @@ static bool handleGlobalInterceptors(InputState &in)
       inputSetTextCapture(false);
       g_textCaptureMode = false;
 
-      g_app.uiState = UIState::CHOOSE_PET;
+      g_app.uiState    = UIState::CHOOSE_PET;
       g_app.currentTab = Tab::TAB_PET;
 
       g_choosePetBlockHatchUntilRelease = true;
@@ -109,8 +122,7 @@ static bool handleGlobalInterceptors(InputState &in)
       invalidateBackgroundCache();
       requestUIRedraw();
 
-      swallowTypingAndEdges(in);
-      inputForceClear();
+      swallowAllInput(in);
       return true;
     }
   }
@@ -120,8 +132,8 @@ static bool handleGlobalInterceptors(InputState &in)
   // --------------------------------------------------------------
   if (menuSuppressedNow() && (in.menuOnce || in.escOnce))
   {
-    swallowTypingAndEdges(in);
-    return true; // swallow AND stop dispatch this tick
+    swallowAllInput(in);
+    return true;
   }
 
   // --------------------------------------------------------------
@@ -131,24 +143,7 @@ static bool handleGlobalInterceptors(InputState &in)
        g_app.uiState == UIState::PET_SLEEPING || g_app.uiState == UIState::SLEEP_MENU) &&
       (in.escOnce || in.hotSettings))
   {
-    g_settingsFlow.settingsReturnState = g_app.uiState;
-    g_settingsFlow.settingsReturnTab = g_app.currentTab;
-    g_settingsFlow.settingsReturnValid = true;
-
-    resetSettingsNav(true);
-    g_settingsFlow.settingsPage = SettingsPage::TOP;
-
-    g_app.uiState = UIState::SETTINGS;
-    requestUIRedraw();
-
-    drainKb(in);
-    inputForceClear();
-
-    in.escOnce = false;
-    in.menuOnce = false;
-    in.selectOnce = false;
-    in.encoderPressOnce = false;
-
+    openSettingsFromHere(in);
     return true;
   }
 
@@ -168,32 +163,23 @@ static bool handleGlobalInterceptors(InputState &in)
 
     if (in.escOnce && !wakePressed)
     {
-      resetSettingsNav(true);
-      g_settingsFlow.settingsPage = SettingsPage::TOP;
-      g_app.uiState = UIState::SETTINGS;
-      requestUIRedraw();
-
-      drainKb(in);
-      inputForceClear();
-
-      in.escOnce = false;
-      in.menuOnce = false;
-
+      openSettingsFromHere(in);
       return true;
     }
 
     if (!wakePressed)
     {
+      // swallow everything except the wake action
       drainKb(in);
       in.clearEdges();
-      return true; // swallow AND stop dispatch
+      return true;
     }
   }
 
   return false;
 }
 
-bool uiHandleInput(InputState &in)
+bool uiHandleInput(InputState& in)
 {
   if (handleGlobalInterceptors(in))
     return true;
