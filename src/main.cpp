@@ -6,8 +6,7 @@
 
 void setup() {
     appSetup();                              // real hardware init: M5, display, SD, etc.
-    state_manager.setState(new BootState()); // your state machine boot
-}
+    state_manager.setStateOwned(new BootState());}
 
 void loop() {
     appMainLoopTick(); // real game loop: input, rendering, pet tick, wifi, etc.

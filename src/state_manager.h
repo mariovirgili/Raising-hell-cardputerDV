@@ -1,82 +1,92 @@
 #pragma once
-#include "state.h"
 #include <cstddef>
+#include "state.h"
 
-class StateManager
-{
+class StateManager {
 private:
-  State *_current = nullptr;
-  State *_next = nullptr;
+    State* _current = nullptr;
+    State* _next = nullptr;
 
-  void applyPending_()
-  {
-    if (!_next)
-      return;
+    bool _current_owned = false; // if true, delete on transition
+    bool _next_owned = false;
 
-    if (_current)
-    {
-      _current->exit();
-      delete _current;
-      _current = nullptr;
+    void destroyIfOwned_(State*& s, bool& owned) {
+        if (!s) return;
+        if (owned) {
+            delete s;
+        }
+        s = nullptr;
+        owned = false;
     }
 
-    _current = _next;
-    _next = nullptr;
+    void applyPending_() {
+        if (!_next) return;
 
-    if (_current)
-    {
-      _current->enter();
+        if (_current) {
+            _current->exit();
+        }
+        destroyIfOwned_(_current, _current_owned);
+
+        _current = _next;
+        _current_owned = _next_owned;
+
+        _next = nullptr;
+        _next_owned = false;
+
+        if (_current) {
+            _current->enter();
+        }
     }
-  }
 
 public:
-  StateManager() = default;
+    StateManager() = default;
 
-  // Request a state change (will be applied at the start of update()).
-  void request(State *new_state)
-  {
-    // If multiple requests happen before the next update, keep the latest.
-    if (_next)
-    {
-      delete _next;
+    // Preferred: pass a pointer to a static/global state (not owned)
+    void setState(State* new_state) {
+        request(new_state);
     }
-    _next = new_state;
-  }
 
-  // Convenience: immediate change (use sparingly)
-  void setStateImmediate(State *new_state)
-  {
-    request(new_state);
-    applyPending_();
-  }
-
-  void update()
-  {
-    applyPending_();
-    if (_current)
-    {
-      _current->update();
+    // Back-compat: old code uses heap allocation (owned)
+    void setStateOwned(State* new_state) {
+        requestOwned(new_state);
     }
-  }
 
-  State *current() const { return _current; }
+    // Existing code compatibility: keep this name too
+    void setStateImmediate(State* new_state) {
+        request(new_state);
+        applyPending_();
+    }
 
-  ~StateManager()
-  {
-    if (_next)
-    {
-      delete _next;
-      _next = nullptr;
+    // New API: request a state change (applied at start of update)
+    void request(State* new_state) {
+        // replace any pending state
+        destroyIfOwned_(_next, _next_owned);
+        _next = new_state;
+        _next_owned = false;
     }
-    if (_current)
-    {
-      _current->exit();
-      delete _current;
-      _current = nullptr;
+
+    void requestOwned(State* new_state) {
+        destroyIfOwned_(_next, _next_owned);
+        _next = new_state;
+        _next_owned = true;
     }
-  }
-  // Back-compat: old code calls setState(...)
-  void setState(State *new_state) { request(new_state); }
+
+    void update() {
+        applyPending_();
+        if (_current) {
+            _current->update();
+        }
+    }
+
+    State* current() const { return _current; }
+
+    ~StateManager() {
+        destroyIfOwned_(_next, _next_owned);
+        if (_current) {
+            _current->exit();
+        }
+        destroyIfOwned_(_current, _current_owned);
+    }
 };
 
 extern StateManager state_manager;

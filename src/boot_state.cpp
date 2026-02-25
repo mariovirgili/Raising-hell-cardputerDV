@@ -25,7 +25,6 @@ void BootState::update() {
 
         if (g_bootCount > 100) {
             Serial.println("BootState transition...");
-            state_manager.setState(new MainMenuState());
-        }
+            state_manager.setStateOwned(new MainMenuState());        }
     }
 }

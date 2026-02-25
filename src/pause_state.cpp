@@ -35,11 +35,9 @@ void PauseState::update() {
     if (input.selectOnce || input.encoderPressOnce) {
         if (selectedOption == 0) {
             Serial.println("Resuming game...");
-            state_manager.setState(new GameState());
-        } else {
+            state_manager.setStateOwned(new GameState());        } else {
             Serial.println("Quitting to Main Menu...");
-            state_manager.setState(new MainMenuState());
-        }
+            state_manager.setStateOwned(new MainMenuState());        }
         return;
     }
 }

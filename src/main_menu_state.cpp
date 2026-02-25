@@ -35,8 +35,7 @@ void MainMenuState::update() {
     if (input.selectOnce || input.encoderPressOnce) {
         if (menuOption == 0) {
             Serial.println("Starting game...");
-            state_manager.setState(new GameState());
-        } else {
+            state_manager.setStateOwned(new GameState());        } else {
             Serial.println("Opening settings...");
             g_app.uiState = UIState::SETTINGS;
         }
