@@ -14,6 +14,8 @@
 #include "new_pet_flow_state.h"
 #include "ui_input_common.h"   
 #include "flow_power_menu.h"
+#include "factory_reset_state.h"
+#include "flow_factory_reset.h"
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
@@ -187,6 +189,15 @@ static bool handleSleepingGate(InputState& in)
   return false;
 }
 
+static bool handleFactoryResetOverlay(InputState& in)
+{
+  if (!g_factoryReset.confirmActive)
+    return false;
+
+  handleFactoryResetInput(in);
+  return true;
+}
+
 // --------------------------------------------------------------
 // Global interceptors (ordered)
 // Return true if handled (and input is swallowed/mutated accordingly)
@@ -195,6 +206,7 @@ bool uiHandleGlobalInterceptors(InputState& in)
 {
   // Priority order matters.
   if (handlePowerMenuOverlay(in)) return true;
+  if (handleFactoryResetOverlay(in)) return true;
   if (handlePowerMenuOpen(in)) return true;
   if (handleBootNamePetFixup(in)) return true;
   if (handleMenuSuppression(in)) return true;
