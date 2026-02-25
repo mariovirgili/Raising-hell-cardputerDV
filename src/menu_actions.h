@@ -17,9 +17,6 @@ enum class SettingsPage : uint8_t;
 // Main dispatcher (called from loop)
 bool handleMenuInput(InputState& in);
 
-// Feed action
-void feedUseSelected();
-
 // Legacy transitional handlers (still implemented in menu_actions.cpp)
 void handleBurialInput(InputState &in);
 void menuActionsSuppressMenuForMs(uint32_t ms);

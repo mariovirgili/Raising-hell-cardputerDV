@@ -6,7 +6,7 @@
 #include "display.h"
 #include "graphics.h"
 #include "input.h"
-#include "menu_actions.h"   // feedUseSelected()
+#include "feed_menu_actions.h"
 #include "mini_games.h"     // startFlappyFireball(), startInfernalDodger(), startCrossyRoad()
 #include "pet.h"
 #include "save_manager.h"
