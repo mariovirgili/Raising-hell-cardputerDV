@@ -155,7 +155,7 @@ static void adjustField(int delta) {
   }
 }
 
-void handleTimeSetInput(InputState &in) {
+static void handleTimeSetInput(InputState &in) {
   // Map keyboard arrow/enter keys into edge-style behavior
   bool kbLeft = false;
   bool kbRight = false;

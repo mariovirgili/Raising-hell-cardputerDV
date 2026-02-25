@@ -54,7 +54,7 @@ void openControlsHelpFromAnywhere()
   inputForceClear();
 }
 
-void handleControlsHelpInput(InputState &in)
+static void handleControlsHelpInput(InputState &in)
 {
   bool kbDismiss = false;
 

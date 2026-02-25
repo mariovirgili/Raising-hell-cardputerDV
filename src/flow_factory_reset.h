@@ -1,12 +1,18 @@
 #pragma once
 
+#include <stdint.h>
+
 struct InputState;
 
+// Immediate action
 void doFactoryResetNow();
 
-void handleFactoryResetInput(InputState& in);
-void factoryResetSettingsTick(InputState& in);
-void factoryResetResetUiState();
-bool factoryResetSystemSettingsHook(InputState& input, int systemSettingsIndex);
+// Settings/System page hook (called from settings menu/page code)
+// Return true if it consumed the input / changed UI.
+bool factoryResetSystemSettingsHook(InputState& in, int cursor);
 
+// Reset any factory-reset overlay UI state (called when entering/leaving Settings, etc.)
+void factoryResetResetUiState();
+
+// Factory reset confirmation overlay handler (called by ui_input_interceptors)
 void uiFactoryResetHandle(InputState& in);

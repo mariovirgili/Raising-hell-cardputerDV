@@ -13,7 +13,4 @@ void beginSetTimeEditorFromSettings(SettingsPage returnSettingsPage, UIState ret
 // Boot gate: force no-cancel editor and return to a UI state/tab (not Settings).
 void beginForcedSetTimeBootGate(UIState returnState, Tab returnTab);
 
-// Existing handler for UIState::SET_TIME
-void handleTimeSetInput(InputState& in);
-
 void uiSetTimeHandle(InputState& in);

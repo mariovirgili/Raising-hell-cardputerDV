@@ -1,4 +1,3 @@
-// flow_controls_help.h
 #pragma once
 
 struct InputState;
@@ -7,7 +6,5 @@ struct InputState;
 void openControlsHelpFromSettings();
 void openControlsHelpFromAnywhere();
 
-// Handler called by menu_actions dispatcher
-void handleControlsHelpInput(InputState& in);
-
+// Controls help UIState handler (routed by ui_input_router)
 void uiControlsHelpHandle(InputState& in);
