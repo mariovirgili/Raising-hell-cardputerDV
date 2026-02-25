@@ -23,6 +23,7 @@
 #include "graphics.h"       // ui_showMessage
 #include "menu_actions.h"   // openConsoleWithReturn, settingsCycleTimeZone
 #include "ui_input_utils.h" // uiDrainKb
+#include "input.h" 
 
 // ------------------------------------------------------------
 // Minimal embedded menu model
