@@ -54,13 +54,9 @@ void shopBuyItem();
 // ------------------------------------------------------------------
 // Local prototypes
 // ------------------------------------------------------------------
-void handleInventoryInput(const InputState &input);
-void handleTimeSetInput(InputState &in);
 void handleDeathInput(InputState &input);
-void handlePowerMenuInput(InputState &input);
 void handleChoosePetInput(InputState &in);
 void handleNamePetInput(InputState &in);
-void handleBurialInput(InputState &in);
 static void beginNamePetFlow_local();
 static void finalizeNewPetFromName_local(InputState &in);
 static void useFoodAction();
