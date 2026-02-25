@@ -4,9 +4,6 @@
 #include "state_manager.h"
 #include "boot_state.h"
 
-// Single global definition of state_manager
-StateManager state_manager;
-
 void setup() {
     appSetup();                              // real hardware init: M5, display, SD, etc.
     state_manager.setState(new BootState()); // your state machine boot

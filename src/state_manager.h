@@ -1,37 +1,82 @@
 #pragma once
 #include "state.h"
+#include <cstddef>
 
-class StateManager {
+class StateManager
+{
 private:
-    State* current_state;  // Pointer to the current active state
+  State *_current = nullptr;
+  State *_next = nullptr;
+
+  void applyPending_()
+  {
+    if (!_next)
+      return;
+
+    if (_current)
+    {
+      _current->exit();
+      delete _current;
+      _current = nullptr;
+    }
+
+    _current = _next;
+    _next = nullptr;
+
+    if (_current)
+    {
+      _current->enter();
+    }
+  }
 
 public:
-    StateManager() : current_state(nullptr) {}
+  StateManager() = default;
 
-    // Set the current state
-    void setState(State* new_state) {
-        if (current_state) {
-            current_state->exit();
-            delete current_state;  // Fix: free old state to prevent memory leak
-        }
-        current_state = new_state;
-        if (current_state) {
-            current_state->enter();  // Initialize the new state
-        }
+  // Request a state change (will be applied at the start of update()).
+  void request(State *new_state)
+  {
+    // If multiple requests happen before the next update, keep the latest.
+    if (_next)
+    {
+      delete _next;
     }
+    _next = new_state;
+  }
 
-    // Update the current state
-    void update() {
-        if (current_state) {
-            current_state->update();  // Call the update function of the current state
-        }
-    }
+  // Convenience: immediate change (use sparingly)
+  void setStateImmediate(State *new_state)
+  {
+    request(new_state);
+    applyPending_();
+  }
 
-    // Get the current state
-    State* getCurrentState() const {
-        return current_state;
+  void update()
+  {
+    applyPending_();
+    if (_current)
+    {
+      _current->update();
     }
+  }
+
+  State *current() const { return _current; }
+
+  ~StateManager()
+  {
+    if (_next)
+    {
+      delete _next;
+      _next = nullptr;
+    }
+    if (_current)
+    {
+      _current->exit();
+      delete _current;
+      _current = nullptr;
+    }
+  }
+  // Back-compat: old code calls setState(...)
+  void setState(State *new_state) { request(new_state); }
 };
 
-// Declare the state_manager globally (used throughout the program)
 extern StateManager state_manager;
