@@ -194,7 +194,7 @@ static bool handleFactoryResetOverlay(InputState& in)
   if (!g_factoryReset.confirmActive)
     return false;
 
-  handleFactoryResetInput(in);
+    uiFactoryResetHandle(in);
   return true;
 }
 

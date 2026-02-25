@@ -8,3 +8,5 @@ void handleFactoryResetInput(InputState& in);
 void factoryResetSettingsTick(InputState& in);
 void factoryResetResetUiState();
 bool factoryResetSystemSettingsHook(InputState& input, int systemSettingsIndex);
+
+void uiFactoryResetHandle(InputState& in);

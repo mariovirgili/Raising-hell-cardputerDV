@@ -20,6 +20,11 @@
 static uint32_t       g_factoryResetHoldStartMs = 0;
 static const uint32_t FACTORY_RESET_HOLD_MS     = 1200;
 
+void uiFactoryResetHandle(InputState& in)
+{
+  handleFactoryResetInput(in);
+}
+
 void doFactoryResetNow() {
   saveManagerFactoryReset();  // wipes SD saves, NVS, wifi, then restarts
 }

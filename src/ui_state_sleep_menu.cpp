@@ -10,8 +10,7 @@
 #include "sleep_state.h"
 #include "ui_input_utils.h"
 #include "ui_menu_state.h"
-
-extern void menuActionsSuppressMenuForMs(uint32_t durationMs);
+#include "ui_suppress.h"
 
 void uiSleepMenuHandle(InputState& in)
 {

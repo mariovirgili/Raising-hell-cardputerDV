@@ -9,9 +9,7 @@
 #include "ui_runtime.h"
 #include "ui_input_common.h"
 #include "ui_suppress.h"
-
-// From menu_actions.cpp: prevents menu/esc from bouncing immediately after returning.
-void menuActionsSuppressMenuForMs(uint32_t ms);
+#include "ui_suppress.h"
 
 // Console return target
 static UIState      g_consoleReturnState      = UIState::PET_SCREEN;
