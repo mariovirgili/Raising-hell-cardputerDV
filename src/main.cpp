@@ -1,14 +1,21 @@
 #include <Arduino.h>
 #include "app_setup.h"
-#include "app_loop.h"
 #include "state_manager.h"
-#include "boot_state.h"
+#include "legacy_app_state.h"
+#include <stdint.h>
+#include "app_loop.h"
+
+void appMainLoopTick();
+void appServicesTick(uint32_t nowMs);
+static LegacyAppState g_legacy;
 
 void setup() {
-    appSetup();                              // real hardware init: M5, display, SD, etc.
-    state_manager.setStateOwned(new BootState());}
+    appSetup();
+    state_manager.setState(&g_legacy);
+}
 
 void loop() {
-    appMainLoopTick(); // real game loop: input, rendering, pet tick, wifi, etc.
-    state_manager.update(); // your state machine tick
-}
+    const uint32_t now = millis();
+    appServicesTick(now); 
+    state_manager.update();
+  }

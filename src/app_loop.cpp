@@ -1,9 +1,4 @@
 #include "app_loop.h"
-// app_loop.cpp depends on:
-// - menu_actions.h : openControlsHelpFromAnywhere
-// - graphics.h     : renderUI, drawBootSplash, sleepAnimHeartbeat
-// - sdcard.h       : initSD, sdAssetsPresent, g_sdReady
-// ...
 
 #include "M5Cardputer.h"
 #include "anim_engine.h"
@@ -46,6 +41,17 @@ static bool s_forcedFirstRender = false;
 static uint32_t s_hbNextMs = 0;
 static bool s_bootKeepAwakeInited = false;
 static uint32_t s_bootKeepAwakeUntilMs = 0;
+static bool s_prevSleeping = false;
+
+void appServicesTick(uint32_t nowMs)
+{
+  M5Cardputer.update();
+  pollDebugPort();
+  keyboardDebugTick();
+  powerButtonTick(nowMs);
+  postBootInitTick();
+  soundTick();
+}
 
 void appMainLoopTick()
 {
@@ -86,13 +92,7 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   // MAIN LOOP
   // ---------------------------------------------------------------------------
-  M5Cardputer.update();
-  pollDebugPort();
-  keyboardDebugTick();
-  powerButtonTick(now);
-  postBootInitTick();
-  soundTick();
-  static bool s_prevSleeping = false;
+  appServicesTick(now);
 
   // ---------------------------------------------------------------------------
   // SCREEN OFF PATH
@@ -204,7 +204,7 @@ void appMainLoopTick()
       }
       else
       {
-        s_drawn = false; // force a clean redraw
+        s_drawn = false; 
       }
     }
 
@@ -271,7 +271,6 @@ void appMainLoopTick()
       noteUserActivity();
       clearInputLatch();
 
-      // Tab visuals are cached; switching tabs must invalidate so the bar + pet redraw.
       invalidateBackgroundCache();
 
       syncUiToTab();
@@ -303,7 +302,7 @@ void appMainLoopTick()
     if (!s_bootKeepAwakeInited)
     {
       s_bootKeepAwakeInited = true;
-      s_bootKeepAwakeUntilMs = now + 6000; // 6 seconds
+      s_bootKeepAwakeUntilMs = now + 6000;
     }
 
     if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
@@ -334,7 +333,7 @@ void appMainLoopTick()
       return;
     }
 
-    // DEATH/BURIAL special flow (unchanged)
+    // DEATH/BURIAL special flow 
     if (g_app.uiState == UIState::DEATH)
     {
       const UIState before = g_app.uiState;
@@ -479,7 +478,7 @@ void appMainLoopTick()
         clearInputLatch();
         return;
       }
-      
+
       // I opens Controls help overlay (non-interrupting, including pet sleep)
       if (g_app.uiState != UIState::SET_TIME && input.controlsOnce)
       {

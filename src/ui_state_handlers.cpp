@@ -1,6 +1,9 @@
 #include "ui_state_handlers.h"
+#include "debug.h"
 #include "flow_boot_wifi.h"
 #include "flow_controls_help.h"
+#include "flow_power_menu.h"
+#include "flow_time_editor.h"
 #include "ui_state_burial.h"
 #include "ui_state_choose_pet.h"
 #include "ui_state_console.h"
@@ -13,8 +16,6 @@
 #include "ui_state_sleep_menu.h"
 #include "ui_state_tab_driven.h"
 #include "ui_state_wifi_setup.h"
-#include "flow_time_editor.h"
-#include "debug.h"
 
 bool uiDispatchToStateHandler(UIState st, InputState &in)
 {
@@ -88,10 +89,10 @@ bool uiDispatchToStateHandler(UIState st, InputState &in)
     handleBootNtpWaitInput(in);
     return true;
 
-    case UIState::SET_TIME:
+  case UIState::SET_TIME:
     handleTimeSetInput(in);
     return true;
-    
+
   case UIState::INVENTORY:
     uiTabDrivenHandle(in);
     return true;
@@ -100,10 +101,14 @@ bool uiDispatchToStateHandler(UIState st, InputState &in)
     uiTabDrivenHandle(in);
     return true;
 
-    default:
-    #if !PUBLIC_BUILD
-        DBGLN_ON("Unhandled UIState in dispatcher");
-    #endif
-        return false;
+  case UIState::POWER_MENU:
+    handlePowerMenuInput(in);
+    return true;
+
+  default:
+#if !PUBLIC_BUILD
+    DBGLN_ON("Unhandled UIState in dispatcher");
+#endif
+    return false;
   }
 }
