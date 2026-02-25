@@ -5,8 +5,8 @@
 
 struct InputState;
 
-// Enter power menu (snapshots return target, wakes screen if needed)
-void openPowerMenuFromHere(uint32_t nowMs);
-
 // Power menu input handler (called from menu_actions dispatcher)
 void handlePowerMenuInput(InputState& input);
+
+// Power menu
+void openPowerMenuFromHere(uint32_t now);

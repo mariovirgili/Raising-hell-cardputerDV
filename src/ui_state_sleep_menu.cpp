@@ -9,6 +9,7 @@
 #include "save_manager.h"
 #include "sleep_state.h"
 #include "ui_menu_state.h"
+#include "ui_input_common.h"
 
 // defined in menu_actions.cpp today; we keep using the same suppression timer
 extern void menuActionsSuppressMenuForMs(uint32_t durationMs);
@@ -20,19 +21,17 @@ void uiSleepMenuHandle(InputState& in)
 {
   const int totalItems = 4;
 
-  if (in.encoderDelta < 0 || in.upOnce) {
-    sleepMenuIndex--;
-    if (sleepMenuIndex < 0) sleepMenuIndex = totalItems - 1;
+  // Navigation (unified)
+  const int move = uiNavMove(in);
+  if (move != 0) {
+    sleepMenuIndex += move;
+    uiWrapIndex(sleepMenuIndex, totalItems);
     requestUIRedraw();
+    return;
   }
 
-  if (in.encoderDelta > 0 || in.downOnce) {
-    sleepMenuIndex++;
-    if (sleepMenuIndex >= totalItems) sleepMenuIndex = 0;
-    requestUIRedraw();
-  }
-
-  if (in.menuOnce || in.escOnce) {
+  // Back (unified) — same behavior as before
+  if (uiBackPressed(in)) {
     g_app.uiState    = UIState::PET_SCREEN;
     g_app.currentTab = Tab::TAB_PET;
     requestUIRedraw();
@@ -40,7 +39,8 @@ void uiSleepMenuHandle(InputState& in)
     return;
   }
 
-  if (!(in.selectOnce || in.encoderPressOnce)) return;
+  // Select (unified)
+  if (!uiSelectPressed(in)) return;
 
   auto enterSleep = [&]() {
     pet.isSleeping         = true;

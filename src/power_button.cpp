@@ -6,6 +6,7 @@
 #include "display.h"        // isScreenOn(), toggleScreenPower(), requestUIRedraw()
 #include "menu_actions.h"   // openPowerMenuFromHere(now)
 #include "input_activity_state.h" // setLastInputActivityMs(now)
+#include "flow_power_menu.h"
 
 // --- GO button (Cardputer spec: GPIO0) ---
 static constexpr int  GO_BTN_PIN    = 0;

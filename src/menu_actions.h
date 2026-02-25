@@ -17,9 +17,6 @@ enum class SettingsPage : uint8_t;
 // Main dispatcher (called from loop)
 bool handleMenuInput(InputState& in);
 
-// Power menu
-void openPowerMenuFromHere(uint32_t now);
-
 // Controls help
 void openControlsHelpFromSettings();
 void openControlsHelpFromAnywhere();

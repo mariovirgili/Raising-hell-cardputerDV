@@ -7,6 +7,7 @@
 #include "sound.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
+#include "ui_input_common.h"
 
 void uiShopHandle(InputState& in)
 {
@@ -17,10 +18,7 @@ void uiShopHandle(InputState& in)
     return;
   }
 
-  int move = in.encoderDelta;
-  if (in.upOnce) move = -1;
-  if (in.downOnce) move = 1;
-
+  const int move = uiNavMove(in);
   if (move != 0) {
     const int totalItems = SHOP_ITEM_COUNT; // no Exit pill
     if (totalItems > 0) {
@@ -34,7 +32,7 @@ void uiShopHandle(InputState& in)
     return;
   }
 
-  if (in.selectOnce || in.encoderPressOnce) {
+  if (uiSelectPressed(in)) {
     shopBuyItem();
     requestUIRedraw();
     clearInputLatch();
