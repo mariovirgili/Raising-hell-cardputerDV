@@ -15,6 +15,14 @@
 namespace UiSettingsPages {
 
 void Handle_SYSTEM(InputState& input, int move) {
+  // Factory Reset confirm/hold UI is owned by flow_factory_reset.cpp.
+  // IMPORTANT: This must run BEFORE normal navigation (move handling),
+  // otherwise left/right/up/down will be consumed as menu movement and
+  // never reach the confirm overlay.
+  if (factoryResetSystemSettingsHook(input, g_app.systemSettingsIndex)) {
+    return;
+  }
+
   if (move != 0) {
     const int totalItems = 3;
     g_app.systemSettingsIndex += move;
@@ -23,11 +31,6 @@ void Handle_SYSTEM(InputState& input, int move) {
 
     requestUIRedraw();
     playBeep();
-    return;
-  }
-
-  // Factory Reset confirm/hold UI is owned by flow_factory_reset.cpp now.
-  if (factoryResetSystemSettingsHook(input, g_app.systemSettingsIndex)) {
     return;
   }
 

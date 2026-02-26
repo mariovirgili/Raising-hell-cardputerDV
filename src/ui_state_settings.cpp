@@ -47,6 +47,7 @@
 #include "ui_settings_pages.h"
 #include "ui_settings_menu.h"
 #include "ui_input_common.h"
+#include "ui_actions.h"
 
 void resetSettingsNav(bool resetTopIndex);
 
@@ -77,11 +78,8 @@ void uiSettingsHandle(InputState& input)
 
     g_settingsFlow.settingsReturnValid = false;
 
-    g_app.uiState    = retState;
-    g_app.currentTab = retTab;
-
-    requestUIRedraw();
-    playBeep();
+    uiActionEnterState(retState, retTab, true);
+        playBeep();
     clearInputLatch();
   };
 

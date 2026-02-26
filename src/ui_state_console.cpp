@@ -54,16 +54,13 @@ void uiConsoleHandle(InputState &input)
       g_settingsFlow.settingsReturnTab = g_consoleReturnTab;
       g_settingsFlow.settingsPage = g_consoleReturnPage;
 
-      g_app.uiState = UIState::SETTINGS;
-      requestUIRedraw();
+      uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
       swallowTypingAndEdges(input);
       uiSuppressMenuForMs(250);
       return;
     }
 
-    g_app.uiState = g_consoleReturnState;
-    g_app.currentTab = g_consoleReturnTab;
-    requestUIRedraw();
+    uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
     swallowTypingAndEdges(input);
     uiSuppressMenuForMs(250);
     return;

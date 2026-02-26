@@ -11,6 +11,8 @@
 #include "ui_input_utils.h"
 #include "ui_menu_state.h"
 #include "ui_suppress.h"
+#include "ui_actions.h"
+#include "ui_runtime.h"
 
 void uiSleepMenuHandle(InputState& in)
 {
@@ -24,9 +26,7 @@ void uiSleepMenuHandle(InputState& in)
   }
 
   if (uiIsBack(in)) {
-    g_app.uiState    = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
-    requestUIRedraw();
+    uiActionEnterState(UIState::PET_SCREEN, Tab::TAB_PET, true);
     clearInputLatch();
     return;
   }
@@ -42,6 +42,10 @@ void uiSleepMenuHandle(InputState& in)
 
     inputForceClear();
     clearInputLatch();
+
+    // Suppress wake detection so the same Enter press that selected
+    // a sleep option can't immediately wake the pet on the next tick.
+    uiSuppressSleepWakeForMs(400);
 
     g_app.sleepTargetEnergy = 0;
     invalidateBackgroundCache();

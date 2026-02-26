@@ -9,6 +9,7 @@
 #include "flow_boot_wifi.h"
 #include "flow_controls_help.h"
 #include "flow_time_editor.h"
+#include "flow_power_menu.h"
 
 #include "ui_state_burial.h"
 #include "ui_state_choose_pet.h"
@@ -26,128 +27,162 @@
 #include "ui_state_sleep_menu.h"
 #include "ui_state_tab_driven.h"
 #include "ui_state_wifi_setup.h"
+
 #include "ui_actions.h"
+
+static inline bool wantsTextCapture(UIState s)
+{
+  switch (s)
+  {
+    case UIState::CONSOLE:
+    case UIState::WIFI_SETUP:
+    case UIState::NAME_PET:
+      return true;
+    default:
+      return false;
+  }
+}
 
 static inline bool isNoInputState(UIState s)
 {
   switch (s)
   {
-  case UIState::BOOT:
-  case UIState::POWER_MENU: // should be caught by interceptors, but harmless here
+    case UIState::BOOT:
+      return true;
+    default:
+      return false;
+  }
+}
 
-    return true;
-  default:
-    return false;
+static bool dispatchToHandler(UIState s, InputState &in)
+{
+  switch (s)
+  {
+    case UIState::BOOT:
+      return false; // no input
+
+    case UIState::HOME:
+      uiTabDrivenHandle(in);
+      return true;
+
+    case UIState::PET_SCREEN:
+      uiPetScreenHandle(in);
+      return true;
+
+    case UIState::POWER_MENU:
+      uiPowerMenuHandle(in);
+      return true;
+
+    case UIState::MINI_GAME:
+      uiMiniGameHandle(in);
+      return true;
+
+    case UIState::CHOOSE_PET:
+      uiChoosePetHandle(in);
+      return true;
+
+    case UIState::NAME_PET:
+      uiNamePetHandle(in);
+      return true;
+
+    case UIState::WIFI_SETUP:
+      uiWifiSetupHandle(in);
+      return true;
+
+    case UIState::DEATH:
+      uiDeathHandle(in);
+      return true;
+
+    case UIState::BURIAL_SCREEN:
+      uiBurialHandle(in);
+      return true;
+
+    case UIState::PET_SLEEPING:
+      uiPetSleepingHandle(in);
+      return true;
+
+    case UIState::SETTINGS:
+      uiSettingsHandle(in);
+      return true;
+
+    case UIState::CONSOLE:
+      uiConsoleHandle(in);
+      return true;
+
+    case UIState::INVENTORY:
+      uiInventoryHandle(in);
+      return true;
+
+    case UIState::SHOP:
+      uiShopHandle(in);
+      return true;
+
+    case UIState::SLEEP_MENU:
+      uiSleepMenuHandle(in);
+      return true;
+
+    case UIState::SET_TIME:
+      uiSetTimeHandle(in);
+      return true;
+
+    case UIState::CONTROLS_HELP:
+      uiControlsHelpHandle(in);
+      return true;
+
+    case UIState::BOOT_WIFI_PROMPT:
+      uiBootWifiPromptHandle(in);
+      return true;
+
+    case UIState::BOOT_WIFI_WAIT:
+      uiBootWifiWaitHandle(in);
+      return true;
+
+    case UIState::BOOT_TZ_PICK:
+      uiBootTzPickHandle(in);
+      return true;
+
+    case UIState::BOOT_NTP_WAIT:
+      uiBootNtpWaitHandle(in);
+      return true;
+
+    case UIState::HATCHING:
+      uiHatchingHandle(in);
+      return true;
+
+    case UIState::EVOLUTION:
+      uiEvolutionHandle(in);
+      return true;
+
+    default:
+      return false;
   }
 }
 
 bool uiHandleInput(InputState &in)
 {
-  // Phase 1: global interceptors (power menu, ESC->settings, sleep gate, etc)
+  // IMPORTANT:
+  // inputSetTextCapture() clears latches + forces a clear, so calling it every frame
+  // can starve edge flags (selectOnce/menuOnce/etc.). Only toggle when mode changes.
+  static bool s_lastTextCapture = false;
+
+  const bool desiredTextCapture = wantsTextCapture(g_app.uiState);
+  if (desiredTextCapture != s_lastTextCapture)
+  {
+    inputSetTextCapture(desiredTextCapture);
+    s_lastTextCapture = desiredTextCapture;
+  }
+
+  // Phase 1: global interceptors (power menu, ESC->settings, sleep gate, etc.)
   if (uiHandleGlobalInterceptors(in))
     return true;
 
   // Explicitly “no input” states: swallow edges so nothing leaks in from buffers.
   if (isNoInputState(g_app.uiState))
   {
-    uiActionSwallowEdges(in);;
+    uiActionSwallowEdges(in);
     return true;
   }
 
-  // Phase 2: UI state dispatch
-  switch (g_app.uiState)
-  {
-  case UIState::HOME:
-    uiTabDrivenHandle(in);
-    return true;
-
-  case UIState::PET_SCREEN:
-    uiPetScreenHandle(in);
-    return true;
-
-  case UIState::PET_SLEEPING:
-    uiPetSleepingHandle(in);
-    return true;
-
-  case UIState::SLEEP_MENU:
-    uiSleepMenuHandle(in);
-    return true;
-
-  case UIState::INVENTORY:
-    uiInventoryHandle(in);
-    return true;
-
-  case UIState::SHOP:
-    uiShopHandle(in);
-    return true;
-
-  case UIState::SETTINGS:
-    uiSettingsHandle(in);
-    return true;
-
-  case UIState::CONSOLE:
-    uiConsoleHandle(in);
-    return true;
-
-  case UIState::DEATH:
-    uiDeathHandle(in);
-    return true;
-
-  case UIState::BURIAL_SCREEN:
-    uiBurialHandle(in);
-    return true;
-
-  case UIState::MINI_GAME:
-    uiMiniGameHandle(in);
-    return true;
-
-  case UIState::CHOOSE_PET:
-    uiChoosePetHandle(in);
-    return true;
-
-  case UIState::NAME_PET:
-    uiNamePetHandle(in);
-    return true;
-
-  case UIState::SET_TIME:
-    uiSetTimeHandle(in);
-    return true;
-
-  case UIState::CONTROLS_HELP:
-    uiControlsHelpHandle(in);
-    return true;
-
-  case UIState::BOOT_WIFI_PROMPT:
-    uiBootWifiPromptHandle(in);
-    return true;
-
-  case UIState::BOOT_WIFI_WAIT:
-    uiBootWifiWaitHandle(in);
-    return true;
-
-  case UIState::BOOT_TZ_PICK:
-    uiBootTzPickHandle(in);
-    return true;
-
-  case UIState::BOOT_NTP_WAIT:
-    uiBootNtpWaitHandle(in);
-    return true;
-
-  case UIState::WIFI_SETUP:
-    uiWifiSetupHandle(in);
-    return true;
-
-  case UIState::HATCHING:
-    uiHatchingHandle(in);
-    return true;
-
-  case UIState::EVOLUTION:
-    uiEvolutionHandle(in);
-    return true;
-
-  default:
-    break;
-  }
-
-  return false;
+  // Phase 2: per-state handler
+  return dispatchToHandler(g_app.uiState, in);
 }

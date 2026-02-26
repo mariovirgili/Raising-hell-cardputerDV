@@ -1,22 +1,34 @@
 #include "input.h"
 
+#include "M5Cardputer.h"
 #include <Arduino.h>
 #include <ctype.h>
-#include "M5Cardputer.h"
 
+#include "app_state.h"
 #include "currency.h"
 #include "display.h"
 #include "graphics.h"
-#include "app_state.h"
 
 // -----------------------------------------------------------------------------
 // Forward declarations
 // -----------------------------------------------------------------------------
-static void readKeyboard(InputState& out);
-static void applyGpioButtons(InputState& out);
+static void readKeyboard(InputState &out);
+static void applyGpioButtons(InputState &out);
 static void IRAM_ATTR updateEncoderISR();
+
+// GO button tracking (kept if your project uses it elsewhere)
 static bool lastGo = false;
 static uint32_t goPressMs = 0;
+
+static inline bool isDeleteToken(uint8_t uc, char c)
+{
+  // 0x2A = HID Backspace
+  // 0x4C = HID Delete (forward delete)
+  // 0x7F = ASCII DEL
+  // 0x08 = ASCII Backspace
+  return (uc == 0x2A) || (uc == 0x4C) || (uc == 0x7F) || (uc == 0x08) || (c == '\b');
+}
+
 // -----------------------------------------------------------------------------
 // Shared input globals
 // -----------------------------------------------------------------------------
@@ -35,48 +47,99 @@ bool g_textCaptureMode = false;
 
 // Keyboard edge latches
 static bool s_settingsKeyLatched = false; // ` or ~
-static bool s_enterLatched       = false;
-static bool s_mgSelectLatched    = false; // mini-game Enter/G edge latch (separate from UI Enter)
-static bool s_delLatched         = false;
-static bool s_qLatched           = false; // Q -> menu edge
+static bool s_enterLatched = false;
+static bool s_mgSelectLatched = false; // mini-game Enter/G edge latch (separate from UI Enter)
+static bool s_delLatched = false;
+static bool s_qLatched = false; // Q -> menu edge
 static bool s_cLatched = false; // '\' -> console edge
 static bool s_gLatched = false; // G -> selectOnce edge
 
-// Nav cluster (WASD / HJKL / punctuation) latches — prevent press+release double edges
-static bool s_navUpLatched    = false;
-static bool s_navDownLatched  = false;
-static bool s_navLeftLatched  = false;
+// Nav cluster latches — prevent press+release double edges
+static bool s_navUpLatched = false;
+static bool s_navDownLatched = false;
+static bool s_navLeftLatched = false;
 static bool s_navRightLatched = false;
 
-static bool s_eLatched = false;
-static bool s_sLatched = false;
-static bool s_spaceLatched = false; 
+// Mini-game / misc latches
+static bool s_spaceLatched = false;
 
-static inline bool kbHeldChar(char c) {
-  return M5Cardputer.Keyboard.isKeyPressed(c);
-}
+// -----------------------------------------------------------------------------
+// Keyboard held probes
+// -----------------------------------------------------------------------------
+static inline bool kbHeldChar(char c) { return M5Cardputer.Keyboard.isKeyPressed(c); }
 
-static inline bool kbHeldKey(uint8_t keycode) {
-  return M5Cardputer.Keyboard.isKeyPressed((char)keycode);
-}
+static inline bool kbHeldKey(uint8_t keycode) { return M5Cardputer.Keyboard.isKeyPressed((char)keycode); }
 
 // Your arrow cluster on Cardputer is usually FN-layer punctuation.
 // Common mapping used in Cardputer projects:
 //   Up=';'  Down='.'  Left=','  Right='/'
-// If yours differs, change these four chars to match your firmware.
-static inline bool kbHeldUpArrow()    { return kbHeldChar(';'); }
-static inline bool kbHeldDownArrow()  { return kbHeldChar('.'); }
-static inline bool kbHeldLeftArrow()  { return kbHeldChar(','); }
+static inline bool kbHeldUpArrow() { return kbHeldChar(';'); }
+static inline bool kbHeldDownArrow() { return kbHeldChar('.'); }
+static inline bool kbHeldLeftArrow() { return kbHeldChar(','); }
 static inline bool kbHeldRightArrow() { return kbHeldChar('/'); }
+
+// Some special keys (ESC/Backspace/Delete) don't always contribute to isPressed()/isChange()
+// on all Cardputer keyboard firmwares. Probe a couple of representations so edge latches behave.
+static inline bool kbHeldEscKey()
+{
+  // Physical "ESC" key on Cardputer is usually the ` / ~ key.
+  if (kbHeldChar('`') || kbHeldChar('~'))
+    return true;
+
+  // Some firmwares expose HID usage IDs / ASCII ESC in isKeyPressed().
+  if (kbHeldKey(0x29) || kbHeldKey(0x1B))
+    return true;
+
+  // Some layouts/fonts report this key as degree in the word stream; held-probe is best-effort.
+  // (0xB0 in Latin-1). Not all firmwares will report non-ASCII to isKeyPressed().
+  if (kbHeldChar((char)0xB0))
+    return true;
+
+  return false;
+}
+
+static inline bool kbHeldBackspaceKey()
+{
+  // Try multiple representations.
+  // 0x2A = HID Backspace
+  if (kbHeldKey(0x2A))
+    return true;
+
+  // Some firmwares may treat backspace as ASCII BS or DEL.
+  if (kbHeldChar(''))
+    return true;
+  if (kbHeldChar((char)0x08))
+    return true; // BS
+  if (kbHeldChar((char)0x7F))
+    return true; // DEL
+
+  return false;
+}
+
+static inline bool kbHeldDeleteKey()
+{
+  // 0x4C = HID Delete (forward delete)
+  if (kbHeldKey(0x4C))
+    return true;
+
+  // Some firmwares may surface forward-delete as ASCII DEL too.
+  if (kbHeldChar((char)0x7F))
+    return true;
+
+  return false;
+}
+
+static inline bool kbHeldAnyDeleteKey() { return kbHeldBackspaceKey() || kbHeldDeleteKey(); }
 
 // -----------------------------------------------------------------------------
 // OPTIONAL GPIO BUTTONS
 // -----------------------------------------------------------------------------
 static inline bool readActiveLow(int pin) { return (digitalRead(pin) == LOW); }
 
-static constexpr unsigned long DEBOUNCE_MS = 12;  // 10–15ms feels good on Cardputer buttons
+static constexpr unsigned long DEBOUNCE_MS = 12; // 10–15ms feels good on Cardputer buttons
 
-struct DebBtn {
+struct DebBtn
+{
   bool raw = false;
   bool stable = false;
   unsigned long lastChangeMs = 0;
@@ -101,22 +164,17 @@ static DebBtn dbSel;
 static DebBtn dbMenu;
 #endif
 
-
 // -----------------------------------------------------------------------------
 // OPTIONAL ENCODER (kept behind defines; safe if unused)
 // -----------------------------------------------------------------------------
 volatile int g_detentDelta = 0;
 static volatile uint8_t g_lastEncState = 0;
-static volatile int8_t  g_quadCount    = 0;
+static volatile int8_t g_quadCount = 0;
 
-static const int8_t QEM[16] = {
-  0, -1,  1,  0,
-  1,  0,  0, -1,
- -1,  0,  0,  1,
-  0,  1, -1,  0
-};
+static const int8_t QEM[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
 
-static void IRAM_ATTR updateEncoderISR() {
+static void IRAM_ATTR updateEncoderISR()
+{
 #if defined(ENC_A) && defined(ENC_B)
   uint8_t a = (uint8_t)digitalRead(ENC_A);
   uint8_t b = (uint8_t)digitalRead(ENC_B);
@@ -125,10 +183,19 @@ static void IRAM_ATTR updateEncoderISR() {
   uint8_t idx = (uint8_t)((g_lastEncState << 2) | state);
   int8_t step = QEM[idx];
 
-  if (step != 0) {
+  if (step != 0)
+  {
     g_quadCount += step;
-    if (g_quadCount >= 4) { g_detentDelta++; g_quadCount = 0; }
-    else if (g_quadCount <= -4) { g_detentDelta--; g_quadCount = 0; }
+    if (g_quadCount >= 4)
+    {
+      g_detentDelta++;
+      g_quadCount = 0;
+    }
+    else if (g_quadCount <= -4)
+    {
+      g_detentDelta--;
+      g_quadCount = 0;
+    }
   }
 
   g_lastEncState = state;
@@ -140,7 +207,8 @@ static void IRAM_ATTR updateEncoderISR() {
 // -----------------------------------------------------------------------------
 void inputForceClear() { g_forceClear = true; }
 
-void inputSetTextCapture(bool on) {
+void inputSetTextCapture(bool on)
+{
   g_textCaptureMode = on;
 
   // Clear latches immediately so we don't carry UI edges into text or vice versa.
@@ -151,9 +219,9 @@ void inputSetTextCapture(bool on) {
   inputForceClear();
 }
 
-void inputInit() {
-  // Optional GPIO buttons
- const unsigned long now = millis();
+void inputInit()
+{
+  const unsigned long now = millis();
 
 #if defined(BTN_LEFT)
   pinMode(BTN_LEFT, INPUT_PULLUP);
@@ -186,7 +254,6 @@ void inputInit() {
   dbMenu.lastChangeMs = now;
 #endif
 
-  // Optional encoder (only if you define ENC_A/ENC_B)
 #if defined(ENC_A) && defined(ENC_B)
   pinMode(ENC_A, INPUT_PULLUP);
   pinMode(ENC_B, INPUT_PULLUP);
@@ -196,47 +263,47 @@ void inputInit() {
 #endif
 
   g_detentDelta = 0;
-  g_quadCount   = 0;
+  g_quadCount = 0;
 
   s_settingsKeyLatched = false;
-  s_enterLatched       = false;
-  s_mgSelectLatched    = false;
-  s_delLatched         = false;
-  s_qLatched           = false;
-    s_cLatched           = false;
-  s_gLatched           = false;
-  s_navUpLatched       = false;
-  s_navDownLatched     = false;
-  s_navLeftLatched     = false;
-  s_navRightLatched    = false;
+  s_enterLatched = false;
+  s_mgSelectLatched = false;
+  s_delLatched = false;
+  s_qLatched = false;
+  s_cLatched = false;
+  s_gLatched = false;
+  s_navUpLatched = false;
+  s_navDownLatched = false;
+  s_navLeftLatched = false;
+  s_navRightLatched = false;
+  s_spaceLatched = false;
 }
 
-void clearInputLatch() {
+void clearInputLatch()
+{
   // Reset keyboard latches.
   // IMPORTANT: preserve latches for keys that are currently HELD.
-  // Otherwise, calling clearInputLatch() while ENTER is held will synthesize a
-  // fresh "Enter press" next tick -> selectOnce -> wakes pet on PET_SLEEPING.
   auto st = M5Cardputer.Keyboard.keysState();
 
   // Preserve held state so clearing latches while ESC key is held
   // doesn't synthesize a fresh escOnce next tick.
-  const bool escHeld = kbHeldChar('`') || kbHeldChar('~');
-  s_settingsKeyLatched = escHeld;
-  s_enterLatched       = st.enter;  // preserve held state
-  s_delLatched         = st.del;    // preserve held state
+  s_settingsKeyLatched = kbHeldEscKey();
+  s_enterLatched = st.enter;                       // preserve held enter
+  s_delLatched = (st.del || kbHeldAnyDeleteKey()); // preserve held delete/backspace
 
-  s_qLatched           = false;
-  s_cLatched           = false;
-  s_gLatched           = false;
+  s_qLatched = false;
+  s_cLatched = false;
+  s_gLatched = false;
 
-  s_navUpLatched       = false;
-  s_navDownLatched     = false;
-  s_navLeftLatched     = false;
-  s_navRightLatched    = false;
-s_mgSelectLatched = false;
+  s_navUpLatched = false;
+  s_navDownLatched = false;
+  s_navLeftLatched = false;
+  s_navRightLatched = false;
+  s_mgSelectLatched = false;
+  s_spaceLatched = false;
 
   // Reset edge tracking for GPIO so next tick doesn't generate "Once"
- const unsigned long now = millis();
+  const unsigned long now = millis();
 
 #if defined(BTN_LEFT)
   dbLeft.raw = dbLeft.stable = readActiveLow(BTN_LEFT);
@@ -263,31 +330,32 @@ s_mgSelectLatched = false;
   dbMenu.lastChangeMs = now;
 #endif
 
-
   // Reset encoder movement
   g_detentDelta = 0;
-  g_quadCount   = 0;
+  g_quadCount = 0;
 }
 
 // -----------------------------------------------------------------------------
 // Main input read (matches input.h API)
 // -----------------------------------------------------------------------------
-void readInput(InputState& out) {
-  if (g_forceClear) {
+void readInput(InputState &out)
+{
+  if (g_forceClear)
+  {
     clearInputLatch();
     g_forceClear = false;
   }
 
   out.clearEdges();
 
-  // Keyboard first (fills kb queue and sets UI pulses depending on mode)
+  // Keyboard first
   readKeyboard(out);
 
   // Only apply physical buttons / encoder in UI mode
-  if (!g_textCaptureMode) {
+  if (!g_textCaptureMode)
+  {
     applyGpioButtons(out);
 
-    // Optional encoder -> encoderDelta (if ever enabled)
     int d = 0;
     noInterrupts();
     d = g_detentDelta;
@@ -299,8 +367,8 @@ void readInput(InputState& out) {
   g_last = out;
 }
 
-// Wrapper for old code: InputState in = readInput();
-InputState readInput() {
+InputState readInput()
+{
   InputState out;
   readInput(out);
   return out;
@@ -309,30 +377,28 @@ InputState readInput() {
 // -----------------------------------------------------------------------------
 // GPIO buttons (edge pulses)
 // -----------------------------------------------------------------------------
-static void applyGpioButtons(InputState& out) {
+static void applyGpioButtons(InputState &out)
+{
   const unsigned long now = millis();
 
-  auto updateBtn = [&](int pin, DebBtn& b, bool& onceFlag) {
+  auto updateBtn = [&](int pin, DebBtn &b, bool &onceFlag)
+  {
     const bool cur = readActiveLow(pin);
 
-    // Track raw changes
-    if (cur != b.raw) {
+    if (cur != b.raw)
+    {
       b.raw = cur;
       b.lastChangeMs = now;
     }
 
-    // When raw has been stable long enough, commit to stable state
-    if ((now - b.lastChangeMs) >= DEBOUNCE_MS && b.stable != b.raw) {
+    if ((now - b.lastChangeMs) >= DEBOUNCE_MS && b.stable != b.raw)
+    {
       b.stable = b.raw;
-
-      // Fire edge on press only
-      if (b.stable) onceFlag = true;
+      if (b.stable)
+        onceFlag = true; // press edge only
     }
   };
 
-  // --------------------------------------------------------------------------
-  // 1) Compute normal UI once flags from GPIO (debounced)
-  // --------------------------------------------------------------------------
 #if defined(BTN_LEFT)
   updateBtn(BTN_LEFT, dbLeft, out.leftOnce);
 #endif
@@ -352,9 +418,6 @@ static void applyGpioButtons(InputState& out) {
   updateBtn(BTN_MENU, dbMenu, out.menuOnce);
 #endif
 
-  // --------------------------------------------------------------------------
-  // 2) Compute normal UI held flags (debounced stable state)
-  // --------------------------------------------------------------------------
 #if defined(BTN_SELECT)
   out.selectHeld = dbSel.stable;
 #endif
@@ -374,76 +437,48 @@ static void applyGpioButtons(InputState& out) {
   out.rightHeld = dbRight.stable;
 #endif
 
-  // --------------------------------------------------------------------------
-  // 3) Mini-game mapping + lockout
-  //    - Fold GPIO controls into mg* controls
-  //    - Prevent GPIO MENU/SELECT from acting as UI hotkeys while in a mini-game
-  // --------------------------------------------------------------------------
-const bool inMiniGame = (g_app.uiState == UIState::MINI_GAME);
+  const bool inMiniGame = (g_app.uiState == UIState::MINI_GAME);
+  if (inMiniGame)
+  {
+    out.mgLeftOnce |= out.leftOnce;
+    out.mgRightOnce |= out.rightOnce;
+    out.mgUpOnce |= out.upOnce;
+    out.mgDownOnce |= out.downOnce;
 
-  if (inMiniGame) {
-    // Fold directional edges + held
-    out.mgLeftOnce   |= out.leftOnce;
-    out.mgRightOnce  |= out.rightOnce;
-    out.mgUpOnce     |= out.upOnce;
-    out.mgDownOnce   |= out.downOnce;
+    out.mgLeftHeld |= out.leftHeld;
+    out.mgRightHeld |= out.rightHeld;
+    out.mgUpHeld |= out.upHeld;
+    out.mgDownHeld |= out.downHeld;
 
-    out.mgLeftHeld   |= out.leftHeld;
-    out.mgRightHeld  |= out.rightHeld;
-    out.mgUpHeld     |= out.upHeld;
-    out.mgDownHeld   |= out.downHeld;
-
-    // Fold SELECT as mini-game "action"
     out.mgSelectOnce |= out.selectOnce;
     out.mgSelectHeld |= out.selectHeld;
 
-    // IMPORTANT:
-    // Lock out the UI-layer meanings so physical buttons can't trigger
-    // tab jumps / menu backing / UI sounds / force quits while in a mini-game.
-    out.leftOnce = false;
-    out.rightOnce = false;
-    out.upOnce = false;
-    out.downOnce = false;
-    out.selectOnce = false;
-    out.menuOnce = false;
+    // Lock out UI-layer meanings while in mini-game
+    out.leftOnce = out.rightOnce = out.upOnce = out.downOnce = false;
+    out.selectOnce = out.menuOnce = false;
 
-    out.leftHeld = false;
-    out.rightHeld = false;
-    out.upHeld = false;
-    out.downHeld = false;
-    out.selectHeld = false;
-    out.menuHeld = false;
+    out.leftHeld = out.rightHeld = out.upHeld = out.downHeld = false;
+    out.selectHeld = out.menuHeld = false;
   }
 }
 
 // -----------------------------------------------------------------------------
 // Keyboard read + mapping
 // -----------------------------------------------------------------------------
-static void readKeyboard(InputState& out) {
-  // Note: requires M5Cardputer.update() in the main loop
+static void readKeyboard(InputState &out)
+{
   const bool changed = M5Cardputer.Keyboard.isChange();
 
-  // Always sample current state so HELD-level signals work even when keys don't "change".
   auto st = M5Cardputer.Keyboard.keysState();
   out.kbHeldCount = (uint8_t)M5Cardputer.Keyboard.isPressed();
 
   const bool inMiniGameUi = (g_app.uiState == UIState::MINI_GAME);
 
-  // --------------------------------------------------------------------------
-  // MINI-GAME mapped HELD flags (always computed)
-  // These are independent of st.word so mini-games have stable controls.
-  // --------------------------------------------------------------------------
-  const bool heldUp    = kbHeldUpArrow();
-  const bool heldDown  = kbHeldDownArrow();
-  const bool heldLeft  = kbHeldLeftArrow();
+  // Always compute mini-game held controls
+  const bool heldUp = kbHeldUpArrow();
+  const bool heldDown = kbHeldDownArrow();
+  const bool heldLeft = kbHeldLeftArrow();
   const bool heldRight = kbHeldRightArrow();
-
-  const bool uiArrowsAllowed = (!g_textCaptureMode && !inMiniGameUi);
-
-  const bool uiUpHeldPunc    = uiArrowsAllowed && heldUp;    // ';'
-  const bool uiDownHeldPunc  = uiArrowsAllowed && heldDown;  // '.'
-  const bool uiLeftHeldPunc  = uiArrowsAllowed && heldLeft;  // ','
-  const bool uiRightHeldPunc = uiArrowsAllowed && heldRight; // '/'
 
   const bool heldE = kbHeldChar('e') || kbHeldChar('E');
   const bool heldA = kbHeldChar('a') || kbHeldChar('A');
@@ -456,210 +491,272 @@ static void readKeyboard(InputState& out) {
   const bool heldL = kbHeldChar('l') || kbHeldChar('L');
 
   const bool heldEnter = st.enter;
-  const bool heldG     = kbHeldChar('g') || kbHeldChar('G');
+  const bool heldG = kbHeldChar('g') || kbHeldChar('G');
   const bool heldSpace = kbHeldChar(' ');
-  const bool heldTilde = kbHeldChar('`') || kbHeldChar('~'); // your ESC key
+  const bool heldEsc = kbHeldEscKey();
 
-  const bool mgUpHeld     = (heldUp || heldE || heldO);
-  const bool mgDownHeld   = (heldDown || heldS || heldK);
-  const bool mgLeftHeld   = (heldLeft || heldA || heldJ);
-  const bool mgRightHeld  = (heldRight || heldD || heldL);
+  bool delWordThisTick = false;
+  if (changed)
+  {
+    for (auto wc : st.word)
+    {
+      if (!wc)
+        continue;
+      if (isDeleteToken((uint8_t)wc, wc))
+      {
+        delWordThisTick = true;
+        break;
+      }
+    }
+  }
+
+  const bool heldBackspaceSpecial = st.del || kbHeldAnyDeleteKey() || delWordThisTick;
+
+  const bool mgUpHeld = (heldUp || heldE || heldO);
+  const bool mgDownHeld = (heldDown || heldS || heldK);
+  const bool mgLeftHeld = (heldLeft || heldA || heldJ);
+  const bool mgRightHeld = (heldRight || heldD || heldL);
   const bool mgSelectHeld = (heldEnter || heldG);
 
-  out.mgUpHeld     = mgUpHeld;
-  out.mgDownHeld   = mgDownHeld;
-  out.mgLeftHeld   = mgLeftHeld;
-  out.mgRightHeld  = mgRightHeld;
+  out.mgUpHeld = mgUpHeld;
+  out.mgDownHeld = mgDownHeld;
+  out.mgLeftHeld = mgLeftHeld;
+  out.mgRightHeld = mgRightHeld;
   out.mgSelectHeld = mgSelectHeld;
-  out.mgSpaceHeld  = heldSpace;
+  out.mgSpaceHeld = heldSpace;
 
-  // Normal UI HELD flags from keyboard (only when not in text capture, and not in mini-game)
-  // (Mini-games should not bleed into UI beeps/actions.)
-  if (!g_textCaptureMode && !inMiniGameUi) {
+  // UI held flags only when not in text capture and not in mini-game
+  if (!g_textCaptureMode && !inMiniGameUi)
+  {
     out.selectHeld = st.enter;
   }
 
-  // -------------------------------------------------------
-  // Map keyboard ENTER to a UI "selectOnce" edge (like G)
-  // Many UI handlers (SET_TIME, BOOT_WIFI_PROMPT, etc.) rely on selectOnce.
-  // -------------------------------------------------------
-  if (!g_textCaptureMode && !inMiniGameUi) {
-    static bool s_enterLatched = false;
-
-    if (st.enter) {
-      if (!s_enterLatched) {
+  // Keyboard ENTER -> UI selectOnce edge (UI mode only)
+  if (!g_textCaptureMode && !inMiniGameUi)
+  {
+    if (st.enter)
+    {
+      if (!s_enterLatched)
         out.selectOnce = true;
-      }
       s_enterLatched = true;
-    } else {
+    }
+    else
+    {
       s_enterLatched = false;
     }
   }
 
   // If nothing changed AND no keys are held, we can skip work.
-  // NOTE: Some keys (ENTER, FN-layer punctuation arrows) don't always trigger isChange(),
-  // so we must still run when any key is held.
-  if (!changed && out.kbHeldCount == 0) return;
+  const bool heldSpecial =
+      heldUp || heldDown || heldLeft || heldRight || heldEsc || heldEnter || heldG || heldSpace || heldBackspaceSpecial;
+
+  if (!changed && out.kbHeldCount == 0 && !heldSpecial)
+    return;
 
   out.kbChanged = true;
 
-  // --------------------------------------------------------------------------
-  // UI punctuation arrows (Cardputer): Up=';' Down='.' Left=',' Right='/'
-  // Generate UI nav edges from HELD state so it works even if st.word doesn't
-  // contain punctuation reliably.
-  //
-  // NOTE: This is self-contained (doesn't depend on acceptNav/s_nav*Ms).
-  // It uses a small cooldown to match the feel of your other nav gating.
-  // --------------------------------------------------------------------------
-  if (!inMiniGameUi && !g_textCaptureMode) {
-    const bool pUp    = kbHeldUpArrow();    // ';'
-    const bool pDown  = kbHeldDownArrow();  // '.'
-    const bool pLeft  = kbHeldLeftArrow();  // ','
-    const bool pRight = kbHeldRightArrow(); // '/'
+  // Punctuation arrow UI edges from held-state (UI only)
+  if (!inMiniGameUi && !g_textCaptureMode)
+  {
+    const bool pUp = kbHeldUpArrow();
+    const bool pDown = kbHeldDownArrow();
+    const bool pLeft = kbHeldLeftArrow();
+    const bool pRight = kbHeldRightArrow();
 
-    static bool     s_pUpLatched    = false;
-    static bool     s_pDownLatched  = false;
-    static bool     s_pLeftLatched  = false;
-    static bool     s_pRightLatched = false;
-    static uint32_t s_pUpMs         = 0;
-    static uint32_t s_pDownMs       = 0;
-    static uint32_t s_pLeftMs       = 0;
-    static uint32_t s_pRightMs      = 0;
+    static bool s_pUpLatched = false;
+    static bool s_pDownLatched = false;
+    static bool s_pLeftLatched = false;
+    static bool s_pRightLatched = false;
+    static uint32_t s_pUpMs = 0;
+    static uint32_t s_pDownMs = 0;
+    static uint32_t s_pLeftMs = 0;
+    static uint32_t s_pRightMs = 0;
 
     const uint32_t kPuncCooldownMs = 120;
     const uint32_t t = millis();
 
-    auto acceptP = [&](uint32_t& lastMs) -> bool {
-      if ((t - lastMs) < kPuncCooldownMs) return false;
+    auto acceptP = [&](uint32_t &lastMs) -> bool
+    {
+      if ((t - lastMs) < kPuncCooldownMs)
+        return false;
       lastMs = t;
       return true;
     };
 
-    if (pUp && !s_pUpLatched && acceptP(s_pUpMs)) {
+    if (pUp && !s_pUpLatched && acceptP(s_pUpMs))
+    {
       out.upOnce = true;
       s_pUpLatched = true;
     }
-    if (!pUp) s_pUpLatched = false;
+    if (!pUp)
+      s_pUpLatched = false;
 
-    if (pDown && !s_pDownLatched && acceptP(s_pDownMs)) {
+    if (pDown && !s_pDownLatched && acceptP(s_pDownMs))
+    {
       out.downOnce = true;
       s_pDownLatched = true;
     }
-    if (!pDown) s_pDownLatched = false;
+    if (!pDown)
+      s_pDownLatched = false;
 
-    if (pLeft && !s_pLeftLatched && acceptP(s_pLeftMs)) {
+    if (pLeft && !s_pLeftLatched && acceptP(s_pLeftMs))
+    {
       out.leftOnce = true;
       s_pLeftLatched = true;
     }
-    if (!pLeft) s_pLeftLatched = false;
+    if (!pLeft)
+      s_pLeftLatched = false;
 
-    if (pRight && !s_pRightLatched && acceptP(s_pRightMs)) {
+    if (pRight && !s_pRightLatched && acceptP(s_pRightMs))
+    {
       out.rightOnce = true;
       s_pRightLatched = true;
     }
-    if (!pRight) s_pRightLatched = false;
+    if (!pRight)
+      s_pRightLatched = false;
   }
 
-  // ---------------------------------------------------------------------------
-  // Nav de-dupe / cooldown (preserve your older behavior)
-  // ---------------------------------------------------------------------------
+  // Nav de-dupe / cooldown
   const uint32_t now = millis();
 
-  static uint32_t s_navUpMs    = 0;
-  static uint32_t s_navDownMs  = 0;
-  static uint32_t s_navLeftMs  = 0;
+  static uint32_t s_navUpMs = 0;
+  static uint32_t s_navDownMs = 0;
+  static uint32_t s_navLeftMs = 0;
   static uint32_t s_navRightMs = 0;
-  static uint32_t s_navSelMs   = 0;
-  static uint32_t s_navMenuMs  = 0;
-  static uint32_t s_navConMs   = 0;
+  static uint32_t s_navSelMs = 0;
+  static uint32_t s_navMenuMs = 0;
+  static uint32_t s_navConMs = 0;
 
   const uint32_t kNavCooldownMs = 120;
 
-  auto acceptNav = [&](uint32_t& lastMs) -> bool {
-    if ((now - lastMs) < kNavCooldownMs) return false;
+  auto acceptNav = [&](uint32_t &lastMs) -> bool
+  {
+    if ((now - lastMs) < kNavCooldownMs)
+      return false;
     lastMs = now;
     return true;
   };
 
   // Release edge latches when idle
-  if (out.kbHeldCount == 0) {
+  if (out.kbHeldCount == 0 && !heldSpecial)
+  {
     s_qLatched = false;
     s_cLatched = false;
     s_gLatched = false;
     s_spaceLatched = false;
 
-    // Allow Enter/Backspace word-stream edges (0x28/0x2A) to fire again
-    // even when the keyboard library doesn't set st.enter/st.del.
     s_enterLatched = false;
-    s_delLatched   = false;
+    s_delLatched = false;
   }
-
-  // Track whether keys are present in st.word this tick (for latch release)
-  bool sawSettingsKeyThisTick = false;
 
   bool sawUpThisTick = false;
   bool sawDownThisTick = false;
   bool sawLeftThisTick = false;
   bool sawRightThisTick = false;
-  bool sawSpaceThisTick = false;
+  bool sawDelWordThisTick = false;
 
-  // --------------------------------------------------------------------------
-  // ESC / Quit (` or ~)
-  // - Always generate escOnce (legacy)
-  // - In mini-games also generate mgQuitOnce
-  // --------------------------------------------------------------------------
-  if (heldTilde && !s_settingsKeyLatched) {
-    out.escOnce = true;
-    if (inMiniGameUi) out.mgQuitOnce = true;
+  // ESC edge
+  // - In UI mode: generate escOnce (opens settings)
+  // - In text-capture (console): generate menuOnce (toggle menu overlay) and NEVER enqueue the key
+  bool escWordThisTick = false;
+  if (changed)
+  {
+    for (auto wc : st.word)
+    {
+      if (!wc)
+        continue;
+      const uint8_t uc = (uint8_t)wc;
+      if (uc == 0x29 || uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
+      {
+        escWordThisTick = true;
+        break;
+      }
+    }
+  }
+
+  const bool escNow = heldEsc || escWordThisTick;
+
+  if (escNow && !s_settingsKeyLatched)
+  {
+    if (g_textCaptureMode)
+    {
+      if (acceptNav(s_navMenuMs))
+        out.menuOnce = true;
+    }
+    else
+    {
+      out.escOnce = true;
+    }
+    if (inMiniGameUi)
+      out.mgQuitOnce = true;
     s_settingsKeyLatched = true;
   }
-  if (!heldTilde) s_settingsKeyLatched = false;
+  if (!escNow)
+    s_settingsKeyLatched = false;
 
-  // --------------------------------------------------------------------------
-  // Generate mg* "Once" edges from held states (independent of word stream)
-  // --------------------------------------------------------------------------
-  if (mgUpHeld && !s_navUpLatched) {
+  // Mini-game "Once" edges from held states.
+  // Uses separate latches from s_navUpLatched etc. so these don't block
+  // the WASD/word-stream UI nav paths below.
+  static bool s_mgNavUpLatched    = false;
+  static bool s_mgNavDownLatched  = false;
+  static bool s_mgNavLeftLatched  = false;
+  static bool s_mgNavRightLatched = false;
+
+  if (mgUpHeld && !s_mgNavUpLatched)
+  {
     out.mgUpOnce = true;
-    s_navUpLatched = true;
+    s_mgNavUpLatched = true;
   }
-  if (!mgUpHeld) s_navUpLatched = false;
+  if (!mgUpHeld)
+    s_mgNavUpLatched = false;
 
-  if (mgDownHeld && !s_navDownLatched) {
+  if (mgDownHeld && !s_mgNavDownLatched)
+  {
     out.mgDownOnce = true;
-    s_navDownLatched = true;
+    s_mgNavDownLatched = true;
   }
-  if (!mgDownHeld) s_navDownLatched = false;
+  if (!mgDownHeld)
+    s_mgNavDownLatched = false;
 
-  if (mgLeftHeld && !s_navLeftLatched) {
+  if (mgLeftHeld && !s_mgNavLeftLatched)
+  {
     out.mgLeftOnce = true;
-    s_navLeftLatched = true;
+    s_mgNavLeftLatched = true;
   }
-  if (!mgLeftHeld) s_navLeftLatched = false;
+  if (!mgLeftHeld)
+    s_mgNavLeftLatched = false;
 
-  if (mgRightHeld && !s_navRightLatched) {
+  if (mgRightHeld && !s_mgNavRightLatched)
+  {
     out.mgRightOnce = true;
-    s_navRightLatched = true;
+    s_mgNavRightLatched = true;
   }
-  if (!mgRightHeld) s_navRightLatched = false;
+  if (!mgRightHeld)
+    s_mgNavRightLatched = false;
 
-if (mgSelectHeld && !s_mgSelectLatched) {
-  out.mgSelectOnce = true;
-  s_mgSelectLatched = true;
-}
-if (!mgSelectHeld) s_mgSelectLatched = false;
+  if (mgSelectHeld && !s_mgSelectLatched)
+  {
+    out.mgSelectOnce = true;
+    s_mgSelectLatched = true;
+  }
+  if (!mgSelectHeld)
+  {
+    s_mgSelectLatched = false;
+  }
 
-  if (heldSpace && !s_spaceLatched) {
+  if (heldSpace && !s_spaceLatched)
+  {
     out.mgSpaceOnce = true;
     s_spaceLatched = true;
   }
-  if (!heldSpace) s_spaceLatched = false;
+  if (!heldSpace)
+  {
+    s_spaceLatched = false;
+  }
 
-  // --------------------------------------------------------------------------
-  // If we're in a mini-game: HARD LOCKOUT of UI hotkeys and word processing.
-  // Also sync latches so suppressed keys don't "fire" after leaving the mini-game.
-  // --------------------------------------------------------------------------
-  if (inMiniGameUi) {
-    // Suppress UI actions entirely
+  // Hard lockout in mini-game
+  if (inMiniGameUi)
+  {
     out.tabJump = 255;
     out.consoleOnce = false;
     out.controlsOnce = false;
@@ -667,173 +764,288 @@ if (!mgSelectHeld) s_mgSelectLatched = false;
     out.menuOnce = false;
     out.selectOnce = false;
 
-    // Keep these latches synced so keys pressed during mini-game won't fire later
     s_qLatched = kbHeldChar('q') || kbHeldChar('Q');
     s_cLatched = kbHeldChar('\\');
     s_gLatched = heldG;
 
-    // Don't push any chars into kb queue while in mini-games
     out.kbQHead = out.kbQTail = 0;
     return;
   }
 
-  // --------------------------------------------------------------------------
-  // Word stream (printable keys + some HID usage IDs) should only be processed
-  // when the keyboard reports a change. Otherwise some firmwares will repeat
-  // the previous word contents across ticks, causing "eeeeeeee" for one press.
-  // --------------------------------------------------------------------------
-  if (changed) {
-    for (auto c : st.word) {
-      if (!c) continue;
+  // Word stream processing ONLY when changed
+  if (changed)
+  {
+    for (auto c : st.word)
+    {
+      if (!c)
+        continue;
 
-      // Some cores put HID usage IDs into st.word for special keys.
-      // IMPORTANT: In this build, Enter/Backspace may NOT set st.enter/st.del,
-      // so we must translate them into UI edges here (when not text-capturing).
-      if ((uint8_t)c == 0x28) { // Enter
-        if (g_textCaptureMode) {
+      // ESC key can show up in the word stream in several forms.
+      // We already generate the edge above (escOnce/menuOnce), so just suppress it here.
+      const uint8_t ucEsc = (uint8_t)c;
+      if (ucEsc == 0x29 || ucEsc == 0x1B || c == '`' || c == '~' || ucEsc == 0xB0)
+      {
+        continue;
+      }
+      // Arrow keys HID usage IDs: Right=0x4F, Left=0x50, Down=0x51, Up=0x52
+      if ((uint8_t)c == 0x52)
+      { // Up
+        if (g_textCaptureMode)
+          out.kbPush((uint8_t)';');
+        else
+        {
+          sawUpThisTick = true;
+          if (!s_navUpLatched && acceptNav(s_navUpMs))
+            out.upOnce = true;
+          s_navUpLatched = true;
+        }
+        continue;
+      }
+      if ((uint8_t)c == 0x51)
+      { // Down
+        if (g_textCaptureMode)
+          out.kbPush((uint8_t)'.');
+        else
+        {
+          sawDownThisTick = true;
+          if (!s_navDownLatched && acceptNav(s_navDownMs))
+            out.downOnce = true;
+          s_navDownLatched = true;
+        }
+        continue;
+      }
+      if ((uint8_t)c == 0x50)
+      { // Left
+        if (!g_textCaptureMode)
+        {
+          sawLeftThisTick = true;
+          if (!s_navLeftLatched && acceptNav(s_navLeftMs))
+            out.leftOnce = true;
+          s_navLeftLatched = true;
+        }
+        continue;
+      }
+      if ((uint8_t)c == 0x4F)
+      { // Right
+        if (!g_textCaptureMode)
+        {
+          sawRightThisTick = true;
+          if (!s_navRightLatched && acceptNav(s_navRightMs))
+            out.rightOnce = true;
+          s_navRightLatched = true;
+        }
+        continue;
+      }
+
+      // Enter HID usage 0x28
+      if ((uint8_t)c == 0x28)
+      {
+        if (g_textCaptureMode)
+        {
           out.kbPush((uint8_t)'\n');
-        } else {
-          // UI select edge (one-shot)
-          if (!s_enterLatched && acceptNav(s_navSelMs)) out.selectOnce = true;
+        }
+        else
+        {
+          if (!s_enterLatched && acceptNav(s_navSelMs))
+            out.selectOnce = true;
           s_enterLatched = true;
         }
         continue;
       }
-      
-      if ((uint8_t)c == 0x2A) { // Backspace
-        if (g_textCaptureMode) {
-          out.kbPush((uint8_t)'\b');
-        } else {
-          // Treat backspace as MENU/BACK in UI (one-shot)
-          if (!s_delLatched && acceptNav(s_navMenuMs)) out.menuOnce = true;
+
+      // Backspace/Delete/ASCII DEL -> console delete OR UI menu/back
+      const uint8_t uc = (uint8_t)c;
+      if (isDeleteToken(uc, c))
+      {
+        sawDelWordThisTick = true;
+
+        if (g_textCaptureMode)
+        {
+          // Console: backspace deletes a character
+          if (!s_delLatched)
+            out.kbPush((uint8_t)'\b');
+          s_delLatched = true;
+        }
+        else
+        {
+          // UI: backspace/delete acts like MENU/BACK
+          if (!s_delLatched && acceptNav(s_navMenuMs))
+            out.menuOnce = true;
           s_delLatched = true;
         }
         continue;
       }
-      
-      // ` or ~ already handled via heldTilde (but keep sawSettingsKeyThisTick for safety)
-      if (c == '`' || c == '~') {
-        sawSettingsKeyThisTick = true;
+
+      // Backslash -> console toggle (never push into kb queue)
+      if (c == '\\')
+      {
+        if (!s_cLatched && acceptNav(s_navConMs))
+        {
+          out.consoleOnce = true;
+          s_cLatched = true;
+        }
         continue;
       }
 
       const char lc = (char)tolower((unsigned char)c);
 
-      // Backslash always suppressed from kb queue (console toggle key)
-      if (c == '\\') {
-        if (!g_textCaptureMode) {
-          if (!s_cLatched && acceptNav(s_navConMs)) {
-            out.consoleOnce = true;
-            s_cLatched = true;
-          }
-        }
-        continue; // NEVER push \ into kb queue regardless of text capture mode
-      }
-
-      // UI nav mapping only when NOT in text capture mode
-      if (!g_textCaptureMode) {
+      if (!g_textCaptureMode)
+      {
         // Q -> menu edge
-        if (lc == 'q') {
-          if (!s_qLatched && acceptNav(s_navMenuMs)) out.menuOnce = true;
+        if (lc == 'q')
+        {
+          if (!s_qLatched && acceptNav(s_navMenuMs))
+            out.menuOnce = true;
           s_qLatched = true;
           continue;
         }
 
-        // G -> selectOnce (Enter equivalent), UI mode only
-        if (lc == 'g') {
-          if (!s_gLatched && acceptNav(s_navSelMs)) {
+        // G -> selectOnce edge
+        if (lc == 'g')
+        {
+          if (!s_gLatched && acceptNav(s_navSelMs))
+          {
             out.selectOnce = true;
             s_gLatched = true;
           }
-          continue; // do NOT push into kb queue
+          continue;
         }
 
-        // I -> Controls help overlay hotkey (UI mode only)
-        if (lc == 'i') {
+        // I -> controls overlay
+        if (lc == 'i')
+        {
           out.controlsOnce = true;
-          continue; // do NOT push into kb queue
+          continue;
         }
 
-        // Bottom row -> direct tab jumps (do NOT push into kb queue)
-        // z pet, x stats, c feed, v play, b sleep, n inventory, m shop
-        switch (lc) {
-          case 'z': out.tabJump = 0; continue; // Tab::TAB_PET
-          case 'x': out.tabJump = 1; continue; // Tab::TAB_STATS
-          case 'c': out.tabJump = 2; continue; // Tab::TAB_FEED
-          case 'v': out.tabJump = 3; continue; // Tab::TAB_PLAY
-          case 'b': out.tabJump = 4; continue; // Tab::TAB_SLEEP
-          case 'n': out.tabJump = 5; continue; // Tab::TAB_INV
-          case 'm': out.tabJump = 6; continue; // Tab::TAB_SHOP
-          default: break;
+        // Bottom row tab jumps
+        switch (lc)
+        {
+        case 'z':
+          out.tabJump = 0;
+          continue;
+        case 'x':
+          out.tabJump = 1;
+          continue;
+        case 'c':
+          out.tabJump = 2;
+          continue;
+        case 'v':
+          out.tabJump = 3;
+          continue;
+        case 'b':
+          out.tabJump = 4;
+          continue;
+        case 'n':
+          out.tabJump = 5;
+          continue;
+        case 'm':
+          out.tabJump = 6;
+          continue;
+        default:
+          break;
         }
 
-        // Existing nav cluster (latched + cooldown)
-        // NOTE: punctuation arrows (; . , /) are handled via held-state elsewhere.
-        if (lc == 'e' || lc == 'w' || lc == 'o') {
+        // WASD / HJKL / EWO nav cluster
+        if (lc == 'e' || lc == 'w' || lc == 'o')
+        {
           sawUpThisTick = true;
-          if (!s_navUpLatched && acceptNav(s_navUpMs)) out.upOnce = true;
+          if (!s_navUpLatched && acceptNav(s_navUpMs))
+            out.upOnce = true;
           s_navUpLatched = true;
           continue;
         }
-        if (lc == 'a' || lc == 'j') {
+        if (lc == 'a' || lc == 'j')
+        {
           sawLeftThisTick = true;
-          if (!s_navLeftLatched && acceptNav(s_navLeftMs)) out.leftOnce = true;
+          if (!s_navLeftLatched && acceptNav(s_navLeftMs))
+            out.leftOnce = true;
           s_navLeftLatched = true;
           continue;
         }
-        if (lc == 's' || lc == 'k') {
+        if (lc == 's' || lc == 'k')
+        {
           sawDownThisTick = true;
-          if (!s_navDownLatched && acceptNav(s_navDownMs)) out.downOnce = true;
+          if (!s_navDownLatched && acceptNav(s_navDownMs))
+            out.downOnce = true;
           s_navDownLatched = true;
           continue;
         }
-        if (lc == 'd' || lc == 'l') {
+        if (lc == 'd' || lc == 'l')
+        {
           sawRightThisTick = true;
-          if (!s_navRightLatched && acceptNav(s_navRightMs)) out.rightOnce = true;
+          if (!s_navRightLatched && acceptNav(s_navRightMs))
+            out.rightOnce = true;
           s_navRightLatched = true;
           continue;
         }
       }
 
-      // Otherwise: normal printable char goes to text queue
+      // Default: push printable into kb queue (text capture)
       out.kbPush((uint8_t)c);
     }
   }
 
-  // Release nav latches when the key is no longer present in st.word.
-  // This makes nav edges fire on press only, not on release.
-  if (!sawUpThisTick) s_navUpLatched = false;
-  if (!sawDownThisTick) s_navDownLatched = false;
-  if (!sawLeftThisTick) s_navLeftLatched = false;
-  if (!sawRightThisTick) s_navRightLatched = false;
+  // Release nav latches when key no longer present
+  if (!sawUpThisTick)
+    s_navUpLatched = false;
+  if (!sawDownThisTick)
+    s_navDownLatched = false;
+  if (!sawLeftThisTick)
+    s_navLeftLatched = false;
+  if (!sawRightThisTick)
+    s_navRightLatched = false;
 
-  // Backspace/Delete (edge) + optional UI menu mapping
-  if (st.del) {
-    if (!s_delLatched) out.kbPush((uint8_t)'\b');
-    if (!s_delLatched && !g_textCaptureMode) {
-      if (acceptNav(s_navMenuMs)) out.menuOnce = true;
+  // Backspace/Delete fallback (if firmware doesn't emit 0x2A/0x4C in st.word)
+  if (!sawDelWordThisTick)
+  {
+    if (heldBackspaceSpecial)
+    {
+      if (g_textCaptureMode)
+      {
+        if (!s_delLatched)
+          out.kbPush((uint8_t)'\b');
+        s_delLatched = true;
+      }
+      else
+      {
+        if (!s_delLatched && acceptNav(s_navMenuMs))
+          out.menuOnce = true;
+        s_delLatched = true;
+      }
     }
-    s_delLatched = true;
-  } else {
-    s_delLatched = false;
+    else
+    {
+      s_delLatched = false;
+    }
   }
 
-  // Enter (edge) + optional UI select mapping
-  if (st.enter) {
-    if (!s_enterLatched) out.kbPush((uint8_t)'\n');
+  // Enter edge + optional UI select mapping
+  if (st.enter)
+  {
+    if (!s_enterLatched)
+      out.kbPush((uint8_t)'\n');
 
-    if (!s_enterLatched && !g_textCaptureMode) {
-      if (g_consumeEnterOnce) g_consumeEnterOnce = false;
-      else {
-        if (acceptNav(s_navSelMs)) out.selectOnce = true;
+    if (!s_enterLatched && !g_textCaptureMode)
+    {
+      if (g_consumeEnterOnce)
+        g_consumeEnterOnce = false;
+      else
+      {
+        if (acceptNav(s_navSelMs))
+          out.selectOnce = true;
       }
     }
 
     s_enterLatched = true;
-  } else {
+  }
+  else
+  {
     s_enterLatched = false;
   }
 
-  if (st.fn)    out.kbPush((uint8_t)KEY_FN);
-  if (st.shift) out.kbPush((uint8_t)RH_KEY_SHIFT);
+  if (st.fn)
+    out.kbPush((uint8_t)KEY_FN);
+  if (st.shift)
+    out.kbPush((uint8_t)RH_KEY_SHIFT);
 }

@@ -10,6 +10,7 @@
 #include "sound.h"
 #include "ui_new_pet_flow.h"
 #include "ui_runtime.h"
+#include "graphics.h"
 
 void uiChoosePetHandle(InputState& in)
 {
@@ -21,10 +22,14 @@ void uiChoosePetHandle(InputState& in)
   // ---------------------------------------------------------------------------
   // Entry gate to prevent instant hatch
   // ---------------------------------------------------------------------------
-  if (g_choosePetBlockHatchUntilRelease) {
-    if (!in.selectHeld) {
+  if (g_choosePetBlockHatchUntilRelease)
+  {
+    if (!in.selectHeld)
+    {
       g_choosePetBlockHatchUntilRelease = false;
-    } else {
+    }
+    else
+    {
       // swallow everything while held
       while (in.kbHasEvent()) (void)in.kbPop();
       in.clearEdges();
@@ -38,8 +43,14 @@ void uiChoosePetHandle(InputState& in)
   s_prevSelectHeld = in.selectHeld;
 
   int move = 0;
-  if (in.upOnce) move = -1;
-  if (in.downOnce) move = +1;
+
+  // Choose-egg should support left/right + up/down + encoder
+  if (in.leftOnce)  move = -1;
+  if (in.rightOnce) move = +1;
+
+  if (in.upOnce)    move = -1;
+  if (in.downOnce)  move = +1;
+
   if (in.encoderDelta < 0) move = -1;
   if (in.encoderDelta > 0) move = +1;
 
@@ -58,17 +69,24 @@ void uiChoosePetHandle(InputState& in)
 
   // Find current index from pending type
   int curIdx = 0;
-  for (int i = 0; i < choiceCount; ++i) {
-    if (kChoices[i] == g_pendingPetType) { curIdx = i; break; }
+  for (int i = 0; i < choiceCount; ++i)
+  {
+    if (kChoices[i] == g_pendingPetType)
+    {
+      curIdx = i;
+      break;
+    }
   }
 
-  if (move != 0) {
+  if (move != 0)
+  {
     int nextIdx = curIdx + (move > 0 ? 1 : -1);
     if (nextIdx < 0) nextIdx = choiceCount - 1;
     if (nextIdx >= choiceCount) nextIdx = 0;
 
     const PetType nextType = kChoices[nextIdx];
-    if (nextType != g_pendingPetType) {
+    if (nextType != g_pendingPetType)
+    {
       g_pendingPetType = nextType;
       pet.type = g_pendingPetType; // keep previews consistent
       requestUIRedraw();
@@ -78,9 +96,29 @@ void uiChoosePetHandle(InputState& in)
     return;
   }
 
-  // Select to proceed to naming
-  if (enterEdge || in.selectOnce || in.encoderPressOnce) {
-    beginNamePetFlow();
+  // Select to proceed to HATCHING (NOT directly to name)
+  if (enterEdge || in.selectOnce || in.encoderPressOnce)
+  {
+    // Ensure text capture is off while hatching (name flow enables it later)
+    inputSetTextCapture(false);
+    g_textCaptureMode = false;
+
+    // Reset hatch flow state so updateHatching() performs its one-time init
+    g_app.flow.hatch.active = false;
+    g_app.flow.hatch.startMs = 0;
+    g_app.flow.hatch.showingMsg = false;
+    g_app.flow.hatch.msgStartMs = 0;
+    g_app.flow.hatch.frame = 0;
+    g_app.flow.hatch.flashWhite = false;
+    g_app.flow.hatch.flashStartMs = 0;
+
+    // Enter the modal hatching state
+    g_app.uiState = UIState::HATCHING;
+
+    invalidateBackgroundCache();
+    requestFullUIRedraw();
+
+    // Swallow any stray edges/typing so we don't instantly skip phases
     while (in.kbHasEvent()) (void)in.kbPop();
     inputForceClear();
     clearInputLatch();

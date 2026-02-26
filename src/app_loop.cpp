@@ -492,8 +492,14 @@ void appMainLoopTick()
 
     // Q/menu key returns to pet tab/root
     // IMPORTANT: do NOT run this while POWER_MENU is open (it steals menuOnce
-    // from handlePowerMenuInput)
-    if (g_app.uiState != UIState::SET_TIME && g_app.uiState != UIState::POWER_MENU && input.menuOnce)
+    // from handlePowerMenuInput).
+    // Also do NOT run while SETTINGS or CONSOLE are open — they handle back/cancel
+    // themselves via uiSettingsHandle / uiConsoleHandle.
+    if (g_app.uiState != UIState::SET_TIME &&
+        g_app.uiState != UIState::POWER_MENU &&
+        g_app.uiState != UIState::SETTINGS &&
+        g_app.uiState != UIState::CONSOLE &&
+        input.menuOnce)
     {
 
       // While sleeping, do NOT hijack menuOnce here.

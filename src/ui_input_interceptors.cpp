@@ -5,37 +5,21 @@
 #include "app_state.h"
 #include "input.h"
 
-#include "graphics.h"            
-#include "settings_flow_state.h" 
-#include "settings_nav_state.h"  
-#include "ui_defs.h"            
-#include "ui_runtime.h"       
-#include "ui_suppress.h"       
+#include "graphics.h"
+#include "settings_flow_state.h"
+#include "settings_nav_state.h"
+#include "ui_defs.h"
+#include "ui_runtime.h"
+#include "ui_suppress.h"
 #include "new_pet_flow_state.h"
-#include "ui_input_common.h"   
+#include "ui_input_common.h"
 #include "flow_power_menu.h"
 #include "factory_reset_state.h"
 #include "flow_factory_reset.h"
+#include "ui_actions.h"
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
-
-// -----------------------------------------------------------------------------
-// Input utilities
-// -----------------------------------------------------------------------------
-static inline void uiActionDrainKb(InputState& in)
-{
-  while (in.kbHasEvent())
-    (void)in.kbPop();
-}
-
-static inline void uiActionSwallowAll(InputState& in)
-{
-  uiActionDrainKb(in);
-  in.clearEdges();
-  inputForceClear();
-  clearInputLatch();
-}
 
 // Menu/ESC suppression is centralized in ui_suppress.*
 static inline bool menuSuppressedNow() { return uiIsMenuSuppressed(); }
@@ -63,15 +47,14 @@ static void openSettingsFromHere(InputState& in)
   resetSettingsNav(true);
   g_settingsFlow.settingsPage = SettingsPage::TOP;
 
-  g_app.uiState = UIState::SETTINGS;
-  requestUIRedraw();
+  uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
 
   // Prevent the same ESC/MENU press from being re-consumed immediately.
   uiSuppressMenuForMs(250);
   uiActionSwallowAll(in);
 }
 
-// // --------------------------------------------------------------
+// --------------------------------------------------------------
 // Interceptor handlers (small, ordered, behavior-preserving)
 // --------------------------------------------------------------
 static bool handlePowerMenuOverlay(InputState& in)
@@ -194,7 +177,10 @@ static bool handleFactoryResetOverlay(InputState& in)
   if (!g_factoryReset.confirmActive)
     return false;
 
-    uiFactoryResetHandle(in);
+  // Confirm dialog is fully handled by flow_factory_reset.
+  // IMPORTANT: DO NOT route to uiFactoryResetHandle() (it is a stub).
+  // When confirmActive is true, the systemSettingsIndex parameter is unused.
+  factoryResetSystemSettingsHook(in, 0);
   return true;
 }
 
