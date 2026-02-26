@@ -5,18 +5,21 @@
 #include "app_state.h"
 #include "input.h"
 
-#include "graphics.h"
-#include "settings_flow_state.h"
-#include "settings_nav_state.h"
-#include "ui_defs.h"
-#include "ui_runtime.h"
-#include "ui_suppress.h"
-#include "new_pet_flow_state.h"
-#include "ui_input_common.h"
-#include "flow_power_menu.h"
+#include "console.h"
 #include "factory_reset_state.h"
 #include "flow_factory_reset.h"
+#include "flow_power_menu.h"
+#include "graphics.h"
+#include "new_pet_flow_state.h"
+#include "settings_flow_state.h"
+#include "settings_nav_state.h"
 #include "ui_actions.h"
+#include "ui_defs.h"
+#include "ui_input_common.h"
+#include "ui_runtime.h"
+#include "ui_suppress.h"
+
+static bool handleEscGlobal(InputState &in);
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
@@ -28,20 +31,20 @@ static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-    case UIState::PET_SCREEN:
-    case UIState::INVENTORY:
-    case UIState::SHOP:
-    case UIState::SLEEP_MENU:
-      return true;
-    default:
-      return false;
+  case UIState::PET_SCREEN:
+  case UIState::INVENTORY:
+  case UIState::SHOP:
+  case UIState::SLEEP_MENU:
+    return true;
+  default:
+    return false;
   }
 }
 
-static void openSettingsFromHere(InputState& in)
+static void openSettingsFromHere(InputState &in)
 {
   g_settingsFlow.settingsReturnState = g_app.uiState;
-  g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+  g_settingsFlow.settingsReturnTab = g_app.currentTab;
   g_settingsFlow.settingsReturnValid = true;
 
   resetSettingsNav(true);
@@ -57,7 +60,7 @@ static void openSettingsFromHere(InputState& in)
 // --------------------------------------------------------------
 // Interceptor handlers (small, ordered, behavior-preserving)
 // --------------------------------------------------------------
-static bool handlePowerMenuOverlay(InputState& in)
+static bool handlePowerMenuOverlay(InputState &in)
 {
   if (g_app.uiState == UIState::POWER_MENU)
   {
@@ -67,7 +70,7 @@ static bool handlePowerMenuOverlay(InputState& in)
   return false;
 }
 
-static bool handlePowerMenuOpen(InputState& in)
+static bool handlePowerMenuOpen(InputState &in)
 {
   // Open power menu ONLY via GO long-hold (do not tie to menuOnce/escOnce).
   if (!g_textCaptureMode && in.goLongHold)
@@ -79,7 +82,7 @@ static bool handlePowerMenuOpen(InputState& in)
   return false;
 }
 
-static bool handleBootNamePetFixup(InputState& in)
+static bool handleBootNamePetFixup(InputState &in)
 {
   // BOOT FIXUP:
   // Only apply this when we are truly in a bad boot resume.
@@ -101,7 +104,7 @@ static bool handleBootNamePetFixup(InputState& in)
       inputSetTextCapture(false);
       g_textCaptureMode = false;
 
-      g_app.uiState    = UIState::CHOOSE_PET;
+      g_app.uiState = UIState::CHOOSE_PET;
       g_app.currentTab = Tab::TAB_PET;
 
       g_choosePetBlockHatchUntilRelease = true;
@@ -118,7 +121,7 @@ static bool handleBootNamePetFixup(InputState& in)
   return false;
 }
 
-static bool handleMenuSuppression(InputState& in)
+static bool handleMenuSuppression(InputState &in)
 {
   // Suppress menu/esc edges for a brief window after leaving overlays.
   if (menuSuppressedNow() && (in.menuOnce || in.escOnce))
@@ -129,7 +132,7 @@ static bool handleMenuSuppression(InputState& in)
   return false;
 }
 
-static bool handleOpenSettings(InputState& in)
+static bool handleOpenSettings(InputState &in)
 {
   // Classic behavior: ESC (or hotSettings) opens Settings from allowed states
   if (canOpenSettingsFrom(g_app.uiState) && (in.escOnce || in.hotSettings))
@@ -140,7 +143,7 @@ static bool handleOpenSettings(InputState& in)
   return false;
 }
 
-static bool handleSleepingGate(InputState& in)
+static bool handleSleepingGate(InputState &in)
 {
   // HARD INPUT GATE WHILE SLEEPING
   //  - ENTER wakes (select/encoderPress)
@@ -172,7 +175,7 @@ static bool handleSleepingGate(InputState& in)
   return false;
 }
 
-static bool handleFactoryResetOverlay(InputState& in)
+static bool handleFactoryResetOverlay(InputState &in)
 {
   if (!g_factoryReset.confirmActive)
     return false;
@@ -188,16 +191,53 @@ static bool handleFactoryResetOverlay(InputState& in)
 // Global interceptors (ordered)
 // Return true if handled (and input is swallowed/mutated accordingly)
 // --------------------------------------------------------------
-bool uiHandleGlobalInterceptors(InputState& in)
+bool uiHandleGlobalInterceptors(InputState &in)
 {
-  // Priority order matters.
-  if (handlePowerMenuOverlay(in)) return true;
-  if (handleFactoryResetOverlay(in)) return true;
-  if (handlePowerMenuOpen(in)) return true;
-  if (handleBootNamePetFixup(in)) return true;
-  if (handleMenuSuppression(in)) return true;
-  if (handleOpenSettings(in)) return true;
-  if (handleSleepingGate(in)) return true;
+  // Let the console own ESC/MENU entirely.
+  if (g_app.uiState == UIState::CONSOLE)
+    return false;
+  if (handleEscGlobal(in))
+    return true;
+  if (handlePowerMenuOverlay(in))
+    return true;
+  if (handleFactoryResetOverlay(in))
+    return true;
+  if (handlePowerMenuOpen(in))
+    return true;
+  if (handleBootNamePetFixup(in))
+    return true;
+  if (handleMenuSuppression(in))
+    return true;
+  if (handleOpenSettings(in))
+    return true;
+  if (handleSleepingGate(in))
+    return true;
 
   return false;
+}
+
+static bool handleEscGlobal(InputState &in)
+{
+  if (!in.escOnce)
+    return false;
+
+  // Let states that already own ESC handle it.
+  // (Avoid swallowing ESC and breaking “dismiss console/power menu/settings”.)
+  switch (g_app.uiState)
+  {
+  case UIState::CONSOLE:
+  case UIState::POWER_MENU:
+  case UIState::SETTINGS:
+  case UIState::MINI_GAME:
+  case UIState::MG_PAUSE:
+    return false;
+
+  default:
+    break;
+  }
+
+  // Default behavior: ESC opens Settings from anywhere else.
+  openSettingsFromHere(in);
+  in.escOnce = false;
+  return true;
 }

@@ -164,9 +164,6 @@ static bool dispatchToHandler(UIState s, InputState &in)
 
 bool uiHandleInput(InputState &in)
 {
-  // IMPORTANT:
-  // inputSetTextCapture() clears latches + forces a clear, so calling it every frame
-  // can starve edge flags (selectOnce/menuOnce/etc.). Only toggle when mode changes.
   static bool s_lastTextCapture = false;
 
   const bool desiredTextCapture = wantsTextCapture(g_app.uiState);
@@ -176,11 +173,29 @@ bool uiHandleInput(InputState &in)
     s_lastTextCapture = desiredTextCapture;
   }
 
+  // Phase 0: text-capture states own ESC/MENU first.
+  // Otherwise global interceptors will steal menuOnce (ESC in text-capture)
+  // before the console can close itself.
+  if (g_app.uiState == UIState::CONSOLE)
+  {
+    uiConsoleHandle(in);
+    return true;
+  }
+  if (g_app.uiState == UIState::NAME_PET)
+  {
+    uiNamePetHandle(in);
+    return true;
+  }
+  if (g_app.uiState == UIState::WIFI_SETUP)
+  {
+    uiWifiSetupHandle(in);
+    return true;
+  }
+
   // Phase 1: global interceptors (power menu, ESC->settings, sleep gate, etc.)
   if (uiHandleGlobalInterceptors(in))
     return true;
 
-  // Explicitly “no input” states: swallow edges so nothing leaks in from buffers.
   if (isNoInputState(g_app.uiState))
   {
     uiActionSwallowEdges(in);

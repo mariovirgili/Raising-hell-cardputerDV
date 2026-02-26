@@ -7,12 +7,13 @@
 #include "ui_input_common.h"
 #include "ui_input_utils.h"
 #include "ui_runtime.h"
-#include "ui_suppress.h"
 #include "ui_actions.h"
 
 // Console return target
 static UIState g_consoleReturnState = UIState::PET_SCREEN;
 static Tab g_consoleReturnTab = Tab::TAB_PET;
+
+// Special case: console was opened from inside Settings and should return back into Settings
 static bool g_consoleReturnToSettings = false;
 static SettingsPage g_consoleReturnPage = SettingsPage::TOP;
 
@@ -20,6 +21,7 @@ void openConsoleWithReturn(UIState returnState, Tab returnTab, bool retToSetting
 {
   g_consoleReturnState = returnState;
   g_consoleReturnTab = returnTab;
+
   g_consoleReturnToSettings = retToSettings;
   g_consoleReturnPage = retSettingsPage;
 
@@ -30,14 +32,16 @@ void openConsoleWithReturn(UIState returnState, Tab returnTab, bool retToSetting
 
 static inline void swallowTypingAndEdges(InputState& in)
 {
+  // Drain any typed chars accumulated this frame
   uiActionDrainKb(in);
 
-  // Clear one-shot edges so we don't immediately close/submit.
+  // Clear one-shot edges so we don't immediately close/submit/reopen things
   in.escOnce = false;
   in.menuOnce = false;
   in.selectOnce = false;
   in.encoderPressOnce = false;
 
+  // Flush latches/queue; preserves held state so "held ESC" doesn't re-edge next tick
   clearInputLatch();
 }
 
@@ -47,26 +51,53 @@ void uiConsoleHandle(InputState &input)
   {
     consoleClose();
 
+    // IMPORTANT: swallow BEFORE changing state so no edge leaks into the next state
+    swallowTypingAndEdges(input);
+
     if (g_consoleReturnToSettings)
     {
-      g_settingsFlow.settingsReturnValid = true;
-      g_settingsFlow.settingsReturnState = g_consoleReturnState;
-      g_settingsFlow.settingsReturnTab = g_consoleReturnTab;
+      // Only restore the settings page. Do NOT touch settingsReturnValid/state/tab.
+      // Settings already knows where to exit to; we just want to go back into it.
       g_settingsFlow.settingsPage = g_consoleReturnPage;
 
-      uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
-      swallowTypingAndEdges(input);
-      uiSuppressMenuForMs(250);
+      uiActionEnterState(UIState::SETTINGS, g_consoleReturnTab, true);
+      requestUIRedraw();
       return;
     }
 
-    uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
-    swallowTypingAndEdges(input);
-    uiSuppressMenuForMs(250);
+    // Normal behavior: return to the UI state we came from
+    uiActionEnterState(g_consoleReturnState, g_consoleReturnTab, true);
+    requestUIRedraw();
     return;
   }
 
   // Let the console module handle keystrokes, cursor, etc.
   consoleUpdate(input);
   requestUIRedraw();
+}
+
+bool closeConsoleAndReturn(InputState& input)
+{
+  // Only makes sense if console is actually active
+  if (g_app.uiState != UIState::CONSOLE)
+    return false;
+
+  consoleClose();
+
+  // Swallow BEFORE changing state so no edge leaks into the next state
+  swallowTypingAndEdges(input);
+
+  if (g_consoleReturnToSettings)
+  {
+    // Restore settings page only; do NOT touch settings return plumbing.
+    g_settingsFlow.settingsPage = g_consoleReturnPage;
+
+    uiActionEnterState(UIState::SETTINGS, g_consoleReturnTab, true);
+    requestUIRedraw();
+    return true;
+  }
+
+  uiActionEnterState(g_consoleReturnState, g_consoleReturnTab, true);
+  requestUIRedraw();
+  return true;
 }
