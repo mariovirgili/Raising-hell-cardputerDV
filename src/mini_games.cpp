@@ -1,21 +1,25 @@
-#include "mini_games.h"   
+#include "mini_games.h"
 #include <Arduino.h>
 #include <cstdio>
 #include "M5Cardputer.h"
 #include "input.h"
 #include "ui_runtime.h"
-#include "pet.h"           
+#include "pet.h"
 #include "display.h"
-#include "display_state.h" 
-#include "sound.h"        
-#include "save_manager.h"  
+#include "display_state.h"
+#include "sound.h"
+#include "save_manager.h"
 #include "graphics.h"
 #include "runtime_flags_state.h"
 #include "app_state.h"
 #include "inventory.h"
 #include <cstring>
+#include "mg_pause_menu.h"
 
-// External sprite from display.cpp
+// -----------------------------------------------------------------------------
+// Mini-game input helpers / shared state
+// -----------------------------------------------------------------------------
+
 static bool s_acceptArmed = false;
 static uint32_t s_gameOverMs = 0;
 
@@ -39,8 +43,6 @@ static bool s_prevSelectHeld = false;
 
 static bool miniGameEnterOnce(const InputState &input)
 {
-  // ENTER edge is synthesized from held-state for reliability.
-  // Also accept G (mapped as mgSelectOnce).
   const bool enterOnce = (input.mgSelectHeld && !s_prevSelectHeld);
   s_prevSelectHeld = input.mgSelectHeld;
   return enterOnce || input.mgSelectOnce;
@@ -117,127 +119,6 @@ bool playerWon = false;
 // Simple mini-game state
 static bool s_resultShown = false;
 
-// -----------------------------------------------------------------------------
-// Mini-game pause menu (ESC)
-// -----------------------------------------------------------------------------
-static bool    s_mgPaused       = false;
-static uint8_t s_mgPauseChoice  = 0; // 0=Continue, 1=Exit
-static bool    s_mgPausePrevSelHeld = false;
-static uint32_t s_mgPauseStartMs   = 0;
-static uint32_t s_mgPausedAccumMs  = 0;
-static bool     s_mgPrevPaused     = false;
-static bool     s_mgJustResumed   = false;
-
-static inline void mgPauseUpdateClocks(uint32_t now)
-{
-  // Detect transitions and track how long we've been paused total.
-  if (s_mgPaused && !s_mgPrevPaused) {
-    // Just entered pause
-    s_mgPauseStartMs = now;
-    s_mgJustResumed  = false;
-  }
-  else if (!s_mgPaused && s_mgPrevPaused) {
-    // Just exited pause
-    if (s_mgPauseStartMs != 0) {
-      s_mgPausedAccumMs += (now - s_mgPauseStartMs);
-    }
-    s_mgPauseStartMs = 0;
-    s_mgJustResumed  = true;   // one-shot flag; games can consume
-  }
-
-  s_mgPrevPaused = s_mgPaused;
-}
-
-static inline void mgResetPauseClock() {
-  s_mgPauseStartMs  = 0;
-  s_mgPausedAccumMs = 0;
-  s_mgPrevPaused    = false;
-}
-
-static inline bool mgPauseEnterOnce(const InputState& input) {
-  const bool once = (input.mgSelectHeld && !s_mgPausePrevSelHeld) || input.mgSelectOnce;
-  s_mgPausePrevSelHeld = input.mgSelectHeld;
-  return once;
-}
-
-static inline void mgPauseReset() {
-  s_mgPaused = false;
-  s_mgPauseChoice = 0;
-  s_mgPausePrevSelHeld = false;
-  mgResetPauseClock();
-}
-
-// Return codes for pause handler
-static const uint8_t MGPAUSE_NONE    = 0;
-static const uint8_t MGPAUSE_CONSUME = 1; // paused UI consumed tick
-static const uint8_t MGPAUSE_EXIT    = 2; // user chose Exit
-
-static uint8_t mgPauseHandle(const InputState& input) {
-  // ESC toggles pause
-  if (input.mgQuitOnce) {
-    s_mgPaused = !s_mgPaused;
-    if (s_mgPaused) s_mgPauseChoice = 0; // default Continue
-    s_mgPausePrevSelHeld = input.mgSelectHeld; // prevent instant confirm
-    return MGPAUSE_CONSUME;
-  }
-
-  if (!s_mgPaused) return MGPAUSE_NONE;
-
-  // Navigate choices
-  if (input.mgUpOnce || input.mgLeftOnce) {
-    if (s_mgPauseChoice > 0) s_mgPauseChoice--;
-  }
-  if (input.mgDownOnce || input.mgRightOnce) {
-    if (s_mgPauseChoice < 1) s_mgPauseChoice++;
-  }
-
-  // Confirm
-  if (mgPauseEnterOnce(input)) {
-    if (s_mgPauseChoice == 0) {
-      s_mgPaused = false;
-      s_mgPausePrevSelHeld = input.mgSelectHeld;
-      return MGPAUSE_CONSUME;
-    } else {
-      // Exit selected
-      s_mgPaused = false;
-      return MGPAUSE_EXIT;
-    }
-  }
-
-  return MGPAUSE_CONSUME;
-}
-
-static void mgDrawPauseOverlay() {
-  const int gW = (screenW > 0) ? screenW : 240;
-  const int gH = (screenH > 0) ? screenH : 135;
-
-  // Simple overlay box
-  const int bx = 28;
-  const int by = 32;
-  const int bw = gW - 56;
-  const int bh = 72;
-
-  spr.fillRect(bx, by, bw, bh, TFT_BLACK);
-  spr.drawRect(bx, by, bw, bh, TFT_DARKGREY);
-
-  spr.setTextDatum(TC_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawCentreString("PAUSED", gW / 2, by + 10, 2);
-
-  spr.setTextDatum(TL_DATUM);
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-
-  const int ox = bx + 14;
-  const int oy = by + 30;
-
-  spr.drawString((s_mgPauseChoice == 0) ? "> Continue" : "  Continue", ox, oy, 2);
-  spr.drawString((s_mgPauseChoice == 1) ? "> Exit"     : "  Exit",     ox, oy + 20, 2);
-
-  spr.setTextDatum(TC_DATUM);
-  spr.setTextColor(TFT_DARKGREY, TFT_BLACK);
-  spr.drawCentreString("ESC: Resume   ENTER: Select", gW/2, by + bh - 14, 1);
-}
-
 static uint32_t s_mgInputLockoutUntilMs = 0;
 
 static inline void mgBeginInputLockout(uint32_t ms) {
@@ -250,8 +131,6 @@ static inline bool mgInputLockedOut() {
 
 // -----------------------------------------------------------------------------
 // FLAPPY FIREBALL (Flappy Bird clone)
-// Guide a fireball through obstacles.
-// Win by reaching a target score without crashing.
 // -----------------------------------------------------------------------------
 
 static bool     s_flappyInited     = false;
@@ -260,12 +139,12 @@ static bool     s_flappyCrashed    = false;
 
 static uint32_t s_flappyStartMs    = 0;
 
-// Survive timer (tune this)
+// Survive timer
 static const uint32_t s_flappyWinMs = kSurviveWinMs;
 
 static int      s_fbX              = 0;
 static int      s_fbY              = 0;
-static int      s_fbVY             = 0;     // velocity (px/tick scaled)
+static int      s_fbVY             = 0;
 static uint32_t s_lastStepMs       = 0;
 
 struct FlappyPipe {
@@ -309,75 +188,61 @@ static void flappyResetWorld(int w, int h)
 void startFlappyFireball()
 {
   mgPauseReset();
-  
-  s_mgPauseStartMs  = 0;
-  s_mgPausedAccumMs = 0;
-  s_mgPrevPaused    = false;
 
   // Ensure keyboard nav works (ENTER/W) even if console/text mode was left on.
   inputSetTextCapture(false);
 
   g_app.inMiniGame     = true;
   g_app.gameOver       = false;
-  playerWon      = false;
-  s_resultShown  = false;
+  playerWon            = false;
+  s_resultShown        = false;
 
-  s_showReward   = false;
-  s_rewardMsg[0] = 0;
+  s_showReward         = false;
+  s_rewardMsg[0]       = 0;
 
-  s_acceptArmed  = false;
-  s_gameOverMs   = 0;
+  s_acceptArmed        = false;
+  s_gameOverMs         = 0;
 
-  // Enter-edge synth must start clean
-  s_prevSelectHeld = false;
+  s_prevSelectHeld     = false;
 
-  currentMiniGame = MiniGame::FLAPPY_FIREBALL;
+  currentMiniGame      = MiniGame::FLAPPY_FIREBALL;
   miniGameSetReturnUi(g_app.uiState);
-  g_app.uiState         = UIState::MINI_GAME;
+  g_app.uiState        = UIState::MINI_GAME;
 
-  s_flappyInited  = false;
-  s_lastStepMs    = millis();
+  s_flappyInited       = false;
+  s_lastStepMs         = millis();
 
   invalidateBackgroundCache();
-  s_flappyStartMs = millis();
+  s_flappyStartMs      = millis();
   requestUIRedraw();
   clearInputLatch();
-  mgBeginInputLockout(220); // 200–250ms feels good
+  mgBeginInputLockout(220);
 }
 
 static bool flappyCollides(int fbX, int fbY, int r, const FlappyPipe& p, int w, int h)
 {
-  // Keep these in sync with your draw/step sizes if you changed them
   const int pipeW = 26;
-
-  // Use your current gapH here (set to whatever you decided: 64 recommended)
   const int gapH  = 64;
 
-  // Forgiveness tunables (makes it feel fair)
-  const int kPipeInsetPx   = 2;  // shrink pipe hitbox horizontally
-  const int kGapBonusPx    = 4;  // expand gap vertically (collision only)
-  const int kScreenForgive = 2;  // allow slight offscreen without dying
+  const int kPipeInsetPx   = 2;
+  const int kGapBonusPx    = 4;
+  const int kScreenForgive = 2;
 
-  // Outside screen bounds (a little forgiving)
   if (fbY - r < -kScreenForgive) return true;
   if (fbY + r >= h + kScreenForgive) return true;
 
-  // Fireball overlap with pipe column X? (inset hitbox)
   int pipeL = p.x + kPipeInsetPx;
   int pipeR = p.x + pipeW - kPipeInsetPx;
 
   if (fbX + r < pipeL) return false;
   if (fbX - r > pipeR) return false;
 
-  // Expand the safe gap a little
   int gapTop = (p.gapY - gapH / 2) - kGapBonusPx;
   int gapBot = (p.gapY + gapH / 2) + kGapBonusPx;
 
-  // Clamp gap bounds just in case
   if (gapTop < 0) gapTop = 0;
   if (gapBot > h) gapBot = h;
 
-  // If circle is outside the (expanded) gap, it's a hit
   if (fbY - r < gapTop) return true;
   if (fbY + r > gapBot) return true;
 
@@ -386,37 +251,32 @@ static bool flappyCollides(int fbX, int fbY, int r, const FlappyPipe& p, int w, 
 
 static void flappyStep(int w, int h, bool flap)
 {
-  // Tunables
   const int pipeW    = 26;
   const int speedX   = 1;
   const int fbR      = 4;
 
-  // Physics (integer, but feels fine on 240x135)
-  const int gravity  = 1;   // px/tick
-  const int flapVY   = -3;  // impulse
+  const int gravity  = 1;
+  const int flapVY   = -3;
+
+  static uint8_t s_gravCounter = 0;
 
   if (flap) {
     s_fbVY = flapVY;
     soundFlap();
   }
 
-// Apply gravity every 3rd tick (slower fall)
-static uint8_t s_gravCounter = 0;
-s_gravCounter++;
-if (s_gravCounter >= 3)
-{
-  s_gravCounter = 0;
-  s_fbVY += gravity;
-}
+  s_gravCounter++;
+  if (s_gravCounter >= 3)
+  {
+    s_gravCounter = 0;
+    s_fbVY += gravity;
+  }
 
-  // Clamp fall speed so it never becomes impossible
   if (s_fbVY > 4) s_fbVY = 4;
   if (s_fbVY < -6) s_fbVY = -6;
 
   s_fbY += s_fbVY;
-;
 
-  // Move pipes + respawn
   int rightMost = s_pipes[0].x;
   for (int i = 1; i < 3; ++i) if (s_pipes[i].x > rightMost) rightMost = s_pipes[i].x;
 
@@ -424,7 +284,6 @@ if (s_gravCounter >= 3)
   {
     s_pipes[i].x -= speedX;
 
-    // Respawn
     if (s_pipes[i].x < -pipeW)
     {
       s_pipes[i].x      = rightMost + 140;
@@ -434,12 +293,11 @@ if (s_gravCounter >= 3)
     }
   }
 
-  // Collision
   for (int i = 0; i < 3; ++i) {
     if (flappyCollides(s_fbX, s_fbY, fbR, s_pipes[i], w, h))
     {
       playerWon       = false;
-      g_app.gameOver        = true;
+      g_app.gameOver  = true;
       s_resultShown   = true;
       s_flappyPlaying = false;
       soundError();
@@ -452,13 +310,12 @@ static inline uint32_t flappyAliveMsNow(uint32_t now)
 {
   uint32_t elapsed = now - s_flappyStartMs;
 
-  // subtract completed paused segments
-  if (elapsed > s_mgPausedAccumMs) elapsed -= s_mgPausedAccumMs;
+  const uint32_t pausedAccum = mgPauseAccumMs();
+  if (elapsed > pausedAccum) elapsed -= pausedAccum;
   else elapsed = 0;
 
-  // subtract current pause-in-progress if paused right now
-  if (s_mgPaused && s_mgPauseStartMs != 0) {
-    uint32_t pausedSoFar = now - s_mgPauseStartMs;
+  if (mgPauseIsPaused() && mgPauseStartMs() != 0) {
+    uint32_t pausedSoFar = now - mgPauseStartMs();
     if (elapsed > pausedSoFar) elapsed -= pausedSoFar;
     else elapsed = 0;
   }
@@ -470,42 +327,38 @@ void updateFlappyFireball(const InputState &input)
 {
   const bool enterOnce = miniGameEnterOnce(input);
 
-  // Reward modal (reuse existing modal behavior)
   if (s_showReward)
   {
-if (enterOnce) {
-  exitMiniGameToReturnUi();
-}
+    if (enterOnce) {
+      exitMiniGameToReturnUi(true);
+    }
     return;
   }
 
-  // If game is over, ENTER applies rewards and shows reward modal
-if (g_app.gameOver)
-{
-  if (enterOnce)
+  if (g_app.gameOver)
   {
-    // Resurrection mini-game should NOT go through the generic modal pipeline
-    if (currentMiniGame == MiniGame::RESURRECTION)
+    if (enterOnce)
     {
-      currentMiniGame = MiniGame::NONE;
-      g_app.inMiniGame = false;
-      g_app.gameOver = false;
+      if (currentMiniGame == MiniGame::RESURRECTION)
+      {
+        currentMiniGame = MiniGame::NONE;
+        g_app.inMiniGame = false;
+        g_app.gameOver = false;
 
-      onResurrectionMiniGameResult(playerWon);
+        onResurrectionMiniGameResult(playerWon);
 
-      g_app.uiState = UIState::PET_SCREEN;
-      requestUIRedraw();
-      clearInputLatch();
-      return;
+        g_app.uiState = UIState::PET_SCREEN;
+        requestUIRedraw();
+        clearInputLatch();
+        return;
+      }
+
+      mgApplyResultAndShowReward(playerWon);
+      mgBeginInputLockout(220);
     }
-
-    mgApplyResultAndShowReward(playerWon);
-    mgBeginInputLockout(220);
+    return;
   }
-  return;
-}
 
-  // Init on first update (needs screen dims)
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
@@ -517,39 +370,31 @@ if (g_app.gameOver)
 
   const uint32_t now = millis();
 
-  // If paused, freeze gameplay (no physics, no pipe motion, no timer progression)
-  // Timer UI should be based on flappyAliveMsNow(), which already subtracts pause.
-  if (s_mgPaused) {
-    // Prevent huge catch-up when resuming
+  if (mgPauseIsPaused()) {
     s_lastStepMs = now;
     return;
   }
 
-  // If we *just* resumed, prevent timestep catch-up (random outcomes)
-  if (s_mgJustResumed) {
+  if (mgPauseJustResumedConsume()) {
     s_lastStepMs = now;
-    s_mgJustResumed = false;
   }
 
-  // Survive-to-win condition
   const uint32_t aliveMs = flappyAliveMsNow(now);
   if (aliveMs >= s_flappyWinMs) {
     playerWon       = true;
-    g_app.gameOver        = true;
+    g_app.gameOver  = true;
     s_resultShown   = true;
     s_flappyPlaying = false;
     soundConfirm();
     return;
   }
 
-  // Controls (robust on Cardputer): Accept BOTH edge and held (ENTER / W)
   const bool flap =
       input.mgSelectOnce ||
       input.mgSelectHeld ||
       input.mgUpOnce ||
       input.mgUpHeld;
 
-  // Fixed-ish timestep
   const uint32_t stepMs = 16;
 
   if ((int32_t)(now - s_lastStepMs) >= 0)
@@ -570,32 +415,32 @@ if (g_app.gameOver)
 
 static void drawRewardModal(int gW, int gH)
 {
-    spr.setTextDatum(CC_DATUM);
+  spr.setTextDatum(CC_DATUM);
 
-    const char* nl = strchr(s_rewardMsg, '\n');
-    if (nl)
-    {
-        char line1[64];
-        size_t len = (size_t)(nl - s_rewardMsg);
-        if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
+  const char* nl = strchr(s_rewardMsg, '\n');
+  if (nl)
+  {
+    char line1[64];
+    size_t len = (size_t)(nl - s_rewardMsg);
+    if (len > sizeof(line1) - 1) len = sizeof(line1) - 1;
 
-        memcpy(line1, s_rewardMsg, len);
-        line1[len] = 0;
+    memcpy(line1, s_rewardMsg, len);
+    line1[len] = 0;
 
-        spr.setTextColor(TFT_WHITE, TFT_BLACK);
-        spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
+    spr.setTextColor(TFT_WHITE, TFT_BLACK);
+    spr.drawCentreString(line1, gW/2, gH/2 - 12, 2);
 
-        spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-        spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
-    }
-    else
-    {
-        spr.setTextColor(TFT_WHITE, TFT_BLACK);
-        spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
-    }
+    spr.setTextColor(TFT_YELLOW, TFT_BLACK);
+    spr.drawCentreString(nl + 1, gW/2, gH/2 + 6, 2);
+  }
+  else
+  {
+    spr.setTextColor(TFT_WHITE, TFT_BLACK);
+    spr.drawCentreString(s_rewardMsg, gW/2, gH/2 - 6, 2);
+  }
 
-    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
+  spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+  spr.drawCentreString("Press ENTER", gW/2, gH/2 + 28, 2);
 }
 
 void drawFlappyFireball()
@@ -603,18 +448,14 @@ void drawFlappyFireball()
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
-  // Always clear first so result/modal don't "float" over old frame
   spr.fillSprite(TFT_BLACK);
 
-  // Reward screen (modal)
-  // FIND and replace the body of this block:
   if (s_showReward)
   {
-      drawRewardModal(gW, gH);
-      return;
+    drawRewardModal(gW, gH);
+    return;
   }
 
-  // Result screen (shown immediately on crash / win)
   if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
@@ -626,7 +467,6 @@ void drawFlappyFireball()
     return;
   }
 
-  // Pipes
   const int pipeW = 26;
   const int gapH  = 64;
 
@@ -640,11 +480,9 @@ void drawFlappyFireball()
     spr.fillRect(x, gapBot, pipeW, gH - gapBot, TFT_DARKGREY);
   }
 
-  // Fireball
   spr.fillCircle(s_fbX, s_fbY, 5, TFT_ORANGE);
   spr.drawCircle(s_fbX, s_fbY, 5, TFT_RED);
 
-  // Timer bar (draw LAST so it stays in front of pipes)
   {
     const uint32_t now = millis();
     const uint32_t aliveMs = flappyAliveMsNow(now);
@@ -652,7 +490,7 @@ void drawFlappyFireball()
 
     int barW = gW - 20;
     int barX = 10;
-    int barY = 6;      // space where the title used to be
+    int barY = 6;
     int barH = 6;
 
     spr.drawRect(barX, barY, barW, barH, TFT_DARKGREY);
@@ -667,46 +505,36 @@ void drawFlappyFireball()
 
 // -----------------------------------------------------------------------------
 // Random INF reward (WIN only)
-// Payouts: 25, 50, 75, 100 with weighted odds (25 most common, 100 rarest)
 // -----------------------------------------------------------------------------
 static int rollMiniGameInfReward()
 {
-  const int r = (int)random(100); // 0..99
+  const int r = (int)random(100);
 
-  // 50% -> 25
   if (r < 50) return 25;
-
-  // 30% -> 50  (50..79)
   if (r < 80) return 50;
-
-  // 15% -> 75  (80..94)
   if (r < 95) return 75;
-
-  // 5%  -> 100 (95..99)
   return 100;
 }
 
 // -----------------------------------------------------------------------------
-// Mini-game reward (WIN only):
-// 25% chance to win ONE random item from: Food / Mood / Rest / Health
+// Mini-game reward (WIN only): 25% chance to win ONE random item
 // -----------------------------------------------------------------------------
 static bool tryAwardWinItem_1in4(ItemType* outType) {
   if (outType) *outType = ITEM_NONE;
 
-  // 25% odds
   if (random(4) != 0) return false;
 
   static const ItemType kRewards[] = {
-    ITEM_SOUL_FOOD,     // Food
-    ITEM_CURSED_RELIC,  // Mood
-    ITEM_DEMON_BONE,    // Rest
-    ITEM_RITUAL_CHALK   // Health
+    ITEM_SOUL_FOOD,
+    ITEM_CURSED_RELIC,
+    ITEM_DEMON_BONE,
+    ITEM_RITUAL_CHALK
   };
 
   const int n = (int)(sizeof(kRewards) / sizeof(kRewards[0]));
   const ItemType t = kRewards[(int)random((long)n)];
 
-g_app.inventory.addItem(t, 1);
+  g_app.inventory.addItem(t, 1);
   if (outType) *outType = t;
   return true;
 }
@@ -718,8 +546,8 @@ static void exitMiniGameToReturnUi(bool beginLockout)
 
   g_app.inMiniGame   = false;
   g_app.gameOver     = false;
-  playerWon    = false;
-  currentMiniGame = MiniGame::NONE;
+  playerWon          = false;
+  currentMiniGame    = MiniGame::NONE;
 
   g_app.uiState = miniGameGetReturnUiOrDefault(UIState::PET_SCREEN);
   miniGameClearReturnUi();
@@ -735,57 +563,50 @@ static void exitMiniGameToReturnUi(bool beginLockout)
 
 static void mgSyncGameTimebases(uint32_t now);
 
+// -----------------------------------------------------------------------------
+// Universal mini-game update/draw dispatch + pause overlay
+// -----------------------------------------------------------------------------
+
 void updateMiniGame(const InputState& input)
 {
-  // If no game, nothing to do
   if (currentMiniGame == MiniGame::NONE) return;
 
   const uint32_t now = millis();
 
-  // Pause is universal and handled BEFORE per-game logic
-  // Only allow pausing while actively playing (not during reward/result modals)
   const bool activePlay =
       g_app.inMiniGame &&
       !s_showReward &&
       !g_app.gameOver;
 
-  // If not actively playing, force pause off so it doesn't "stick"
   if (!activePlay) {
-    s_mgPaused = false;
-    s_mgPrevPaused = false;
-    s_mgPauseStartMs = 0;
-    // NOTE: keep s_mgPausedAccumMs as-is; it will get reset on next startX()
+    mgPauseForceOffNoStick();
   } else {
-    // Handle pause toggle (if not locked out)
     if (!mgInputLockedOut()) {
-      const bool wasPaused = s_mgPaused;
       const uint8_t p = mgPauseHandle(input);
 
-     // Update pause clocks after pause handler possibly toggled s_mgPaused
-     mgPauseUpdateClocks(now);
+      mgPauseUpdateClocks(now);
 
-if (p == MGPAUSE_EXIT) {
-  exitMiniGameToReturnUi(true);
-  return;
-}
+      if (p == MGPAUSE_EXIT) {
+        exitMiniGameToReturnUi(true);
+        return;
+      }
 
       if (p == MGPAUSE_CONSUME) {
-        // If paused, keep timebases pinned so nothing catches up
-        if (s_mgPaused) {
+        if (mgPauseIsPaused()) {
           mgSyncGameTimebases(now);
         }
         return;
       }
+    } else {
+      mgPauseUpdateClocks(now);
     }
 
-    // Even if input is locked out, if we're paused we still pin timebases
-    if (s_mgPaused) {
+    if (mgPauseIsPaused()) {
       mgSyncGameTimebases(now);
       return;
     }
   }
 
-  // Normal dispatch
   switch (currentMiniGame)
   {
     case MiniGame::FLAPPY_FIREBALL:   updateFlappyFireball(input);   break;
@@ -807,15 +628,13 @@ void drawMiniGame()
     default: break;
   }
 
-  // Draw pause overlay on top of whatever the game drew
-  if (s_mgPaused) {
+  if (mgPauseIsPaused()) {
     mgDrawPauseOverlay();
   }
 }
 
 // -----------------------------------------------------------------------------
 // Resurrection Run (side-scroller runner)
-// Controls: E = jump, S = duck (held)
 // -----------------------------------------------------------------------------
 
 static bool     rr_active = false;
@@ -827,7 +646,7 @@ static float    rr_y = 0.0f;
 static float    rr_vy = 0.0f;
 static bool     rr_onGround = true;
 
-static int      rr_distance = 0;     // "world" distance in px-ish units
+static int      rr_distance = 0;
 static uint32_t rr_lastMs = 0;
 
 struct RRObs {
@@ -842,16 +661,14 @@ static RRObs rr_obs[8];
 static int   rr_courseLen = 2600;
 
 struct RRSpawn {
-  int triggerDist;   // when rr_distance reaches this, spawn
-  uint8_t type;      // 0=SPIKE, 1=LOW_FIRE
-  uint8_t param;     // optional (unused for now)
+  int triggerDist;
+  uint8_t type;
+  uint8_t param;
 };
 
 static const uint8_t RR_SPIKE    = 0;
 static const uint8_t RR_LOW_FIRE = 1;
 
-// Scripted course beats. Spread these across your whole rr_courseLen.
-// Tune triggerDist values as you like.
 static const RRSpawn rr_script[] = {
   {  260, RR_SPIKE,    0 },
   {  520, RR_SPIKE,    0 },
@@ -868,23 +685,20 @@ static const int rr_scriptCount = (int)(sizeof(rr_script) / sizeof(rr_script[0])
 static int rr_nextSpawn = 0;
 
 static void rrSpawnObstacle(uint8_t type) {
-  // Find a free slot
   int slot = -1;
   for (int i = 0; i < (int)(sizeof(rr_obs) / sizeof(rr_obs[0])); i++) {
     if (!rr_obs[i].active) { slot = i; break; }
   }
   if (slot < 0) return;
 
-  // Spawn just off the right side of the screen in WORLD coordinates.
-  // We store world-x, and later draw uses (worldX - rr_distance).
-  const int spawnScreenLead = 60;   // how far offscreen to spawn
+  const int spawnScreenLead = 60;
   const int spawnWorldX = rr_distance + SCREEN_W + spawnScreenLead;
 
   const int groundY = SCREEN_H - 18;
 
   if (type == RR_SPIKE) {
     rr_obs[slot] = { spawnWorldX, groundY - 14, 16, 14, true };
-  } else { // RR_LOW_FIRE
+  } else {
     rr_obs[slot] = { spawnWorldX, groundY - 32, 18, 10, true };
   }
 }
@@ -899,15 +713,25 @@ static bool rrAabb(int ax,int ay,int aw,int ah,int bx,int by,int bw,int bh) {
 
 void startResurrectionRun() {
   mgPauseReset();
-  miniGameSetReturnUi(UIState::DEATH);
+  inputSetTextCapture(false);
+
+  // Make Resurrection Run behave like all other mini-games (state + flags)
+  g_app.inMiniGame   = true;
+  g_app.gameOver     = false;
+  playerWon          = false;
+  s_resultShown      = false;
+
+  currentMiniGame    = MiniGame::RESURRECTION;
+  miniGameSetReturnUi(g_app.uiState);
+  g_app.uiState      = UIState::MINI_GAME;
+
   // Hard reset any previous end-of-game modal state so retries don't instantly re-trigger.
   s_showReward = false;
   s_rewardMsg[0] = 0;
 
-  // IMPORTANT: clear the ENTER edge latch used by reward screens
   s_prevSelectHeld = false;
-
   clearInputLatch();
+  mgBeginInputLockout(220);
 
   rr_active = true;
   rr_gameOver = false;
@@ -924,99 +748,84 @@ void startResurrectionRun() {
   rr_courseLen = 2600;
   rrResetObstacles();
   rr_nextSpawn = 0;
+
+  invalidateBackgroundCache();
+  requestUIRedraw();
 }
 
 void updateResurrectionRun(const InputState& input) {
 
-  // End screen: ENTER confirms result and returns to death flow handler
   if (rr_gameOver) {
     const bool enterOnce = miniGameEnterOnce(input);
 
-if (enterOnce) {
-  rr_active   = false;
-  rr_gameOver = false;
+    if (enterOnce) {
+      rr_active   = false;
+      rr_gameOver = false;
 
-  playerWon = rr_won;
+      playerWon = rr_won;
 
-  currentMiniGame = MiniGame::NONE;
-  g_app.inMiniGame      = false;
+      currentMiniGame = MiniGame::NONE;
+      g_app.inMiniGame = false;
 
-  // IMPORTANT:
-  // Let the resurrection result handler decide where to go next (revive -> PET_SCREEN,
-  // fail -> DEATH flow). Do NOT override g_app.uiState afterwards.
-  onResurrectionMiniGameResult(playerWon);
+      onResurrectionMiniGameResult(playerWon);
 
-  // Clear the saved return UI so it doesn't affect future games.
-  miniGameClearReturnUi();
+      miniGameClearReturnUi();
 
-  mgPauseReset();
-  clearInputLatch();
-  requestUIRedraw();
-  mgBeginInputLockout(220);
-}
+      mgPauseReset();
+      clearInputLatch();
+      requestUIRedraw();
+      mgBeginInputLockout(220);
+    }
     return;
   }
 
-  // ---------------------------------------------------------------------------
-  // Physics & progression
-  // ---------------------------------------------------------------------------
   const uint32_t now = millis();
   uint32_t dtMs = now - rr_lastMs;
   rr_lastMs = now;
-  if (dtMs > 40) dtMs = 40; // clamp
+  if (dtMs > 40) dtMs = 40;
   const float dt = dtMs / 1000.0f;
 
-rr_ducking = (input.mgDownHeld || input.mgSpaceHeld);
+  rr_ducking = (input.mgDownHeld || input.mgSpaceHeld);
 
-// Jump: edge (ENTER/G/UP all count as "jump")
-const bool jumpOnce = input.mgSelectOnce || input.mgUpOnce;
-const bool jumpHeld = input.mgSelectHeld || input.mgUpHeld;
+  const bool jumpOnce = input.mgSelectOnce || input.mgUpOnce;
+  const bool jumpHeld = input.mgSelectHeld || input.mgUpHeld;
 
-if (jumpOnce && rr_onGround) {
-  rr_vy = -220.0f;
-  rr_onGround = false;
-}
+  if (jumpOnce && rr_onGround) {
+    rr_vy = -220.0f;
+    rr_onGround = false;
+  }
 
-// Gravity (slightly reduced while holding jump during ascent)
-const float gravity = (jumpHeld && rr_vy < 0.0f) ? 520.0f : 720.0f;
+  const float gravity = (jumpHeld && rr_vy < 0.0f) ? 520.0f : 720.0f;
 
   rr_vy += gravity * dt;
   rr_y  += rr_vy * dt;
 
-  // Ground clamp (ground Y = 0)
   if (rr_y >= 0.0f) {
     rr_y = 0.0f;
     rr_vy = 0.0f;
     rr_onGround = true;
   }
 
-  // Progress
-  const int speed = 290; // tune later
+  const int speed = 290;
   rr_distance += (int)(speed * dt);
 
-  // Spawn scripted obstacles as we progress
   while (rr_nextSpawn < rr_scriptCount && rr_distance >= rr_script[rr_nextSpawn].triggerDist) {
     rrSpawnObstacle(rr_script[rr_nextSpawn].type);
     rr_nextSpawn++;
   }
-  
-  // Win condition
+
   if (rr_distance >= rr_courseLen) {
-rr_gameOver = true;
-rr_won = true;   
-return;
+    rr_gameOver = true;
+    rr_won = true;
+    return;
   }
 
-  // ---------------------------------------------------------------------------
-  // Collision
-  // ---------------------------------------------------------------------------
-  // Player hitbox in screen coords
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
   const int groundY = gH - 18;
   const int px = 48;
-  int py = groundY - 18 + (int)rr_y; // rr_y is <= 0 (jump is negative)
+  int py = groundY - 18 + (int)rr_y;
   int pw = 16;
   int ph = rr_ducking ? 10 : 16;
   if (rr_ducking) py = groundY - ph + (int)rr_y;
@@ -1024,16 +833,14 @@ return;
   for (auto &o : rr_obs) {
     if (!o.active) continue;
 
-    // Convert obstacle "world X" to screen X: obstacles shift left as distance grows
     int ox = o.x - rr_distance;
     int oy = o.y;
     if (rrAabb(px, py, pw, ph, ox, oy, o.w, o.h)) {
-rr_gameOver = true;
-rr_won = false;
-return;
+      rr_gameOver = true;
+      rr_won = false;
+      return;
     }
 
-    // Cull offscreen
     if (ox < -40) o.active = false;
   }
 }
@@ -1044,9 +851,6 @@ void drawResurrectionRun() {
 
   spr.fillSprite(TFT_BLACK);
 
-  // Reward modal (reuse your existing s_showReward drawing)
-  // NOTE: Resurrection Run does not use s_showReward — result is handled
-  // by onResurrectionMiniGameResult() which manages the death/revival flow directly.
   if (rr_gameOver)
   {
     spr.setTextDatum(CC_DATUM);
@@ -1057,11 +861,10 @@ void drawResurrectionRun() {
     spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
     return;
   }
+
   const int groundY = gH - 18;
   spr.drawLine(0, groundY, gW, groundY, TFT_DARKGREY);
 
-  // Player
-  // (Simple rectangle player for now)
   int px = 48;
   int py = groundY - 18 + (int)rr_y;
   int pw = 16;
@@ -1069,7 +872,6 @@ void drawResurrectionRun() {
   if (rr_ducking) py = groundY - ph + (int)rr_y;
   spr.fillRect(px, py, pw, ph, TFT_GREEN);
 
-  // Obstacles
   for (auto &o : rr_obs) {
     if (!o.active) continue;
     int ox = o.x - rr_distance;
@@ -1077,7 +879,6 @@ void drawResurrectionRun() {
     spr.fillRect(ox, o.y, o.w, o.h, TFT_RED);
   }
 
-  // Progress bar
   int barW = gW - 20;
   int barX = 10;
   int barY = 6;
@@ -1090,8 +891,6 @@ void drawResurrectionRun() {
 
 // -----------------------------------------------------------------------------
 // CROSSY ROAD (Frogger-lite)
-// Goal: reach the top row. Hit a car = lose.
-// Uses existing: g_app.gameOver/playerWon + reward modal (s_showReward/s_rewardMsg)
 // -----------------------------------------------------------------------------
 
 static const int kCrossyCols = 15;
@@ -1107,11 +906,11 @@ static const int kCrossyFirstTrafficRow = 1;
 static const int kCrossyLastTrafficRow  = kCrossyRows - 2;
 
 struct CrossyLane {
-  int8_t  dir;        // -1 left, +1 right
-  uint8_t speed;      // px per step
-  uint8_t carLen;     // tiles
-  uint16_t gapPx;     // px between cars
-  int32_t offsetPx;   // signed to ease wrap math
+  int8_t  dir;
+  uint8_t speed;
+  uint8_t carLen;
+  uint16_t gapPx;
+  int32_t offsetPx;
 };
 
 static CrossyLane s_crossyLanes[kCrossyRows];
@@ -1135,9 +934,9 @@ static void crossyInitLanes()
   for (int r = kCrossyFirstTrafficRow; r <= kCrossyLastTrafficRow; ++r) {
     CrossyLane& L = s_crossyLanes[r];
     L.dir    = (r % 2 == 0) ? +1 : -1;
-L.speed  = (uint8_t)(1 + (r % 2));  // 1..2
-L.carLen = (uint8_t)(1 + (r % 2)); // 1..2 tiles
-L.gapPx  = (uint16_t)(kCrossyTileW * (4 + (r % 3))); // 4..6 tiles
+    L.speed  = (uint8_t)(1 + (r % 2));
+    L.carLen = (uint8_t)(1 + (r % 2));
+    L.gapPx  = (uint16_t)(kCrossyTileW * (4 + (r % 3)));
     L.offsetPx = (int32_t)random((long)(kCrossyTileW * 6));
   }
 }
@@ -1155,29 +954,27 @@ static void crossyReset()
 void startCrossyRoad()
 {
   mgPauseReset();
-
   inputSetTextCapture(false);
 
   g_app.inMiniGame    = true;
   g_app.gameOver      = false;
-  playerWon     = false;
-  s_resultShown = false;
+  playerWon           = false;
+  s_resultShown       = false;
 
-  s_showReward   = false;
-  s_rewardMsg[0] = 0;
+  s_showReward        = false;
+  s_rewardMsg[0]      = 0;
 
-  currentMiniGame = MiniGame::CROSSY_ROAD;
+  currentMiniGame     = MiniGame::CROSSY_ROAD;
   miniGameSetReturnUi(g_app.uiState);
-  g_app.uiState         = UIState::MINI_GAME;
+  g_app.uiState       = UIState::MINI_GAME;
 
-  // ✅ IMPORTANT: initialize BEFORE first draw
-  s_crossyInited = true;
+  s_crossyInited      = true;
   crossyReset();
 
   invalidateBackgroundCache();
   requestUIRedraw();
   clearInputLatch();
-  mgBeginInputLockout(220); // 200–250ms feels good
+  mgBeginInputLockout(220);
 }
 
 static void crossyStepLanes(uint32_t now)
@@ -1203,17 +1000,14 @@ static bool crossyHitCar()
 
   const int laneW = kCrossyCols * kCrossyTileW;
 
-  // Player X in lane pixels
   const int playerX0 = s_crossyPx * kCrossyTileW;
   const int playerX1 = playerX0 + (kCrossyTileW - 1);
 
-  // Sample a few points across the frog width
   for (int testX = playerX0; testX <= playerX1; testX += (kCrossyTileW / 2)) {
     int shifted = testX + (int)L.offsetPx;
     int m = shifted % periodPx;
     if (m < 0) m += periodPx;
 
-    // Also ignore tests way off lane (shouldn't happen, but safe)
     if (testX < 0 || testX >= laneW) continue;
 
     if (m >= 0 && m < carLenPx) return true;
@@ -1226,7 +1020,6 @@ void updateCrossyRoad(const InputState& input)
 {
   const bool enterOnce = miniGameEnterOnce(input);
 
-  // Reward modal (reuse global modal pattern)
   if (s_showReward)
   {
     if (enterOnce) {
@@ -1235,7 +1028,6 @@ void updateCrossyRoad(const InputState& input)
     return;
   }
 
-  // Result screen: ENTER applies rewards then shows modal
   if (g_app.gameOver)
   {
     if (enterOnce)
@@ -1246,16 +1038,13 @@ void updateCrossyRoad(const InputState& input)
     return;
   }
 
-  // Init once
   if (!s_crossyInited) {
     s_crossyInited = true;
     crossyReset();
   }
 
-  // Lane motion
   crossyStepLanes(millis());
 
-  // Movement (grid step per press)
   int dx = 0, dy = 0;
 
   if (input.mgLeftOnce)  dx = -1;
@@ -1263,7 +1052,6 @@ void updateCrossyRoad(const InputState& input)
   if (input.mgUpOnce)    dy = -1;
   if (input.mgDownOnce)  dy = +1;
 
-  // Encoder up/down support
   if (input.encoderDelta < 0) dy = -1;
   if (input.encoderDelta > 0) dy = +1;
 
@@ -1273,7 +1061,6 @@ void updateCrossyRoad(const InputState& input)
     playBeep();
   }
 
-  // Win
   if (s_crossyPy == 0) {
     playerWon = true;
     g_app.gameOver = true;
@@ -1282,7 +1069,6 @@ void updateCrossyRoad(const InputState& input)
     return;
   }
 
-  // Lose (hit car)
   if (crossyHitCar()) {
     playerWon = false;
     g_app.gameOver = true;
@@ -1295,22 +1081,22 @@ void updateCrossyRoad(const InputState& input)
 void drawCrossyRoad()
 {
   if (!s_crossyInited) {
-  s_crossyInited = true;
-  crossyReset();
-}
+    s_crossyInited = true;
+    crossyReset();
+  }
+
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
   (void)gH;
 
   spr.fillSprite(TFT_BLACK);
 
-  // Reward modal: reuse your existing rendering style (same as other games)
   if (s_showReward)
   {
-      drawRewardModal(gW, gH);
-      return;
+    drawRewardModal(gW, gH);
+    return;
   }
-  // Result screen
+
   if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
@@ -1322,7 +1108,6 @@ void drawCrossyRoad()
     return;
   }
 
-  // Draw rows
   for (int y = 0; y < kCrossyRows; ++y) {
     const int ry = kCrossyOriginY + y * kCrossyTileH;
 
@@ -1333,7 +1118,6 @@ void drawCrossyRoad()
     spr.fillRect(kCrossyOriginX, ry, kCrossyCols * kCrossyTileW, kCrossyTileH, col);
   }
 
-  // Cars
   for (int r = kCrossyFirstTrafficRow; r <= kCrossyLastTrafficRow; ++r) {
     const CrossyLane& L = s_crossyLanes[r];
 
@@ -1341,16 +1125,13 @@ void drawCrossyRoad()
     const int periodPx = carLenPx + (int)L.gapPx;
     const int laneW    = kCrossyCols * kCrossyTileW;
 
-    // ✅ Safety: never allow modulo/step by 0 or negative
     if (carLenPx <= 0 || periodPx <= 0) continue;
 
     const int y = kCrossyOriginY + r * kCrossyTileH;
 
-    // Safe modulo (handles negative offsets too)
     int offset = (int)(L.offsetPx % periodPx);
     if (offset < 0) offset += periodPx;
 
-    // repeat cars across lane width
     for (int x0 = -periodPx * 2; x0 < laneW + periodPx * 2; x0 += periodPx) {
       const int x = x0 - offset;
       const int drawX = kCrossyOriginX + x;
@@ -1363,7 +1144,6 @@ void drawCrossyRoad()
     }
   }
 
-  // Frog
   const int fx = kCrossyOriginX + s_crossyPx * kCrossyTileW;
   const int fy = kCrossyOriginY + s_crossyPy * kCrossyTileH;
   spr.fillRect(fx + 4, fy + 3, kCrossyTileW - 8, kCrossyTileH - 6, TFT_GREEN);
@@ -1371,14 +1151,12 @@ void drawCrossyRoad()
 
 // -----------------------------------------------------------------------------
 // INFERNAL DODGER
-// Dodge falling fireballs. Survive long enough to win.
-// Controls: LEFT/RIGHT or encoder. MENU exits.
 // -----------------------------------------------------------------------------
 
 struct DodgerBall {
   int16_t x;
   int16_t y;
-  int16_t vy;     // pixels per tick step (scaled by step)
+  int16_t vy;
   uint8_t r;
   bool    active;
 };
@@ -1391,11 +1169,11 @@ static uint32_t s_dodgerSpawnAccMs = 0;
 static int16_t  s_dodgerPx = 0;
 static int16_t  s_dodgerPy = 0;
 static int16_t  s_dodgerSpeed = 3;
-static float    s_dodgerPxF = 0.0f;        // sub-pixel position
-static uint32_t s_dodgerMoveLastMs = 0;    // movement timestep
+static float    s_dodgerPxF = 0.0f;
+static uint32_t s_dodgerMoveLastMs = 0;
 
-static int8_t   s_dodgerMoveDir = 0;       // -1 left, +1 right, 0 none
-static uint32_t s_dodgerDirHoldMs = 0;     // fallback “continue” window
+static int8_t   s_dodgerMoveDir = 0;
+static uint32_t s_dodgerDirHoldMs = 0;
 
 static DodgerBall s_dodgerBalls[8];
 
@@ -1406,7 +1184,7 @@ static void dodgerReset() {
   s_dodgerPx = gW / 2;
   s_dodgerPxF = (float)s_dodgerPx;
   s_dodgerMoveLastMs = millis();
-  s_dodgerPy = gH - 14;     // player baseline near bottom
+  s_dodgerPy = gH - 14;
   s_dodgerSpeed = 3;
 
   for (auto &b : s_dodgerBalls) {
@@ -1425,7 +1203,6 @@ static void dodgerReset() {
 static void dodgerSpawnOne(int difficulty) {
   const int gW = (screenW > 0) ? screenW : 240;
 
-  // Find a free slot
   int slot = -1;
   for (int i = 0; i < (int)(sizeof(s_dodgerBalls)/sizeof(s_dodgerBalls[0])); ++i) {
     if (!s_dodgerBalls[i].active) { slot = i; break; }
@@ -1434,13 +1211,11 @@ static void dodgerSpawnOne(int difficulty) {
 
   DodgerBall &b = s_dodgerBalls[slot];
 
-  // Spawn at random X across full width (leave margins so circles don't clip)
   const int margin = 6;
-  b.r = (uint8_t)(3 + (difficulty % 3));  // 3..5
+  b.r = (uint8_t)(3 + (difficulty % 3));
   b.x = (int16_t)random((long)(margin), (long)(gW - margin));
   b.y = (int16_t)(- (int)(10 + random(40)));
 
-  // Speed ramps up with difficulty (still fair)
   b.vy = (int16_t)(2 + (difficulty / 5));
   if (b.vy > 7) b.vy = 7;
 
@@ -1458,55 +1233,52 @@ static inline bool dodgerHit(int ax, int ay, int ar, int bx, int by, int br)
 void startInfernalDodger()
 {
   inputSetTextCapture(false);
-  mgPauseReset();          // <-- ADD THIS (must be before g_app.inMiniGame=true)
+  mgPauseReset();
 
   g_app.inMiniGame     = true;
   g_app.gameOver       = false;
-  playerWon      = false;
-  s_resultShown  = false;
+  playerWon            = false;
+  s_resultShown        = false;
 
-  s_showReward   = false;
-  s_rewardMsg[0] = 0;
+  s_showReward         = false;
+  s_rewardMsg[0]       = 0;
 
-  s_prevSelectHeld = false;
+  s_prevSelectHeld     = false;
 
-  currentMiniGame = MiniGame::INFERNAL_DODGER;
+  currentMiniGame      = MiniGame::INFERNAL_DODGER;
   miniGameSetReturnUi(g_app.uiState);
-  g_app.uiState         = UIState::MINI_GAME;
+  g_app.uiState        = UIState::MINI_GAME;
 
-  s_dodgerInited  = false;
+  s_dodgerInited       = false;
 
   invalidateBackgroundCache();
   requestUIRedraw();
   clearInputLatch();
+  mgBeginInputLockout(220);
 }
 
 void updateInfernalDodger(const InputState& input)
 {
   const bool enterOnce = miniGameEnterOnce(input);
 
-  // Reward modal
-if (s_showReward)
-{
-  if (enterOnce) {
-    exitMiniGameToReturnUi(true);
-  }
-  return;
-}
-
-
-  // Result screen: ENTER applies rewards + shows modal
-if (g_app.gameOver)
-{
-  if (enterOnce)
+  if (s_showReward)
   {
-    mgApplyResultAndShowReward(playerWon);
-    mgBeginInputLockout(220);
+    if (enterOnce) {
+      exitMiniGameToReturnUi(true);
+    }
+    return;
   }
-  return;
-}
 
-  // Init once
+  if (g_app.gameOver)
+  {
+    if (enterOnce)
+    {
+      mgApplyResultAndShowReward(playerWon);
+      mgBeginInputLockout(220);
+    }
+    return;
+  }
+
   if (!s_dodgerInited)
   {
     s_dodgerInited = true;
@@ -1516,13 +1288,12 @@ if (g_app.gameOver)
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
-  // Difficulty ramps with survival time
   const uint32_t now = millis();
   const uint32_t aliveMs = now - s_dodgerStartMs;
-  const int difficulty = (int)(aliveMs / 3000); // +1 every 3s
+  const int difficulty = (int)(aliveMs / 3000);
 
-  // Win condition (tune this)
-  const uint32_t kWinMs = kSurviveWinMs;  if (aliveMs >= kWinMs)
+  const uint32_t kWinMs = kSurviveWinMs;
+  if (aliveMs >= kWinMs)
   {
     playerWon = true;
     g_app.gameOver  = true;
@@ -1531,45 +1302,34 @@ if (g_app.gameOver)
     return;
   }
 
-  // ---------------------------------------------------------------------------
-  // Movement (hold-to-move, with a tiny fallback latch for key mappings that
-  // don’t reliably report Held every frame)
-  // ---------------------------------------------------------------------------
+  const bool leftHeld  = input.mgLeftHeld;
+  const bool rightHeld = input.mgRightHeld;
 
-const bool leftHeld  = input.mgLeftHeld;
-const bool rightHeld = input.mgRightHeld;
+  if (input.mgLeftOnce)  { s_dodgerMoveDir = -1; s_dodgerDirHoldMs = now + 140; }
+  if (input.mgRightOnce) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
 
-if (input.mgLeftOnce)  { s_dodgerMoveDir = -1; s_dodgerDirHoldMs = now + 140; }
-if (input.mgRightOnce) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
-
-  // True hold takes priority and keeps extending the window
   if (leftHeld && !rightHeld)  { s_dodgerMoveDir = -1; s_dodgerDirHoldMs = now + 140; }
   if (rightHeld && !leftHeld)  { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
 
-  // If neither side is held, stop once the short hold window expires
   if (!leftHeld && !rightHeld) {
     if ((int32_t)(now - s_dodgerDirHoldMs) >= 0) {
       s_dodgerMoveDir = 0;
     }
   }
 
-  // Encoder overrides (instant)
   if (input.encoderDelta < 0) { s_dodgerMoveDir = -1; s_dodgerDirHoldMs = now + 140; }
   if (input.encoderDelta > 0) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
 
-  // Apply movement (time-based so it feels the same regardless of frame rate)
   uint32_t mvDtMs = now - s_dodgerMoveLastMs;
   s_dodgerMoveLastMs = now;
-  if (mvDtMs > 40) mvDtMs = 40; // clamp big hitches
+  if (mvDtMs > 40) mvDtMs = 40;
 
-  // Speed in pixels/second (tune this)
-  float pxPerSec = 120.0f + (float)(difficulty * 6);   // was too fast; start ~120px/s
+  float pxPerSec = 120.0f + (float)(difficulty * 6);
   if (pxPerSec > 170.0f) pxPerSec = 170.0f;
 
   const float dt = (float)mvDtMs / 1000.0f;
   s_dodgerPxF += (float)s_dodgerMoveDir * pxPerSec * dt;
 
-  // Clamp + write back to int position
   const float marginF = 6.0f;
   if (s_dodgerPxF < marginF) s_dodgerPxF = marginF;
   if (s_dodgerPxF > (float)gW - marginF) s_dodgerPxF = (float)gW - marginF;
@@ -1580,12 +1340,9 @@ if (input.mgRightOnce) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
   if (s_dodgerPx < margin) s_dodgerPx = margin;
   if (s_dodgerPx > gW - margin) s_dodgerPx = gW - margin;
 
-  // Fixed-ish timestep for consistent falling
   const uint32_t stepMs = 16;
   while ((int32_t)(now - s_dodgerLastStepMs) >= 0)
   {
-    // Spawn cadence ramps (lower = harder)
-    // Start gentle, then tighten.
     int spawnEveryMs = 520 - difficulty * 24;
     if (spawnEveryMs < 220) spawnEveryMs = 220;
 
@@ -1595,20 +1352,17 @@ if (input.mgRightOnce) { s_dodgerMoveDir = +1; s_dodgerDirHoldMs = now + 140; }
       dodgerSpawnOne(difficulty);
     }
 
-    // Update balls
     for (auto &b : s_dodgerBalls)
     {
       if (!b.active) continue;
 
       b.y += b.vy;
 
-      // Offscreen => recycle
       if (b.y > gH + 12) {
         b.active = false;
         continue;
       }
 
-      // Collision with player (player is a circle-ish)
       const int pr = 6;
       if (dodgerHit((int)s_dodgerPx, (int)s_dodgerPy, pr, (int)b.x, (int)b.y, (int)b.r))
       {
@@ -1631,7 +1385,6 @@ void drawInfernalDodger()
 
   spr.fillSprite(TFT_BLACK);
 
-  // Progress bar (survive timer) — same style as Resurrection Run
   {
     const uint32_t aliveMs = millis() - s_dodgerStartMs;
     const uint32_t kWinMs = kSurviveWinMs;
@@ -1648,14 +1401,12 @@ void drawInfernalDodger()
     spr.fillRect(barX + 1, barY + 1, fill, 4, TFT_YELLOW);
   }
 
-  // Reward modal (same rendering style)
   if (s_showReward)
   {
-      drawRewardModal(gW, gH);
-      return;
+    drawRewardModal(gW, gH);
+    return;
   }
-  
-  // Result screen
+
   if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
@@ -1667,7 +1418,6 @@ void drawInfernalDodger()
     return;
   }
 
-  // Draw falling fireballs
   for (auto &b : s_dodgerBalls)
   {
     if (!b.active) continue;
@@ -1675,15 +1425,12 @@ void drawInfernalDodger()
     spr.drawCircle(b.x, b.y, b.r, TFT_RED);
   }
 
-  // Player (imp circle for now; easy to swap to sprite later)
   spr.fillCircle(s_dodgerPx, s_dodgerPy, 6, TFT_GREEN);
   spr.drawCircle(s_dodgerPx, s_dodgerPy, 6, TFT_DARKGREEN);
 }
 
 static void mgSyncGameTimebases(uint32_t now)
 {
-  // Pin per-game "last step" clocks so nothing tries to catch up after a pause.
-
   switch (currentMiniGame)
   {
     case MiniGame::FLAPPY_FIREBALL:

@@ -1,22 +1,16 @@
 #include "ui_state_sleep_menu.h"
 
-#include <Arduino.h>
-
 #include "app_state.h"
-#include "graphics.h"
 #include "input.h"
-#include "pet.h"
-#include "save_manager.h"
-#include "sleep_state.h"
 #include "ui_input_utils.h"
 #include "ui_menu_state.h"
-#include "ui_suppress.h"
 #include "ui_actions.h"
+#include "ui_sleep_menu.h"
 #include "ui_runtime.h"
 
 void uiSleepMenuHandle(InputState& in)
 {
-  const int totalItems = 4;
+  const int totalItems = uiSleepMenuCount();
 
   const int move = uiNavMove(in);
   if (move != 0) {
@@ -33,57 +27,9 @@ void uiSleepMenuHandle(InputState& in)
 
   if (!uiIsSelect(in)) return;
 
-  auto enterSleep = [&]() {
-    pet.isSleeping   = true;
-    g_app.isSleeping = true;
-    g_app.uiState    = UIState::PET_SLEEPING;
-    g_app.currentTab = Tab::TAB_PET;
-    requestUIRedraw();
+  // All behavior lives in ui_sleep_menu_actions via ui_sleep_menu.cpp mapping.
+  (void)uiSleepMenuActivate(sleepMenuIndex, in);
 
-    inputForceClear();
-    clearInputLatch();
-
-    // Suppress wake detection so the same Enter press that selected
-    // a sleep option can't immediately wake the pet on the next tick.
-    uiSuppressSleepWakeForMs(400);
-
-    g_app.sleepTargetEnergy = 0;
-    invalidateBackgroundCache();
-    saveManagerMarkDirty();
-
-    sleepBgKickNow();
-  };
-
-  switch (sleepMenuIndex) {
-    case 0: // Until Awakened
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = true;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 0;
-      break;
-
-    case 1: // Until Rested
-      g_app.sleepUntilRested   = true;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 0;
-      break;
-
-    case 2: // 4 hours
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 4UL * 60UL * 60UL * 1000UL;
-      break;
-
-    case 3: // 8 hours
-      g_app.sleepUntilRested   = false;
-      g_app.sleepUntilAwakened = false;
-      g_app.sleepStartTime     = millis();
-      g_app.sleepDurationMs    = 8UL * 60UL * 60UL * 1000UL;
-      break;
-  }
-
-  enterSleep();
+  inputForceClear();
   clearInputLatch();
 }

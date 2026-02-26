@@ -4,6 +4,7 @@
 #include <SD.h>
 #include "M5Cardputer.h"
 #include <stdint.h>
+#include "display_dims_state.h"
 
 void updateBattery();
 

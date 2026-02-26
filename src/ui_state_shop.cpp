@@ -2,25 +2,24 @@
 
 #include "app_state.h"
 #include "input.h"
-#include "shop_actions.h"
-#include "shop_items.h"
 #include "sound.h"
+#include "ui_actions.h"
 #include "ui_input_utils.h"
 #include "ui_menu_state.h"
 #include "ui_runtime.h"
+#include "ui_shop_menu.h"
 
 void uiShopHandle(InputState& in)
 {
   if (uiIsBack(in)) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
+    uiActionEnterState(UIState::PET_SCREEN, Tab::TAB_PET, true);
     clearInputLatch();
     return;
   }
 
   const int move = uiNavMove(in);
   if (move != 0) {
-    const int totalItems = SHOP_ITEM_COUNT;
+    const int totalItems = uiShopMenuCount();
     if (totalItems > 0) {
       uiWrapIndex(shopIndex, move, totalItems);
       requestUIRedraw();
@@ -29,9 +28,9 @@ void uiShopHandle(InputState& in)
     return;
   }
 
-  if (uiIsSelect(in)) {
-    shopBuyItem();
-    requestUIRedraw();
-    clearInputLatch();
-  }
+  if (!uiIsSelect(in)) return;
+
+  (void)uiShopMenuActivate(shopIndex, in);
+  requestUIRedraw();
+  clearInputLatch();
 }
