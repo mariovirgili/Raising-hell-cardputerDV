@@ -447,9 +447,7 @@ static void applyGpioButtons(InputState &out)
 
     out.mgLeftHeld |= out.leftHeld;
     out.mgRightHeld |= out.rightHeld;
-    out.mgUpHeld |= out.upHeld;
     out.mgDownHeld |= out.downHeld;
-
     out.mgSelectOnce |= out.selectOnce;
     out.mgSelectHeld |= out.selectHeld;
 

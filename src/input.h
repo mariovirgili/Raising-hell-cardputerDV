@@ -84,6 +84,7 @@ struct InputState
   bool mgDownHeld = false;
   bool mgLeftHeld = false;
   bool mgRightHeld = false;
+  bool mgQuitHeld = false;   // ESC/back held in mini-game (pause/exit handling)
 
   bool mgSpaceOnce = false; // SPACE (duck / drop / brake depending on game)
   bool mgSpaceHeld = false;
@@ -131,6 +132,8 @@ struct InputState
     mgUpHeld = mgDownHeld = mgLeftHeld = mgRightHeld = false;
     mgSpaceOnce = false;
     mgSpaceHeld = false;
+mgUpHeld = mgDownHeld = mgLeftHeld = mgRightHeld = false;
+mgQuitHeld = false;
 
     goShortRelease = false;
     goLongHold = false;

@@ -2,7 +2,7 @@
 // Mini-game implementation toggle
 //
 // Default: implementation lives in mini_games.cpp.
-// If you ever move implementation back to mini_game_pause_menu.cpp, set
+// If you ever move implementation back to the pause-menu module, set
 // RH_MINIGAMES_IMPL_IN_PAUSE_MENU=1 (e.g. via build_flags.h) and this file
 // becomes an intentional stub to avoid duplicate symbols.
 // ---------------------------------------------------------------------------
@@ -12,27 +12,34 @@
 #endif
 
 #if RH_MINIGAMES_IMPL_IN_PAUSE_MENU
-#include "mini_games.h"
-// Intentionally empty.
-#else
 
 #include "mini_games.h"
+// Intentionally empty (implementation moved elsewhere).
+
+#else
+
+#include <stdint.h>
+
+#include "mini_games.h"
+
 #include <Arduino.h>
-#include <cstdio>
-#include "M5Cardputer.h"
-#include "input.h"
-#include "ui_runtime.h"
+
+#include "app_state.h"              // g_app
+#include "ui_defs.h"                // UIState
+#include "ui_runtime.h"             // requestUIRedraw()
+#include "graphics.h"               // spr, screenW/screenH, invalidateBackgroundCache() (whatever your project defines here)
+#include "sound.h"                  // soundFlap/soundConfirm/soundError/playBeep (or the correct header that declares these)
+#include "display.h" 
+
+#include "mini_game_return_ui.h"    // miniGameSetReturnUi / miniGameGetReturnUiOrDefault / miniGameClearReturnUi
+#include "mg_pause_core.h"          // mgPause* + MGPAUSE_* constants (see section 2 if you don't have this header yet)
+#include "inventory.h"   // defines enum ItemType
 #include "pet.h"
-#include "display.h"
-#include "display_state.h"
-#include "sound.h"
+#include "currency.h"
 #include "save_manager.h"
-#include "graphics.h"
-#include "runtime_flags_state.h"
-#include "app_state.h"
-#include "inventory.h"
-#include <cstring>
+#include "mg_pause_core.h"
 #include "mg_pause_menu.h"
+#include "graphics.h"
 
 // -----------------------------------------------------------------------------
 // Mini-game input helpers / shared state
@@ -45,7 +52,6 @@ static bool s_showReward = false;
 static char s_rewardMsg[64] = {0};
 
 // Forward decl (used by multiple mini-games)
-static bool tryAwardWinItem_1in4(ItemType* outType);
 static int rollMiniGameInfReward();
 static void exitMiniGameToReturnUi(bool beginLockout = true);
 
@@ -68,21 +74,7 @@ static bool miniGameEnterOnce(const InputState &input)
 
 static UIState s_miniGameReturnUi = UIState::PET_SCREEN;
 static bool s_miniGameReturnUiValid = false;
-
-static inline void miniGameSetReturnUi(UIState s) {
-  s_miniGameReturnUi = s;
-  s_miniGameReturnUiValid = true;
-}
-
-static inline UIState miniGameGetReturnUiOrDefault(UIState fallback) {
-  return s_miniGameReturnUiValid ? s_miniGameReturnUi : fallback;
-}
-
-static inline void miniGameClearReturnUi() {
-  s_miniGameReturnUiValid = false;
-  s_miniGameReturnUi = UIState::PET_SCREEN;
-}
-
+static bool tryAwardWinItem_1in4(ItemType* outType);
 static const uint32_t kSurviveWinMs = 18000; // 18s survive-to-win (Flappy + Dodger)
 
 static void mgApplyResultAndShowReward(bool won)
@@ -709,10 +701,13 @@ static const RRSpawn rr_script[] = {
   { 2280, RR_SPIKE,    0 },
   { 2540, RR_LOW_FIRE, 0 },
 };
+
 static const int rr_scriptCount = (int)(sizeof(rr_script) / sizeof(rr_script[0]));
 static int rr_nextSpawn = 0;
 
 static void rrSpawnObstacle(uint8_t type) {
+  const int w = (screenW > 0) ? screenW : 240;
+const int h = (screenH > 0) ? screenH : 135;
   int slot = -1;
   for (int i = 0; i < (int)(sizeof(rr_obs) / sizeof(rr_obs[0])); i++) {
     if (!rr_obs[i].active) { slot = i; break; }
@@ -720,15 +715,21 @@ static void rrSpawnObstacle(uint8_t type) {
   if (slot < 0) return;
 
   const int spawnScreenLead = 60;
-  const int spawnWorldX = rr_distance + SCREEN_W + spawnScreenLead;
+  const int spawnWorldX = rr_distance + w + spawnScreenLead;
 
-  const int groundY = SCREEN_H - 18;
+  const int groundY = h - 18;
 
   if (type == RR_SPIKE) {
-    rr_obs[slot] = { spawnWorldX, groundY - 14, 16, 14, true };
-  } else {
-    rr_obs[slot] = { spawnWorldX, groundY - 32, 18, 10, true };
-  }
+    rr_obs[slot].x = spawnWorldX;
+    rr_obs[slot].y = groundY - 14;
+    rr_obs[slot].w = 16;
+    rr_obs[slot].h = 14;
+    rr_obs[slot].active = true;  } else {
+      rr_obs[slot].x = spawnWorldX;
+      rr_obs[slot].y = groundY - 32;
+      rr_obs[slot].w = 18;
+      rr_obs[slot].h = 10;
+      rr_obs[slot].active = true;  }
 }
 
 static void rrResetObstacles() {
@@ -848,10 +849,10 @@ void updateResurrectionRun(const InputState& input) {
     return;
   }
 
-  const int gW = (screenW > 0) ? screenW : 240;
-  const int gH = (screenH > 0) ? screenH : 135;
+  const int w = (screenW > 0) ? screenW : 240;
+  const int h = (screenH > 0) ? screenH : 135;
 
-  const int groundY = gH - 18;
+  const int groundY = h - 18;
   const int px = 48;
   int py = groundY - 18 + (int)rr_y;
   int pw = 16;
@@ -1482,5 +1483,5 @@ static void mgSyncGameTimebases(uint32_t now)
       break;
   }
 }
-#endif // RH_MINIGAMES_IMPL_IN_PAUSE_MENU
 
+#endif // RH_MINIGAMES_IMPL_IN_PAUSE_MENU

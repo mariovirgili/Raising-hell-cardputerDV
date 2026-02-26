@@ -6,6 +6,7 @@
 #include "display.h"      // spr, screenW/screenH, TFT_* colors, *_DATUM
 #include "graphics.h"
 #include "ui_runtime.h"
+#include "mg_pause.h"   // or whatever header declares mgPause* + mgDrawPauseOverlay
 
 // -----------------------------------------------------------------------------
 // Minimal pause manager implementation
@@ -42,36 +43,6 @@ static inline void setPaused(bool p, uint32_t now)
     s_justResumed = true;
   }
 }
-
-void mgPauseReset()
-{
-  s_paused = false;
-  s_pauseStartMs = 0;
-  s_pauseAccumMs = 0;
-  s_justResumed = false;
-  s_choice = 0;
-}
-
-void mgPauseForceOffNoStick()
-{
-  // Hard kill pause without generating a "just resumed" edge.
-  s_paused = false;
-  s_pauseStartMs = 0;
-  s_pauseAccumMs = 0;
-  s_justResumed = false;
-  s_choice = 0;
-}
-
-void mgPauseUpdateClocks(uint32_t nowMs)
-{
-  // If paused, keep startMs valid. If unpaused, nothing to do.
-  if (s_paused)
-  {
-    if (s_pauseStartMs == 0) s_pauseStartMs = nowMs;
-  }
-}
-
-bool mgPauseIsPaused() { return s_paused; }
 
 uint32_t mgPauseStartMs() { return s_pauseStartMs; }
 
