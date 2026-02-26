@@ -11,8 +11,8 @@
 #include <time.h>
 
 #include "console.h"
-#include "game_options_state.h"
 #include "death_state.h"
+#include "game_options_state.h"
 #include "input.h"
 #include "sound.h"
 
@@ -37,6 +37,7 @@
 #include "boot_state.h"
 #include "brightness_state.h"
 #include "build_flags.h"
+#include "death_state.h"
 #include "factory_reset_state.h"
 #include "inventory_state.h"
 #include "mini_games.h"
@@ -51,7 +52,8 @@
 #include "version.h"
 #include "wifi_setup_state.h"
 #include <lgfx/v1/misc/DataWrapper.hpp>
-#include "death_state.h"
+#include "mini_game_pause_menu.h"
+#include "mg_pause_menu.h"
 
 bool g_forcePetBgCache = false;
 static void drawBurialScreen();
@@ -166,7 +168,8 @@ static AnimId evoHappyClipFor(PetType type, uint8_t stage)
 static void ensureSprFileStorage()
 {
   static bool s_inited = false;
-  if (s_inited) return;
+  if (s_inited)
+    return;
   s_inited = true;
 
   spr.setFileStorage(SD);
@@ -1668,7 +1671,7 @@ static void drawDecayModePickerMenu()
     const int idx = start + row;
     const int y = startY + row * (itemH + gap);
     const bool sel = (idx == g_app.decayModeIndex);
-    
+
     const uint16_t outline = sel ? uiPillOutline(pet.type) : TFT_DARKGREY;
     const uint16_t fill = sel ? uiPillFillSelected(pet.type) : TFT_BLACK;
     const uint16_t textCol = sel ? TFT_WHITE : TFT_LIGHTGREY;
@@ -4339,6 +4342,10 @@ static void drawCurrentScreen(bool redrawBg)
 
   case UIState::BOOT_NTP_WAIT:
     drawBootNtpWaitScreen(wifiIsConnected(), timeIsSynced());
+    return;
+
+  case UIState::MG_PAUSE:
+    drawMiniGame();
     return;
 
   default:

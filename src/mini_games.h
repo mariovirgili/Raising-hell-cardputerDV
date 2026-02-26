@@ -9,6 +9,7 @@ enum class MiniGame {
   INFERNAL_DODGER,
 };
 
+void miniGameExitToReturnUi(bool beginLockout);
 void updateMiniGame(const InputState& input);
 void drawMiniGame();
 

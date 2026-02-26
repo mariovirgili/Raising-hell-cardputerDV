@@ -1,3 +1,21 @@
+// ---------------------------------------------------------------------------
+// Mini-game implementation toggle
+//
+// Default: implementation lives in mini_games.cpp.
+// If you ever move implementation back to mini_game_pause_menu.cpp, set
+// RH_MINIGAMES_IMPL_IN_PAUSE_MENU=1 (e.g. via build_flags.h) and this file
+// becomes an intentional stub to avoid duplicate symbols.
+// ---------------------------------------------------------------------------
+
+#ifndef RH_MINIGAMES_IMPL_IN_PAUSE_MENU
+#define RH_MINIGAMES_IMPL_IN_PAUSE_MENU 0
+#endif
+
+#if RH_MINIGAMES_IMPL_IN_PAUSE_MENU
+#include "mini_games.h"
+// Intentionally empty.
+#else
+
 #include "mini_games.h"
 #include <Arduino.h>
 #include <cstdio>
@@ -539,8 +557,7 @@ static bool tryAwardWinItem_1in4(ItemType* outType) {
   return true;
 }
 
-static void exitMiniGameToReturnUi(bool beginLockout)
-{
+void miniGameExitToReturnUi(bool beginLockout) {
   s_showReward = false;
   s_rewardMsg[0] = 0;
 
@@ -559,6 +576,12 @@ static void exitMiniGameToReturnUi(bool beginLockout)
   if (beginLockout) {
     mgBeginInputLockout(220);
   }
+}
+
+// Back-compat: older call sites used this name.
+static void exitMiniGameToReturnUi(bool beginLockout)
+{
+  miniGameExitToReturnUi(beginLockout);
 }
 
 static void mgSyncGameTimebases(uint32_t now);
@@ -619,6 +642,10 @@ void updateMiniGame(const InputState& input)
 
 void drawMiniGame()
 {
+  // Keep pause clocks updated so the overlay can draw reliably.
+  const uint32_t now = millis();
+  mgPauseUpdateClocks(now);
+
   switch (currentMiniGame)
   {
     case MiniGame::FLAPPY_FIREBALL:   drawFlappyFireball();   break;
@@ -628,7 +655,8 @@ void drawMiniGame()
     default: break;
   }
 
-  if (mgPauseIsPaused()) {
+  if (mgPauseIsPaused())
+  {
     mgDrawPauseOverlay();
   }
 }
@@ -1454,3 +1482,5 @@ static void mgSyncGameTimebases(uint32_t now)
       break;
   }
 }
+#endif // RH_MINIGAMES_IMPL_IN_PAUSE_MENU
+

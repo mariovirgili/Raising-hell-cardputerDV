@@ -45,6 +45,7 @@ enum class UIState : uint8_t {
   BOOT_TZ_PICK     = 21,
   BOOT_NTP_WAIT    = 22,
   EVOLUTION        = 23,
+  MG_PAUSE         = 24,
 };
 
 // --------------------
