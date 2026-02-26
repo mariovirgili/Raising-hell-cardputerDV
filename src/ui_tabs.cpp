@@ -3,45 +3,20 @@
 #include "app_state.h"
 #include "ui_defs.h"
 #include "ui_runtime.h"
+#include "ui_actions.h"
 
 static inline int tabCountInt()
 {
   return (int)Tab::TAB_COUNT;
 }
 
-void tabNext()
+static inline UIState uiStateForTab(Tab t)
 {
-  int t = (int)g_app.currentTab;
-  const int n = tabCountInt();
-  t = (t + 1) % n;
-  g_app.currentTab = (Tab)t;
-}
-
-void tabPrev()
-{
-  int t = (int)g_app.currentTab;
-  const int n = tabCountInt();
-  t = (t + n - 1) % n;
-  g_app.currentTab = (Tab)t;
-}
-
-void syncUiToTab()
-{
-  const UIState prev = g_app.uiState;
-
-  switch (g_app.currentTab)
+  switch (t)
   {
-    case Tab::TAB_SLEEP:
-      g_app.uiState = UIState::SLEEP_MENU;
-      break;
-
-    case Tab::TAB_INV:
-      g_app.uiState = UIState::INVENTORY;
-      break;
-
-    case Tab::TAB_SHOP:
-      g_app.uiState = UIState::SHOP;
-      break;
+    case Tab::TAB_SLEEP: return UIState::SLEEP_MENU;
+    case Tab::TAB_INV:   return UIState::INVENTORY;
+    case Tab::TAB_SHOP:  return UIState::SHOP;
 
     // PET/Stats/Feed/Play all ride the pet screen handler
     case Tab::TAB_PET:
@@ -49,12 +24,31 @@ void syncUiToTab()
     case Tab::TAB_FEED:
     case Tab::TAB_PLAY:
     default:
-      g_app.uiState = UIState::PET_SCREEN;
-      break;
+      return UIState::PET_SCREEN;
   }
+}
 
-  if (g_app.uiState != prev)
-  {
-    requestUIRedraw();
-  }
+void tabNext()
+{
+  int t = (int)g_app.currentTab;
+  const int n = tabCountInt();
+  t = (t + 1) % n;
+
+  const Tab nt = (Tab)t;
+  uiActionEnterState(uiStateForTab(nt), nt, false);
+}
+
+void tabPrev()
+{
+  int t = (int)g_app.currentTab;
+  const int n = tabCountInt();
+  t = (t + n - 1) % n;
+
+  const Tab nt = (Tab)t;
+  uiActionEnterState(uiStateForTab(nt), nt, false);
+}
+
+void syncUiToTab()
+{
+  uiActionEnterState(uiStateForTab(g_app.currentTab), g_app.currentTab, false);
 }

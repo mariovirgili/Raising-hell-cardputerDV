@@ -30,6 +30,7 @@
 #include "sound.h"
 #include "time_persist.h"
 #include "time_state.h"
+#include "ui_actions.h"
 #include "ui_level_popup.h"
 #include "ui_runtime.h"
 #include "ui_state_console.h"
@@ -54,6 +55,22 @@ void appServicesTick(uint32_t nowMs)
   powerButtonTick(nowMs);
   postBootInitTick();
   soundTick();
+}
+
+static inline UIState uiStateForTab(Tab t)
+{
+  switch (t)
+  {
+    case Tab::TAB_SLEEP: return UIState::SLEEP_MENU;
+    case Tab::TAB_INV:   return UIState::INVENTORY;
+    case Tab::TAB_SHOP:  return UIState::SHOP;
+    case Tab::TAB_PET:
+    case Tab::TAB_STATS:
+    case Tab::TAB_FEED:
+    case Tab::TAB_PLAY:
+    default:
+      return UIState::PET_SCREEN;
+  }
 }
 
 void appMainLoopTick()
@@ -373,8 +390,7 @@ void appMainLoopTick()
     const uint32_t nowMs = millis();
     if ((uint32_t)(nowMs - getLastInputActivityMs()) >= 60000UL)
     {
-      g_app.currentTab = Tab::TAB_PET;
-      requestUIRedraw();
+      uiActionEnterState(UIState::PET_SCREEN, Tab::TAB_PET, false);
       clearInputLatch();
     }
   }
@@ -440,12 +456,11 @@ void appMainLoopTick()
       if (input.tabJump != 255)
       {
         noteUserActivity();
-
-        g_app.currentTab = (Tab)input.tabJump;
-        syncUiToTab();
-
+      
+        const Tab nt = (Tab)input.tabJump;
+        uiActionEnterStateClean(uiStateForTab(nt), nt, false, input, 120);
+      
         invalidateBackgroundCache();
-        requestUIRedraw();
         clearInputLatch();
         return;
       }
@@ -499,11 +514,11 @@ void appMainLoopTick()
 
       if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET)
       {
-        g_app.uiState = UIState::PET_SCREEN;
-        g_app.currentTab = Tab::TAB_PET;
-
+        noteUserActivity();
+      
+        uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, input, 200);
+      
         invalidateBackgroundCache();
-        requestUIRedraw();
         return;
       }
     }
@@ -515,10 +530,8 @@ void appMainLoopTick()
   if (g_app.uiState == UIState::PET_SLEEPING && !isPetSleepingNow())
   {
     petResetUpdateTimers();
-    g_app.uiState = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
+    uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, input, 200);
     invalidateBackgroundCache();
-    requestUIRedraw();
   }
 
   // ---------------------------------------------------------------------------

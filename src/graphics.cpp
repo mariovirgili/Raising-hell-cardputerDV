@@ -4344,8 +4344,10 @@ static void drawCurrentScreen(bool redrawBg)
     drawBootNtpWaitScreen(wifiIsConnected(), timeIsSynced());
     return;
 
-  case UIState::MG_PAUSE:
-    drawMiniGame();
+    case UIState::MG_PAUSE:
+    // Draw the mini-game frame underneath, then overlay the pause menu UI.
+    drawMiniGameScreen();
+    mgDrawPauseOverlay();
     return;
 
   default:

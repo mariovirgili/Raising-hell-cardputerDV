@@ -21,18 +21,6 @@ void uiMiniGameHandle(InputState& in)
     return;
   }
 
-  // Preserve legacy behavior:
-  // - MENU exits mini-game back to pet screen
-  // - update runs every tick (even with no edges)
-  if (in.menuOnce) {
-    g_app.inMiniGame    = false;
-    currentMiniGame     = MiniGame::NONE;
-    g_app.uiState       = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
   updateMiniGame(in);
   requestUIRedraw();
 }

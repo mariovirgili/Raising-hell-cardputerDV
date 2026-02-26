@@ -27,6 +27,14 @@ static bool s_bootNamePetFixApplied = false;
 // Menu/ESC suppression is centralized in ui_suppress.*
 static inline bool menuSuppressedNow() { return uiIsMenuSuppressed(); }
 
+// Local “swallow everything” helper (removes dependency on uiActionSwallowAll).
+static inline void swallowAll(InputState& in)
+{
+  uiActionDrainKb(in);
+  uiActionSwallowEdges(in);
+  clearInputLatch();
+}
+
 static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
@@ -54,7 +62,7 @@ static void openSettingsFromHere(InputState &in)
 
   // Prevent the same ESC/MENU press from being re-consumed immediately.
   uiSuppressMenuForMs(250);
-  uiActionSwallowAll(in);
+  swallowAll(in);
 }
 
 // --------------------------------------------------------------
@@ -76,7 +84,7 @@ static bool handlePowerMenuOpen(InputState &in)
   if (!g_textCaptureMode && in.goLongHold)
   {
     openPowerMenuFromHere(millis());
-    uiActionSwallowAll(in);
+    swallowAll(in);
     return true;
   }
   return false;
@@ -94,7 +102,7 @@ static bool handleBootNamePetFixup(InputState &in)
     // If we're actively in the new-pet flow, NAME_PET is valid.
     if (g_app.newPetFlowActive)
     {
-      uiActionSwallowAll(in);
+      swallowAll(in);
       return true;
     }
 
@@ -113,7 +121,7 @@ static bool handleBootNamePetFixup(InputState &in)
       invalidateBackgroundCache();
       requestUIRedraw();
 
-      uiActionSwallowAll(in);
+      swallowAll(in);
       return true;
     }
   }
@@ -127,7 +135,7 @@ static bool handleMenuSuppression(InputState &in)
   // IMPORTANT: do NOT swallow ESC here, or it takes extra presses to exit Settings.
   if (menuSuppressedNow() && (in.menuOnce || in.hotSettings))
   {
-    uiActionSwallowAll(in);
+    swallowAll(in);
     return true;
   }
   return false;
@@ -197,6 +205,7 @@ bool uiHandleGlobalInterceptors(InputState &in)
   // Let the console own ESC/MENU entirely.
   if (g_app.uiState == UIState::CONSOLE)
     return false;
+
   if (handleEscGlobal(in))
     return true;
   if (handlePowerMenuOverlay(in))
