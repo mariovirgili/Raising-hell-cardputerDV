@@ -21,12 +21,13 @@ void openConsoleWithReturn(UIState returnState, Tab returnTab, bool retToSetting
 {
   g_consoleReturnState = returnState;
   g_consoleReturnTab = returnTab;
-
   g_consoleReturnToSettings = retToSettings;
   g_consoleReturnPage = retSettingsPage;
 
   consoleOpen();
-  g_app.uiState = UIState::CONSOLE;
+
+  // Centralized transition (no raw g_app.uiState writes)
+  uiActionEnterState(UIState::CONSOLE, g_app.currentTab, true);
   requestUIRedraw();
 }
 

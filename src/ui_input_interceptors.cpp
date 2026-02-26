@@ -123,8 +123,9 @@ static bool handleBootNamePetFixup(InputState &in)
 
 static bool handleMenuSuppression(InputState &in)
 {
-  // Suppress menu/esc edges for a brief window after leaving overlays.
-  if (menuSuppressedNow() && (in.menuOnce || in.escOnce))
+  // Suppress menu edges for a brief window after leaving overlays.
+  // IMPORTANT: do NOT swallow ESC here, or it takes extra presses to exit Settings.
+  if (menuSuppressedNow() && (in.menuOnce || in.hotSettings))
   {
     uiActionSwallowAll(in);
     return true;

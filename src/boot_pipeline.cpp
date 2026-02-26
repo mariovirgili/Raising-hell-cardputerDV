@@ -13,7 +13,10 @@
 #include "sdcard.h"
 #include "display.h"
 #include "display_state.h"
+#include "display_dims_state.h"
 #include "ui_runtime.h"
+#include "ui_actions.h"
+#include "ui_level_popup.h"
 #include "input.h"
 #include "save_manager.h"
 #include "time_persist.h"
@@ -30,12 +33,9 @@
 #include "time_state.h"
 #include "eeprom_addrs.h"
 #include "graphics.h"
-#include "menu_actions.h"
-#include "ui_level_popup.h"
-#include "ui_menu_state.h"
-#include "app_state.h"
-#include "display_dims_state.h"
 #include "flow_boot_wizard.h"
+#include "flow_time_editor.h"
+#include "new_pet_flow_state.h"
 
 // -----------------------------------------------------------------------------
 // SD Asset Check (all builds)
@@ -45,8 +45,8 @@ static const char* kSdAssetsMarkerPath = "/raising_hell/ASSET_MANIFEST.txt";
 bool g_assetsChecked = false;
 bool g_assetsMissing = false;
 
-
-void drawAssetsMissingScreen() {
+void drawAssetsMissingScreen()
+{
   displayInit();
 
   spr.fillScreen(TFT_BLACK);
@@ -60,10 +60,13 @@ void drawAssetsMissingScreen() {
 
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  if (!sdOk) {
+  if (!sdOk)
+  {
     spr.drawString("Insert SD card with assets", SCREEN_W / 2, SCREEN_H / 2 - 10);
     spr.drawString("then press ENTER to retry", SCREEN_W / 2, SCREEN_H / 2 + 14);
-  } else {
+  }
+  else
+  {
     spr.drawString("Assets folder missing or incomplete", SCREEN_W / 2, SCREEN_H / 2 - 10);
     spr.drawString("Press ENTER to retry", SCREEN_W / 2, SCREEN_H / 2 + 14);
   }
@@ -76,7 +79,8 @@ void drawAssetsMissingScreen() {
 // -----------------------------------------------------------------------------
 static const char* kFirstRunFlagPath = "/raising_hell/first_run.flag";
 
-static bool consumeFirstRunFlagIfPresent() {
+static bool consumeFirstRunFlagIfPresent()
+{
   if (!g_sdReady) return false;
   if (!SD.exists(kFirstRunFlagPath)) return false;
 
@@ -87,14 +91,16 @@ static bool consumeFirstRunFlagIfPresent() {
 static uint32_t g_nextSdTryMs   = 0;
 static uint32_t g_nextWifiTryMs = 0;
 
-void bootPipelineKick(uint32_t now, bool usbOpen) {
+void bootPipelineKick(uint32_t now, bool usbOpen)
+{
   // Nudge retry timers so first attempts are slightly delayed
   // (gives USB serial time to open, avoids spamming init early).
   g_nextSdTryMs   = now + (usbOpen ? 800 : 200);
   g_nextWifiTryMs = now + (usbOpen ? 1200 : 500);
 }
 
-bool sdAssetsPresent() {
+bool sdAssetsPresent()
+{
   if (!g_sdReady) return false;
   return SD.exists(kSdAssetsMarkerPath);
 }
@@ -103,7 +109,7 @@ bool sdAssetsPresent() {
 // Deferred init state machine (boot pipeline)
 // -----------------------------------------------------------------------------
 uint32_t g_sdFirstTryMs = 0;
-bool     g_sdGaveUp    = false;
+bool     g_sdGaveUp     = false;
 
 static bool     g_postBootInitDone = false;
 static bool     g_sdTriedLoad      = false;
@@ -120,25 +126,41 @@ bool g_timeAnchorAttempted = false;
 bool g_timeAnchorRestored  = false;
 
 // -----------------------------------------------------------------------------
-// postBootInitTick() 
+// Small helper: centralized state enter + redraw (keeps transitions consistent)
 // -----------------------------------------------------------------------------
-void postBootInitTick() {
+static inline void enterState(UIState s, Tab t, bool fullRedraw)
+{
+  uiActionEnterState(s, t, true);
+  if (fullRedraw) requestFullUIRedraw();
+  else requestUIRedraw();
+  clearInputLatch();
+}
+
+// -----------------------------------------------------------------------------
+// postBootInitTick()
+// -----------------------------------------------------------------------------
+void postBootInitTick()
+{
   const uint32_t now = millis();
 
   // ---------------------------------------------------------------------------
   // Stage 0: Apply TZ + anchor early (so localtime_r() is sane ASAP)
   // ---------------------------------------------------------------------------
-  if (!g_tzAppliedEarly) {
+  if (!g_tzAppliedEarly)
+  {
     uint8_t nvsTz;
-    if (loadTzIndexFromNVS(&nvsTz)) {
+    if (loadTzIndexFromNVS(&nvsTz))
+    {
       tzIndex = nvsTz;
     }
     applyTimezoneIndex(tzIndex);
     g_tzAppliedEarly = true;
   }
 
-  if (!g_anchorAppliedEarly) {
-    if (!g_timeAnchorAttempted) {
+  if (!g_anchorAppliedEarly)
+  {
+    if (!g_timeAnchorAttempted)
+    {
       g_timeAnchorRestored  = restoreTimeFromAnchor();
       g_timeAnchorAttempted = true;
     }
@@ -149,10 +171,12 @@ void postBootInitTick() {
   // ---------------------------------------------------------------------------
   // Stage 1: SD init retry window (up to 5s)
   // ---------------------------------------------------------------------------
-  if (!g_sdReady && !g_sdGaveUp) {
+  if (!g_sdReady && !g_sdGaveUp)
+  {
     if (g_sdFirstTryMs == 0) g_sdFirstTryMs = now;
 
-    if ((uint32_t)(now - g_sdFirstTryMs) > 5000) {
+    if ((uint32_t)(now - g_sdFirstTryMs) > 5000)
+    {
       g_sdGaveUp = true;
       ui_setBootSplashActive(false);
 
@@ -161,7 +185,9 @@ void postBootInitTick() {
       g_assetsMissing = true;
 
       requestUIRedraw();
-    } else if (now >= g_nextSdTryMs) {
+    }
+    else if (now >= g_nextSdTryMs)
+    {
       g_sdTryCount++;
       uint32_t backoff = 250 + (uint32_t)g_sdTryCount * 250;
       if (backoff > 1500) backoff = 1500;
@@ -172,7 +198,8 @@ void postBootInitTick() {
       g_sdReady = initSD();
       DBG_ON("[SD] initSD -> %d\n", (int)g_sdReady);
 
-      if (g_sdReady) {
+      if (g_sdReady)
+      {
         g_sdTryCount = 0;
 
         drawBootSplash();
@@ -181,11 +208,13 @@ void postBootInitTick() {
         renderUI();
 
         // Asset pack check — ONLY after SD is ready
-        if (!g_assetsChecked) {
+        if (!g_assetsChecked)
+        {
           g_assetsChecked = true;
           g_assetsMissing = !sdAssetsPresent();
 
-          if (g_assetsMissing) {
+          if (g_assetsMissing)
+          {
             ui_setBootSplashActive(false);
             requestUIRedraw();
             return; // stop boot pipeline until assets are installed
@@ -204,25 +233,29 @@ void postBootInitTick() {
   // ---------------------------------------------------------------------------
   // Stage 2: One-time SD load pipeline (settings + save + time anchor)
   // ---------------------------------------------------------------------------
-  if (!g_sdTriedLoad) {
+  if (!g_sdTriedLoad)
+  {
     g_sdTriedLoad = true;
 
     inputSetTextCapture(false);
     clearInputLatch();
     inputForceClear();
 
-    if (g_sdReady) {
+    if (g_sdReady)
+    {
       if (!loadSettingsFromSD()) saveSettingsToSD();
     }
 
     // FIRST RUN FLAG (from factory reset)
-    if (consumeFirstRunFlagIfPresent()) {
+    if (consumeFirstRunFlagIfPresent())
+    {
       g_controlsHelpSeen = 0;
       saveSettingsToSD();
     }
 
     // Apply loaded brightness immediately
-    if (isScreenOn()) {
+    if (isScreenOn())
+    {
       applyBrightnessLevel(brightnessLevel);
     }
 
@@ -230,17 +263,14 @@ void postBootInitTick() {
     applyTimezoneIndex(tzIndex);
 
     // Try restore time anchor again (safe) after settings/tz is applied
-    if (!g_timeAnchorAttempted) {
+    if (!g_timeAnchorAttempted)
+    {
       g_timeAnchorRestored  = restoreTimeFromAnchor();
       g_timeAnchorAttempted = true;
     }
 
     bool loadedFromSD = false;
-    if (g_sdReady) {
-      loadedFromSD = saveManagerLoad();
-    } else {
-      loadedFromSD = false;
-    }
+    if (g_sdReady) loadedFromSD = saveManagerLoad();
 
     DBG_ON("[LOAD] saveManagerLoad -> %d\n", (int)loadedFromSD);
 
@@ -250,35 +280,36 @@ void postBootInitTick() {
     // -----------------------------------------------------------------------
     // FIRST BOOT TIME GATE
     // -----------------------------------------------------------------------
-    if (!timeIsValid()) {
+    if (!timeIsValid())
+    {
       const UIState afterOk = (!loadedFromSD) ? UIState::CHOOSE_PET : UIState::PET_SCREEN;
 
-      if (!loadedFromSD) {
+      if (!loadedFromSD)
+      {
         g_app.inventory.init();
       }
 
+      ui_setBootSplashActive(false);
+
       // FIRST BOOT: Controls Help -> wizard
-      if (!loadedFromSD) {
-        if (!g_controlsHelpSeen) {
+      if (!loadedFromSD)
+      {
+        if (!g_controlsHelpSeen)
+        {
+          // After Controls Help is dismissed, it should land on the wizard prompt.
           controlsHelpBegin(UIState::BOOT_WIFI_PROMPT, Tab::TAB_PET);
-          ui_setBootSplashActive(false);
           return;
         }
 
+        // Controls help already seen: go straight to the boot wizard prompt.
         bootWizardBegin(afterOk, Tab::TAB_PET);
-        ui_setBootSplashActive(false);
         return;
       }
 
       // NOT first boot (save exists): forced manual time path
       beginForcedSetTimeBootGate(afterOk, Tab::TAB_PET);
-
-      g_app.uiState    = UIState::SET_TIME;
-      g_app.currentTab = Tab::TAB_PET;
-      requestUIRedraw();
-
-      ui_setBootSplashActive(false);
-
+      // beginForcedSetTimeBootGate() should enter SET_TIME; make sure we’re drawn.
+      requestFullUIRedraw();
       invalidateBackgroundCache();
       requestUIRedraw();
       renderUI();
@@ -292,24 +323,24 @@ void postBootInitTick() {
     uint16_t seedMarkNow = 0;
     EEPROM.get(SEED_MARK_ADDR, seedMarkNow);
 
-    if (!loadedFromSD) {
+    if (!loadedFromSD)
+    {
       DBG_ON("[BOOT] No SD save -> UIState::CHOOSE_PET\n");
 
       g_app.inventory.init();
+      ui_setBootSplashActive(false);
 
-      if (!g_controlsHelpSeen) {
+      // If controls help hasn’t been seen, do: (forced time) -> help -> time -> choose pet.
+      if (!g_controlsHelpSeen)
+      {
         beginForcedSetTimeBootGate(UIState::CHOOSE_PET, Tab::TAB_PET);
         controlsHelpBegin(UIState::SET_TIME, Tab::TAB_PET);
-        ui_setBootSplashActive(false);
         return;
       }
 
-      g_app.uiState    = UIState::CHOOSE_PET;
-      g_app.currentTab = Tab::TAB_PET;
+      // Normal first-time path (time valid + no save): choose pet.
+      enterState(UIState::CHOOSE_PET, Tab::TAB_PET, false);
       uiInitLevelPopupTracker();
-      requestUIRedraw();
-
-      ui_setBootSplashActive(false);
 
       invalidateBackgroundCache();
       requestUIRedraw();
@@ -317,15 +348,17 @@ void postBootInitTick() {
       return;
     }
 
-    if (seedMarkNow != SEED_MARK) {
+    // Save exists: ensure seed mark is written once.
+    if (seedMarkNow != SEED_MARK)
+    {
       EEPROM.put(SEED_MARK_ADDR, (uint16_t)SEED_MARK);
       EEPROM.commit();
     }
 
-    if (g_app.uiState == UIState::BOOT) {
-     g_app.uiState    = UIState::PET_SCREEN;
-     g_app.currentTab = Tab::TAB_PET;
-      requestUIRedraw();
+    // If still in BOOT, land on the pet screen.
+    if (g_app.uiState == UIState::BOOT)
+    {
+      enterState(UIState::PET_SCREEN, Tab::TAB_PET, false);
     }
 
     ui_setBootSplashActive(false);
@@ -338,11 +371,14 @@ void postBootInitTick() {
   // ---------------------------------------------------------------------------
   // Stage 3: WiFi/NTP init (deferred)
   // ---------------------------------------------------------------------------
-  if (!g_postBootInitDone) {
-    if (now >= g_nextWifiTryMs) {
+  if (!g_postBootInitDone)
+  {
+    if (now >= g_nextWifiTryMs)
+    {
       g_nextWifiTryMs = now + 1000;
 
-      if (!g_wifiApplied) {
+      if (!g_wifiApplied)
+      {
         const bool pref = settingsWifiEnabled();
         wifiSetEnabled(pref);
         applyWifiPower(pref);
@@ -359,7 +395,8 @@ void postBootInitTick() {
   // ---------------------------------------------------------------------------
   // Stage 4: Persist time anchor once we have synced time
   // ---------------------------------------------------------------------------
-  if (!g_ntpSaved && timeIsSynced()) {
+  if (!g_ntpSaved && timeIsSynced())
+  {
     g_ntpSaved = true;
     saveTimeAnchor();
   }

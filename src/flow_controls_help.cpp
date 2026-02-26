@@ -14,15 +14,19 @@
 #include "ui_suppress.h"
 
 // Controls Help return target (so Settings->Controls can return back to Settings)
-static bool s_returnToSettings = false;
-static SettingsPage s_returnPage = SettingsPage::TOP;
-static int s_returnTopIndex = 0;
+static bool         s_returnToSettings = false;
+static SettingsPage s_returnPage       = SettingsPage::TOP;
+static int          s_returnTopIndex   = 0;
+static Tab          s_returnTab        = Tab::TAB_PET;
 
 void openControlsHelpFromSettings()
 {
   s_returnToSettings = true;
-  s_returnPage = SettingsPage::TOP;
-  s_returnTopIndex = g_app.settingsIndex;
+  s_returnPage       = SettingsPage::TOP;
+  s_returnTopIndex   = g_app.settingsIndex;
+
+  // Settings isn't a tab. Preserve whatever tab the app currently thinks it's on.
+  s_returnTab        = g_app.currentTab;
 
   g_app.uiState = UIState::CONTROLS_HELP;
   requestFullUIRedraw();
@@ -45,8 +49,9 @@ void openControlsHelpFromAnywhere()
   }
 
   // Otherwise, capture current screen/tab and open the overlay.
-  // This is intentionally non-interrupting: it does not touch pet sleep state.
   s_returnToSettings = false;
+  s_returnTab        = g_app.currentTab;
+
   controlsHelpBegin(g_app.uiState, g_app.currentTab);
   g_app.uiState = UIState::CONTROLS_HELP;
   requestFullUIRedraw();
@@ -63,15 +68,14 @@ static void handleControlsHelpInput(InputState &in)
   while (in.kbHasEvent())
   {
     const KeyEvent ev = in.kbPop();
-    const uint8_t c = ev.code;
+    const uint8_t c  = ev.code;
 
     // Enter can arrive as '\n' (10) or '\r' (13) depending on source
     // Backspace is '\b' (8)
     if (c == '\n' || c == '\r' || c == '\b')
-    {
       kbDismiss = true;
-    }
   }
+
   // Any of these dismisses
   if (kbDismiss || in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce)
   {
@@ -86,12 +90,14 @@ static void handleControlsHelpInput(InputState &in)
     {
       s_returnToSettings = false;
 
-      g_app.uiState = UIState::SETTINGS;
       g_settingsFlow.settingsPage = s_returnPage;
-      g_app.settingsIndex = s_returnTopIndex;
+      g_app.settingsIndex         = s_returnTopIndex;
+
+      // IMPORTANT: Settings is a UIState, not a Tab.
+      // Preserve the currentTab instead of a fake TAB_SETTINGS.
+      uiActionEnterState(UIState::SETTINGS, s_returnTab, true);
 
       requestFullUIRedraw();
-
       inputForceClear();
       uiActionSwallowEdges(in);
       clearInputLatch();
@@ -104,4 +110,7 @@ static void handleControlsHelpInput(InputState &in)
   clearInputLatch();
 }
 
-void uiControlsHelpHandle(InputState &in) { handleControlsHelpInput(in); }
+void uiControlsHelpHandle(InputState &in)
+{
+  handleControlsHelpInput(in);
+}
