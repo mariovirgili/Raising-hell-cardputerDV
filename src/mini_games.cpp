@@ -402,63 +402,20 @@ void updateFlappyFireball(const InputState &input)
   }
 
   // ---------------------------------------------------------------------------
-  // Game over screen: require an "armed" ENTER (prevents instant skip)
+  // Game over: transition directly into the reward modal (legacy behavior)
   // ---------------------------------------------------------------------------
   if (g_app.gameOver)
   {
-    // First frame of game over: arm acceptance after a short delay and swallow input.
-    if (s_gameOverMs == 0)
-    {
-      s_acceptArmed = false;
-      s_gameOverMs = now + 180;
-      mgBeginInputLockout(180);
-      clearInputLatch();
-      inputForceClear();
-      return;
-    }
+    // Apply result + show reward immediately; the reward modal itself is armed
+    // (so holding ENTER won't instantly dismiss it).
+    mgApplyResultAndShowReward(playerWon);
 
-    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
-      s_acceptArmed = true;
-
-    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
-    {
-      // Consume the accept for game-over so it doesn't also immediately accept reward.
-      s_acceptArmed = false;
-      s_gameOverMs = 0;
-
-      if (currentMiniGame == MiniGame::RESURRECTION)
-      {
-        currentMiniGame = MiniGame::NONE;
-        g_app.inMiniGame = false;
-        g_app.gameOver = false;
-
-        onResurrectionMiniGameResult(playerWon);
-
-        g_app.uiState = UIState::PET_SCREEN;
-        requestUIRedraw();
-        clearInputLatch();
-        inputForceClear();
-        return;
-      }
-
-      // Show reward modal (WIN only, per your mgApplyResultAndShowReward)
-      mgApplyResultAndShowReward(playerWon);
-
-      // If reward modal is shown, arm acceptance for it too.
-      if (s_showReward)
-      {
-        s_acceptArmed = false;
-        s_gameOverMs = now + 180;
-        mgBeginInputLockout(180);
-        clearInputLatch();
-        inputForceClear();
-      }
-      else
-      {
-        // No reward (loss): keep a tiny lockout so we don't double-trigger anything
-        mgBeginInputLockout(220);
-      }
-    }
+    // Arm acceptance for the reward modal and swallow any lingering input.
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+    mgBeginInputLockout(180);
+    clearInputLatch();
+    inputForceClear();
     return;
   }
 
@@ -519,9 +476,25 @@ void updateFlappyFireball(const InputState &input)
 
 static void drawRewardModal(int gW, int gH)
 {
+  spr.fillSprite(TFT_BLACK);
   spr.setTextDatum(CC_DATUM);
 
-  const char *nl = strchr(s_rewardMsg, '\n');
+  // ---------------------------------------------------------
+  // BIG WIN / LOSE HEADER
+  // ---------------------------------------------------------
+  spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);
+  spr.drawCentreString(
+      playerWon ? "YOU WIN!" : "YOU LOSE!",
+      gW / 2,
+      gH / 2 - 36,
+      4   // big font
+  );
+
+  // ---------------------------------------------------------
+  // Reward body text (supports 1 or 2 lines)
+  // ---------------------------------------------------------
+  const char* nl = strchr(s_rewardMsg, '\n');
+
   if (nl)
   {
     char line1[64];
@@ -533,19 +506,22 @@ static void drawRewardModal(int gW, int gH)
     line1[len] = 0;
 
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.drawCentreString(line1, gW / 2, gH / 2 - 12, 2);
+    spr.drawCentreString(line1, gW / 2, gH / 2 - 4, 2);
 
     spr.setTextColor(TFT_YELLOW, TFT_BLACK);
-    spr.drawCentreString(nl + 1, gW / 2, gH / 2 + 6, 2);
+    spr.drawCentreString(nl + 1, gW / 2, gH / 2 + 16, 2);
   }
   else
   {
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.drawCentreString(s_rewardMsg, gW / 2, gH / 2 - 6, 2);
+    spr.drawCentreString(s_rewardMsg, gW / 2, gH / 2, 2);
   }
 
+  // ---------------------------------------------------------
+  // Footer
+  // ---------------------------------------------------------
   spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  spr.drawCentreString("Press ENTER", gW / 2, gH / 2 + 28, 2);
+  spr.drawCentreString("Press ENTER", gW / 2, gH / 2 + 40, 2);
 }
 
 void drawFlappyFireball()
@@ -1370,55 +1346,27 @@ void updateCrossyRoad(const InputState &input)
   }
 
   // ---------------------------------------------------------------------------
-  // Game over screen: require an "armed" ENTER (prevents instant skip)
+  // Game over: transition directly into the reward modal (legacy behavior)
   // ---------------------------------------------------------------------------
   if (g_app.gameOver)
   {
-    // First frame of game-over: arm acceptance after a short delay and swallow input
-    if (s_gameOverMs == 0)
-    {
-      s_acceptArmed = false;
-      s_gameOverMs = now + 180;
-      mgBeginInputLockout(180);
-      clearInputLatch();
-      inputForceClear();
-      return;
-    }
+    // Apply result + show reward immediately; the reward modal itself is armed
+    // (so holding ENTER won't instantly dismiss it).
+    mgApplyResultAndShowReward(playerWon);
 
-    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
-      s_acceptArmed = true;
-
-    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
-    {
-      // Consume the accept so it doesn't also immediately accept reward.
-      s_acceptArmed = false;
-      s_gameOverMs = 0;
-
-      mgApplyResultAndShowReward(playerWon);
-
-      // If reward modal is shown, arm acceptance for it too.
-      if (s_showReward)
-      {
-        s_acceptArmed = false;
-        s_gameOverMs = now + 180;
-        mgBeginInputLockout(180);
-        clearInputLatch();
-        inputForceClear();
-      }
-      else
-      {
-        mgBeginInputLockout(220);
-      }
-    }
+    // Arm acceptance for the reward modal and swallow any lingering input.
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+    mgBeginInputLockout(180);
+    clearInputLatch();
+    inputForceClear();
     return;
   }
-
   if (!s_crossyInited)
   {
     s_crossyInited = true;
     crossyReset();
   }
-
   crossyStepLanes(now);
 
   int dx = 0, dy = 0;
@@ -1711,25 +1659,20 @@ void updateInfernalDodger(const InputState &input)
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // Game over: transition directly into the reward modal (legacy behavior)
+  // ---------------------------------------------------------------------------
   if (g_app.gameOver)
   {
-    if (enterOnce)
-    {
-      if (playerWon)
-      {
-        // WIN: show rewards screen, then user presses ENTER again to exit.
-        mgApplyResultAndShowReward(true);
-        mgBeginInputLockout(220);
-      }
-      else
-      {
-        // LOSE: no rewards (by design) — exit immediately on ENTER.
-        exitMiniGameToReturnUi(true);
-      }
-    }
+    mgApplyResultAndShowReward(playerWon);
+
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+    mgBeginInputLockout(180);
+    clearInputLatch();
+    inputForceClear();
     return;
   }
-
   if (!s_dodgerInited)
   {
     s_dodgerInited = true;
