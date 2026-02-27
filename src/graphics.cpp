@@ -4709,7 +4709,7 @@ static void drawPowerMenuOverlay()
   const uint16_t selText = TFT_BLACK;
 
   const int boxW = 200;
-  const int boxH = 72;
+  const int boxH = 92;
   const int x = (screenW - boxW) / 2;
   const int y = (screenH - boxH) / 2;
 
@@ -4722,7 +4722,7 @@ static void drawPowerMenuOverlay()
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.drawString("POWER MENU", screenW / 2, y + 8);
 
-  const char *items[] = {"Reboot", "Shut Down"};
+  const char *items[] = {"Sleep", "Reboot", "Shut Down"};
   const int itemCount = (int)(sizeof(items) / sizeof(items[0]));
 
   const int listX = x + 16;

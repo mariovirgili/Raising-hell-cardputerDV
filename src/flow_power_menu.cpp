@@ -24,6 +24,8 @@
 #include "ui_input_common.h"
 #include "ui_actions.h"
 
+#include "ui_sleep_menu_actions.h"
+
 bool powerMenuSleepWakeSuppressedNow() { return uiIsSleepWakeSuppressed(); }
 
 void openPowerMenuFromHere(uint32_t nowMs)
@@ -44,6 +46,26 @@ void openPowerMenuFromHere(uint32_t nowMs)
 
   requestFullUIRedraw();
 }
+
+void powerMenuClose()
+{
+    const bool returningToSleep = g_settingsFlow.powerMenuReturnToSleep;
+
+    if (returningToSleep)
+    {
+        uiActionEnterState(UIState::PET_SLEEPING, Tab::TAB_PET, true);
+    }
+    else
+    {
+        uiActionEnterState(g_settingsFlow.powerMenuReturnState,
+                           g_settingsFlow.powerMenuReturnTab,
+                           true);
+    }
+
+    g_settingsFlow.powerMenuReturnToSleep = false;
+    g_settingsFlow.powerMenuReturnState = UIState::PET_SCREEN;
+    g_settingsFlow.powerMenuReturnTab   = Tab::TAB_PET;
+  }
 
 static void handlePowerMenuInput(InputState& input)
 {
@@ -95,7 +117,7 @@ static void handlePowerMenuInput(InputState& input)
     uiGuardTransition(input, returningToSleep ? 400 : 0);
     return;  }
 
-  const int itemCount = 2;
+  const int itemCount = 3;
 
   int mv = 0;
   if (input.upOnce) mv = -1;
@@ -127,13 +149,21 @@ static void handlePowerMenuInput(InputState& input)
 
     if (powerMenuIndex == 0)
     {
+      // Sleep (pet sleep, not deep sleep)
+      powerMenuClose();
+      uiSleepMenuEnterSleep(millis());
+      return;
+    }
+
+    if (powerMenuIndex == 1)
+    {
       saveManagerForce();
       delay(40);
       ESP.restart();
       return;
     }
 
-    if (powerMenuIndex == 1)
+    if (powerMenuIndex == 2)
     {
       saveManagerForce();
       applyWifiPower(false);

@@ -39,13 +39,14 @@ static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-  case UIState::PET_SCREEN:
-  case UIState::INVENTORY:
-  case UIState::SHOP:
-  case UIState::SLEEP_MENU:
-    return true;
-  default:
-    return false;
+    case UIState::PET_SCREEN:
+    case UIState::INVENTORY:
+    case UIState::SHOP:
+    case UIState::SLEEP_MENU:
+      return true;
+
+    default:
+      return false;
   }
 }
 

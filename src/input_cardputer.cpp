@@ -116,6 +116,19 @@ static inline bool kbHeldBackspaceKey()
   return false;
 }
 
+static bool kbWordHasEsc(const decltype(M5Cardputer.Keyboard.keysState()) &st)
+{
+  for (auto wc : st.word)
+  {
+    if (!wc)
+      continue;
+    const uint8_t uc = (uint8_t)wc;
+    if (uc == 0x29 || uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
+      return true;
+  }
+  return false;
+}
+
 static inline bool kbHeldDeleteKey()
 {
   // 0x4C = HID Delete (forward delete)
@@ -284,10 +297,11 @@ void clearInputLatch()
   // Reset keyboard latches.
   // IMPORTANT: preserve latches for keys that are currently HELD.
   auto st = M5Cardputer.Keyboard.keysState();
+  s_settingsKeyLatched = kbWordHasEsc(st); 
 
   // Preserve held state so clearing latches while ESC key is held
   // doesn't synthesize a fresh escOnce next tick.
-  s_settingsKeyLatched = kbHeldEscKey();
+  s_settingsKeyLatched = kbWordHasEsc(st);
   s_enterLatched = st.enter;                       // preserve held enter
   s_delLatched = (st.del || kbHeldAnyDeleteKey()); // preserve held delete/backspace
 
@@ -660,27 +674,34 @@ static void readKeyboard(InputState &out)
   bool sawRightThisTick = false;
   bool sawDelWordThisTick = false;
 
-  // ESC edge
-  // - In UI mode: generate escOnce (opens settings)
-  // - In text-capture (console): generate menuOnce (toggle menu overlay) and NEVER enqueue the key
+  // -----------------------------------------------------------------------------
+  // ESC detection (must NOT depend on `changed`)
+  // -----------------------------------------------------------------------------
+  
   bool escWordThisTick = false;
-  if (changed)
+  
+  // Scan the word stream every tick.
+  // Some firmwares do NOT mark ESC as a "changed" key.
+  for (auto wc : st.word)
   {
-    for (auto wc : st.word)
+    if (!wc)
+      continue;
+  
+    const uint8_t uc = (uint8_t)wc;
+  
+    if (uc == 0x29 ||      // HID ESC
+        uc == 0x1B ||      // ASCII ESC
+        wc == '`'  ||      // fallback
+        wc == '~'  ||      // fallback
+        uc == 0xB0)        // observed variant
     {
-      if (!wc)
-        continue;
-      const uint8_t uc = (uint8_t)wc;
-      if (uc == 0x29 || uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
-      {
-        escWordThisTick = true;
-        break;
-      }
+      escWordThisTick = true;
+      break;
     }
   }
-
-  const bool escNow = heldEsc || escWordThisTick;
-
+  
+  const bool escNow = escWordThisTick;
+  
   if (escNow && !s_settingsKeyLatched)
   {
     if (g_textCaptureMode)
@@ -692,19 +713,23 @@ static void readKeyboard(InputState &out)
     {
       out.escOnce = true;
     }
+  
     if (inMiniGameUi)
       out.mgQuitOnce = true;
+  
     s_settingsKeyLatched = true;
   }
-  if (!escNow)
+  else if (!escNow)
+  {
     s_settingsKeyLatched = false;
-
+  }
+  
   // Mini-game "Once" edges from held states.
   // Uses separate latches from s_navUpLatched etc. so these don't block
   // the WASD/word-stream UI nav paths below.
-  static bool s_mgNavUpLatched    = false;
-  static bool s_mgNavDownLatched  = false;
-  static bool s_mgNavLeftLatched  = false;
+  static bool s_mgNavUpLatched = false;
+  static bool s_mgNavDownLatched = false;
+  static bool s_mgNavLeftLatched = false;
   static bool s_mgNavRightLatched = false;
 
   if (mgUpHeld && !s_mgNavUpLatched)
