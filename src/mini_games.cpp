@@ -58,6 +58,7 @@ static void exitMiniGameToReturnUi(bool beginLockout = true);
 static void mgApplyResultAndShowReward(bool won);
 static bool tryAwardWinItem_1in4(ItemType *outType);
 static void mgSyncGameTimebases(uint32_t now);
+static inline bool mgInputLockedOut();
 
 // Crossy Road
 void startCrossyRoad();
@@ -71,8 +72,18 @@ static bool s_prevSelectHeld = false;
 
 static bool miniGameEnterOnce(const InputState &input)
 {
-  const bool enterOnce = (input.mgSelectHeld && !s_prevSelectHeld);
-  s_prevSelectHeld = input.mgSelectHeld;
+  const bool held = input.mgSelectHeld;
+
+  // During launch/transition lockout, do NOT generate an enterOnce edge.
+  // Still track held state so we don't synthesize a fake edge when lockout ends.
+  if (mgInputLockedOut())
+  {
+    s_prevSelectHeld = held;
+    return false;
+  }
+
+  const bool enterOnce = (held && !s_prevSelectHeld);
+  s_prevSelectHeld = held;
   return enterOnce || input.mgSelectOnce;
 }
 
@@ -92,6 +103,19 @@ static inline void mgBeginInputLockout(uint32_t ms) { s_mgInputLockoutUntilMs = 
 static inline bool mgInputLockedOut() { return (int32_t)(millis() - s_mgInputLockoutUntilMs) < 0; }
 
 static constexpr uint32_t kSurviveWinMs = 15000; // or whatever your old value was
+
+static void mgArmAccept(uint32_t now, uint32_t delayMs = 180)
+{
+  s_acceptArmed = false;
+  s_gameOverMs = now + delayMs;
+}
+
+static bool mgAcceptArmedNow(uint32_t now)
+{
+  if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+    s_acceptArmed = true;
+  return s_acceptArmed && !mgInputLockedOut();
+}
 
 // -----------------------------------------------------------------------------
 // FLAPPY FIREBALL (Flappy Bird clone)
@@ -319,20 +343,71 @@ static inline uint32_t flappyAliveMsNow(uint32_t now)
 void updateFlappyFireball(const InputState &input)
 {
   const bool enterOnce = miniGameEnterOnce(input);
+  const uint32_t now = millis();
 
+  // If we're actively playing (not reward, not game over), clear accept-arming state.
+  // This prevents stale arming timers from carrying across rounds.
+  if (!s_showReward && !g_app.gameOver)
+  {
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reward modal: require an "armed" ENTER (prevents instant skip)
+  // ---------------------------------------------------------------------------
   if (s_showReward)
   {
-    if (enterOnce)
+    // If we just entered the reward modal, arm acceptance after a short delay.
+    if (s_gameOverMs == 0)
     {
+      s_acceptArmed = false;
+      s_gameOverMs = now + 180;
+      mgBeginInputLockout(180);
+      clearInputLatch();
+      inputForceClear();
+      return;
+    }
+
+    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+      s_acceptArmed = true;
+
+    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
+    {
+      // Reset arming state for the next transition
+      s_acceptArmed = false;
+      s_gameOverMs = 0;
+
       exitMiniGameToReturnUi(true);
     }
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // Game over screen: require an "armed" ENTER (prevents instant skip)
+  // ---------------------------------------------------------------------------
   if (g_app.gameOver)
   {
-    if (enterOnce)
+    // First frame of game over: arm acceptance after a short delay and swallow input.
+    if (s_gameOverMs == 0)
     {
+      s_acceptArmed = false;
+      s_gameOverMs = now + 180;
+      mgBeginInputLockout(180);
+      clearInputLatch();
+      inputForceClear();
+      return;
+    }
+
+    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+      s_acceptArmed = true;
+
+    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
+    {
+      // Consume the accept for game-over so it doesn't also immediately accept reward.
+      s_acceptArmed = false;
+      s_gameOverMs = 0;
+
       if (currentMiniGame == MiniGame::RESURRECTION)
       {
         currentMiniGame = MiniGame::NONE;
@@ -344,11 +419,27 @@ void updateFlappyFireball(const InputState &input)
         g_app.uiState = UIState::PET_SCREEN;
         requestUIRedraw();
         clearInputLatch();
+        inputForceClear();
         return;
       }
 
+      // Show reward modal (WIN only, per your mgApplyResultAndShowReward)
       mgApplyResultAndShowReward(playerWon);
-      mgBeginInputLockout(220);
+
+      // If reward modal is shown, arm acceptance for it too.
+      if (s_showReward)
+      {
+        s_acceptArmed = false;
+        s_gameOverMs = now + 180;
+        mgBeginInputLockout(180);
+        clearInputLatch();
+        inputForceClear();
+      }
+      else
+      {
+        // No reward (loss): keep a tiny lockout so we don't double-trigger anything
+        mgBeginInputLockout(220);
+      }
     }
     return;
   }
@@ -362,8 +453,6 @@ void updateFlappyFireball(const InputState &input)
     flappyResetWorld(gW, gH);
     s_lastStepMs = millis();
   }
-
-  const uint32_t now = millis();
 
   if (mgPauseIsPaused())
   {
@@ -864,13 +953,39 @@ void startResurrectionRun()
 
 void updateResurrectionRun(const InputState &input)
 {
+  const uint32_t now = millis();
+
+  // Clear accept-arming state while actively playing
+  if (!rr_gameOver)
+  {
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+  }
 
   if (rr_gameOver)
   {
     const bool enterOnce = miniGameEnterOnce(input);
 
-    if (enterOnce)
+    // First frame of game-over: arm acceptance after a short delay and swallow input
+    if (s_gameOverMs == 0)
     {
+      s_acceptArmed = false;
+      s_gameOverMs = now + 180;
+      mgBeginInputLockout(180);
+      clearInputLatch();
+      inputForceClear();
+      return;
+    }
+
+    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+      s_acceptArmed = true;
+
+    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
+    {
+      // Consume accept so it can't double-trigger
+      s_acceptArmed = false;
+      s_gameOverMs = 0;
+
       rr_active = false;
       rr_gameOver = false;
 
@@ -885,13 +1000,13 @@ void updateResurrectionRun(const InputState &input)
 
       mgPauseReset();
       clearInputLatch();
+      inputForceClear();
       requestUIRedraw();
       mgBeginInputLockout(220);
     }
     return;
   }
 
-  const uint32_t now = millis();
   uint32_t dtMs = now - rr_lastMs;
   rr_lastMs = now;
   if (dtMs > 40)
@@ -1166,22 +1281,84 @@ static bool crossyHitCar()
 void updateCrossyRoad(const InputState &input)
 {
   const bool enterOnce = miniGameEnterOnce(input);
+  const uint32_t now = millis();
 
+  // Clear accept-arming state while actively playing
+  if (!s_showReward && !g_app.gameOver)
+  {
+    s_acceptArmed = false;
+    s_gameOverMs = 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Reward modal: require an "armed" ENTER (prevents instant skip)
+  // ---------------------------------------------------------------------------
   if (s_showReward)
   {
-    if (enterOnce)
+    // First frame of reward modal: arm acceptance after a short delay and swallow input
+    if (s_gameOverMs == 0)
     {
+      s_acceptArmed = false;
+      s_gameOverMs = now + 180;
+      mgBeginInputLockout(180);
+      clearInputLatch();
+      inputForceClear();
+      return;
+    }
+
+    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+      s_acceptArmed = true;
+
+    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
+    {
+      s_acceptArmed = false;
+      s_gameOverMs = 0;
+
       exitMiniGameToReturnUi(true);
     }
     return;
   }
 
+  // ---------------------------------------------------------------------------
+  // Game over screen: require an "armed" ENTER (prevents instant skip)
+  // ---------------------------------------------------------------------------
   if (g_app.gameOver)
   {
-    if (enterOnce)
+    // First frame of game-over: arm acceptance after a short delay and swallow input
+    if (s_gameOverMs == 0)
     {
+      s_acceptArmed = false;
+      s_gameOverMs = now + 180;
+      mgBeginInputLockout(180);
+      clearInputLatch();
+      inputForceClear();
+      return;
+    }
+
+    if (!s_acceptArmed && (int32_t)(now - s_gameOverMs) >= 0)
+      s_acceptArmed = true;
+
+    if (enterOnce && s_acceptArmed && !mgInputLockedOut())
+    {
+      // Consume the accept so it doesn't also immediately accept reward.
+      s_acceptArmed = false;
+      s_gameOverMs = 0;
+
       mgApplyResultAndShowReward(playerWon);
-      mgBeginInputLockout(220);
+
+      // If reward modal is shown, arm acceptance for it too.
+      if (s_showReward)
+      {
+        s_acceptArmed = false;
+        s_gameOverMs = now + 180;
+        mgBeginInputLockout(180);
+        clearInputLatch();
+        inputForceClear();
+      }
+      else
+      {
+        mgBeginInputLockout(220);
+      }
     }
     return;
   }
@@ -1192,7 +1369,7 @@ void updateCrossyRoad(const InputState &input)
     crossyReset();
   }
 
-  crossyStepLanes(millis());
+  crossyStepLanes(now);
 
   int dx = 0, dy = 0;
 
@@ -1463,6 +1640,12 @@ void startInfernalDodger()
   invalidateBackgroundCache();
   requestUIRedraw();
   clearInputLatch();
+  // Prevent the ENTER used to launch the mini-game from being interpreted as
+  // an immediate "enterOnce" inside the mini-game on the first update tick.
+  {
+    auto st = M5Cardputer.Keyboard.keysState();
+    s_prevSelectHeld = st.enter;
+  }
   mgBeginInputLockout(220);
 }
 
@@ -1483,8 +1666,17 @@ void updateInfernalDodger(const InputState &input)
   {
     if (enterOnce)
     {
-      mgApplyResultAndShowReward(playerWon);
-      mgBeginInputLockout(220);
+      if (playerWon)
+      {
+        // WIN: show rewards screen, then user presses ENTER again to exit.
+        mgApplyResultAndShowReward(true);
+        mgBeginInputLockout(220);
+      }
+      else
+      {
+        // LOSE: no rewards (by design) — exit immediately on ENTER.
+        exitMiniGameToReturnUi(true);
+      }
     }
     return;
   }
@@ -1512,7 +1704,7 @@ void updateInfernalDodger(const InputState &input)
     soundConfirm();
     return;
   }
-
+  
   const bool leftHeld = input.mgLeftHeld;
   const bool rightHeld = input.mgRightHeld;
 
@@ -1541,9 +1733,7 @@ void updateInfernalDodger(const InputState &input)
   if (!leftHeld && !rightHeld)
   {
     if ((int32_t)(now - s_dodgerDirHoldMs) >= 0)
-    {
       s_dodgerMoveDir = 0;
-    }
   }
 
   if (input.encoderDelta < 0)
@@ -1633,6 +1823,7 @@ void drawInfernalDodger()
 
   spr.fillSprite(TFT_BLACK);
 
+  // Top survive bar
   {
     const uint32_t aliveMs = dodgerAliveMsNow(millis());
     const uint32_t kWinMs = kSurviveWinMs;
@@ -1643,20 +1834,20 @@ void drawInfernalDodger()
     spr.drawRect(barX, barY, barW, 6, TFT_DARKGREY);
 
     int fill = (int)((aliveMs * (uint32_t)(barW - 2)) / kWinMs);
-    if (fill < 0)
-      fill = 0;
-    if (fill > barW - 2)
-      fill = barW - 2;
+    if (fill < 0) fill = 0;
+    if (fill > barW - 2) fill = barW - 2;
 
     spr.fillRect(barX + 1, barY + 1, fill, 4, TFT_YELLOW);
   }
 
+  // Reward modal (win only)
   if (s_showReward)
   {
     drawRewardModal(gW, gH);
     return;
   }
 
+  // Win/Lose screen
   if (g_app.gameOver)
   {
     spr.setTextDatum(CC_DATUM);
@@ -1668,10 +1859,10 @@ void drawInfernalDodger()
     return;
   }
 
+  // Gameplay
   for (auto &b : s_dodgerBalls)
   {
-    if (!b.active)
-      continue;
+    if (!b.active) continue;
     spr.fillCircle(b.x, b.y, b.r, TFT_ORANGE);
     spr.drawCircle(b.x, b.y, b.r, TFT_RED);
   }
