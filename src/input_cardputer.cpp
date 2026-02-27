@@ -299,8 +299,15 @@ void clearInputLatch()
   s_navDownLatched = false;
   s_navLeftLatched = false;
   s_navRightLatched = false;
-  s_mgSelectLatched = false;
   s_spaceLatched = false;
+
+  // IMPORTANT:
+  // Do NOT modify s_mgSelectLatched here.
+  // It is derived from held state in the keyboard scan; clearing/preserving it
+  // during transitions can either synthesize a fresh mgSelectOnce (restart bug)
+  // or get stuck true (can't-start bug).
+  //
+  // s_mgSelectLatched = false; // intentionally not touched
 
   // Reset edge tracking for GPIO so next tick doesn't generate "Once"
   const unsigned long now = millis();

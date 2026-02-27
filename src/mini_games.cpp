@@ -39,6 +39,7 @@
 #include "pet.h"
 #include "save_manager.h"
 #include "ui_actions.h"
+#include "input.h"
 
 // -----------------------------------------------------------------------------
 // Mini-game input helpers / shared state
@@ -51,9 +52,12 @@ static uint32_t s_gameOverMs = 0;
 static bool s_showReward = false;
 static char s_rewardMsg[64] = {0};
 
-// Forward decl (used by multiple mini-games)
-static int rollMiniGameInfReward();
+// Forward decls used by multiple mini-games / defined later in this file
+static int  rollMiniGameInfReward();
 static void exitMiniGameToReturnUi(bool beginLockout = true);
+static void mgApplyResultAndShowReward(bool won);
+static bool tryAwardWinItem_1in4(ItemType *outType);
+static void mgSyncGameTimebases(uint32_t now);
 
 // Crossy Road
 void startCrossyRoad();
@@ -72,52 +76,6 @@ static bool miniGameEnterOnce(const InputState &input)
   return enterOnce || input.mgSelectOnce;
 }
 
-static UIState s_miniGameReturnUi = UIState::PET_SCREEN;
-static bool s_miniGameReturnUiValid = false;
-static bool tryAwardWinItem_1in4(ItemType *outType);
-static const uint32_t kSurviveWinMs = 18000; // 18s survive-to-win (Flappy + Dodger)
-
-static void mgApplyResultAndShowReward(bool won)
-{
-  // Apply rewards (your rule: lose => XP+5, MOOD+10 only)
-  if (won)
-  {
-    pet.addXP(25);
-
-    const int infReward = rollMiniGameInfReward();
-    addInf(infReward);
-
-    pet.happiness = constrain(pet.happiness + 20, 0, 100);
-
-    ItemType rewardType = ITEM_NONE;
-    const bool wonItem = tryAwardWinItem_1in4(&rewardType);
-
-    if (wonItem)
-    {
-      const char *nm = g_app.inventory.getItemLabelForType(rewardType);
-      snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You win! XP +25  INF +%d  MOOD +20\nRandom Reward: %s +1", infReward,
-               (nm && nm[0]) ? nm : "Item");
-    }
-    else
-    {
-      snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You win! XP +25  INF +%d  MOOD +20", infReward);
-    }
-  }
-  else
-  {
-    pet.addXP(5);
-    pet.happiness = constrain(pet.happiness + 10, 0, 100);
-    snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You lose! XP +5  MOOD +10");
-  }
-
-  saveManagerMarkDirty();
-
-  // Show modal + clear g_app.gameOver so we don't re-enter result logic
-  s_showReward = true;
-  g_app.gameOver = false;
-  clearInputLatch();
-}
-
 // -----------------------------------------------------------------------------
 // Mini-game global state
 // -----------------------------------------------------------------------------
@@ -132,6 +90,8 @@ static uint32_t s_mgInputLockoutUntilMs = 0;
 static inline void mgBeginInputLockout(uint32_t ms) { s_mgInputLockoutUntilMs = millis() + ms; }
 
 static inline bool mgInputLockedOut() { return (int32_t)(millis() - s_mgInputLockoutUntilMs) < 0; }
+
+static constexpr uint32_t kSurviveWinMs = 15000; // or whatever your old value was
 
 // -----------------------------------------------------------------------------
 // FLAPPY FIREBALL (Flappy Bird clone)
@@ -199,9 +159,6 @@ void startFlappyFireball()
   // Ensure keyboard nav works (ENTER/W) even if console/text mode was left on.
   inputSetTextCapture(false);
 
-  // Capture the return UI BEFORE switching into MINI_GAME.
-  miniGameSetReturnUi(g_app.uiState);
-
   g_app.inMiniGame = true;
   g_app.gameOver = false;
   playerWon = false;
@@ -215,9 +172,15 @@ void startFlappyFireball()
 
   s_prevSelectHeld = false;
 
-  // Enter MINI_GAME after return UI is recorded.
-  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
   currentMiniGame = MiniGame::FLAPPY_FIREBALL;
+
+  // Never allow "return UI" to be MINI_GAME / MG_PAUSE (causes exit->bounce/lock).
+  UIState retUi = g_app.uiState;
+  if (retUi == UIState::MINI_GAME || retUi == UIState::MG_PAUSE)
+    retUi = UIState::PET_SCREEN;
+
+  miniGameSetReturnUi(retUi);
+  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
 
   s_flappyInited = false;
   s_lastStepMs = millis();
@@ -322,6 +285,7 @@ static void flappyStep(int w, int h, bool flap)
     {
       playerWon = false;
       g_app.gameOver = true;
+      requestUIRedraw();
       s_resultShown = true;
       s_flappyPlaying = false;
       soundError();
@@ -417,6 +381,7 @@ void updateFlappyFireball(const InputState &input)
   {
     playerWon = true;
     g_app.gameOver = true;
+    requestUIRedraw();
     s_resultShown = true;
     s_flappyPlaying = false;
     soundConfirm();
@@ -576,6 +541,34 @@ static bool tryAwardWinItem_1in4(ItemType *outType)
   return true;
 }
 
+static void mgApplyResultAndShowReward(bool won)
+{
+  // Only winners get rewards (your comment says WIN only)
+  if (!won)
+  {
+    s_showReward = false;
+    s_rewardMsg[0] = 0;
+    return;
+  }
+
+  // Build reward text
+  ItemType t;
+  if (tryAwardWinItem_1in4(&t))
+  {
+    // If you have a real item-name helper, use it. Otherwise keep it simple:
+    snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You found:\nAN ITEM!");
+  }
+  else
+  {
+    const int inf = rollMiniGameInfReward();
+    addInf(inf); // replace with your real currency function if different
+    snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You earned:\n%d INF", inf);
+  }
+
+  s_showReward = true;
+  requestUIRedraw();
+}
+
 void miniGameExitToReturnUi(bool beginLockout)
 {
   s_mgExiting = true;
@@ -588,23 +581,27 @@ void miniGameExitToReturnUi(bool beginLockout)
   playerWon = false;
   currentMiniGame = MiniGame::NONE;
 
-  // Route back through uiActionEnterState so we don't “snap back” into MINI_GAME
-  // due to runtime state bookkeeping elsewhere.
-  const UIState target = miniGameGetReturnUiOrDefault(UIState::PET_SCREEN);
+  UIState target = miniGameGetReturnUiOrDefault(UIState::PET_SCREEN);
+  if (target == UIState::MINI_GAME || target == UIState::MG_PAUSE)
+    target = UIState::PET_SCREEN;
+
   miniGameClearReturnUi();
 
   mgPauseReset();
   clearInputLatch();
 
-  uiActionEnterState(target, g_app.currentTab, false);
+  // NEW: prevent the Exit-confirm ENTER from triggering Play-tab confirmOnce
+  inputForceClear();
+  s_prevSelectHeld = false;
+
+  g_app.uiState = target;
+
   invalidateBackgroundCache();
   requestUIRedraw();
 
   if (beginLockout)
-  {
     mgBeginInputLockout(220);
   }
-}
 
 // Back-compat: older call sites used this name.
 static void exitMiniGameToReturnUi(bool beginLockout) { miniGameExitToReturnUi(beginLockout); }
@@ -615,95 +612,73 @@ static void mgSyncGameTimebases(uint32_t now);
 // Universal mini-game update/draw dispatch + pause overlay
 // -----------------------------------------------------------------------------
 
+static void mgSyncGameTimebases(uint32_t now);
+
 void updateMiniGame(const InputState &input)
 {
   // If we are not on the MINI_GAME UI anymore, never run mini-game logic.
   if (g_app.uiState != UIState::MINI_GAME)
     return;
 
-  // If something just triggered an exit, swallow one tick so nothing else runs “one more frame”.
-  if (s_mgExiting)
-  {
-    s_mgExiting = false;
-    return;
-  }
-
   if (!g_app.inMiniGame)
     return;
+
   if (currentMiniGame == MiniGame::NONE)
     return;
 
   const uint32_t now = millis();
 
-  const bool activePlay = !s_showReward && !g_app.gameOver;
+  // Pause/menu logic first (ESC/menu must always work).
+  const uint8_t p = mgPauseHandle(input);
+  mgPauseUpdateClocks(now);
 
-  if (!activePlay)
+  if (p == MGPAUSE_EXIT)
   {
-    mgPauseForceOffNoStick();
+    miniGameExitToReturnUi(true);
+    requestUIRedraw();
+    return;
   }
-  else
+
+  if (p == MGPAUSE_CONSUME)
   {
-    // Always allow pause/menu logic to run, even during lockout.
-    // Lockout is for gameplay inputs, not for ESC/pause menu decisions.
-    const uint8_t p = mgPauseHandle(input);
-  
-    mgPauseUpdateClocks(now);
-  
-    if (p == MGPAUSE_EXIT)
-    {
-      // Hard-stop everything FIRST to prevent “one more frame”.
-      currentMiniGame   = MiniGame::NONE;
-      g_app.inMiniGame  = false;
-      g_app.gameOver    = false;
-      playerWon         = false;
-  
-      s_showReward      = false;
-      s_rewardMsg[0]    = 0;
-  
-      mgPauseReset();
-      clearInputLatch();
-  
-      // Now transition back.
-      exitMiniGameToReturnUi(true);
-      return;
-    }
-  
-    if (p == MGPAUSE_CONSUME)
-    {
-      // Pause system consumed input (menu nav, toggle pause, etc).
-      // If we are paused, freeze gameplay and sync timebases.
-      if (mgPauseIsPaused())
-      {
-        mgSyncGameTimebases(now);
-      }
-      return;
-    }
-  
-    // If paused, do not advance gameplay.
     if (mgPauseIsPaused())
-    {
       mgSyncGameTimebases(now);
-      return;
-    }
+
+    requestUIRedraw();
+    return;
   }
 
+  if (mgPauseIsPaused())
+  {
+    mgSyncGameTimebases(now);
+    requestUIRedraw();
+    return;
+  }
+
+  // Gameplay update dispatch
   switch (currentMiniGame)
   {
   case MiniGame::FLAPPY_FIREBALL:
     updateFlappyFireball(input);
     break;
+
   case MiniGame::CROSSY_ROAD:
     updateCrossyRoad(input);
     break;
+
   case MiniGame::INFERNAL_DODGER:
     updateInfernalDodger(input);
     break;
+
   case MiniGame::RESURRECTION:
     updateResurrectionRun(input);
     break;
+
   default:
     break;
   }
+
+  requestUIRedraw();
 }
 
 void drawMiniGame()
@@ -843,18 +818,21 @@ void startResurrectionRun()
   mgPauseReset();
   inputSetTextCapture(false);
 
-  // Capture the return UI BEFORE switching into MINI_GAME.
-  miniGameSetReturnUi(g_app.uiState);
-
   // Make Resurrection Run behave like all other mini-games (state + flags)
   g_app.inMiniGame = true;
   g_app.gameOver = false;
   playerWon = false;
   s_resultShown = false;
 
-  // Enter MINI_GAME after return UI is recorded.
-  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
   currentMiniGame = MiniGame::RESURRECTION;
+
+  // Never allow "return UI" to be MINI_GAME / MG_PAUSE (causes exit->bounce/lock).
+  UIState retUi = g_app.uiState;
+  if (retUi == UIState::MINI_GAME || retUi == UIState::MG_PAUSE)
+    retUi = UIState::PET_SCREEN;
+
+  miniGameSetReturnUi(retUi);
+  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
 
   // Hard reset any previous end-of-game modal state so retries don't instantly re-trigger.
   s_showReward = false;
@@ -1112,9 +1090,6 @@ void startCrossyRoad()
   mgPauseReset();
   inputSetTextCapture(false);
 
-  // Capture return UI BEFORE entering MINI_GAME.
-  miniGameSetReturnUi(g_app.uiState);
-
   g_app.inMiniGame = true;
   g_app.gameOver = false;
   playerWon = false;
@@ -1123,9 +1098,15 @@ void startCrossyRoad()
   s_showReward = false;
   s_rewardMsg[0] = 0;
 
-  // Enter MINI_GAME after return UI is recorded.
-  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
   currentMiniGame = MiniGame::CROSSY_ROAD;
+
+  // Never allow "return UI" to be MINI_GAME / MG_PAUSE (causes exit->bounce/lock).
+  UIState retUi = g_app.uiState;
+  if (retUi == UIState::MINI_GAME || retUi == UIState::MG_PAUSE)
+    retUi = UIState::PET_SCREEN;
+
+  miniGameSetReturnUi(retUi);
+  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
 
   s_crossyInited = true;
   crossyReset();
@@ -1240,6 +1221,7 @@ void updateCrossyRoad(const InputState &input)
   {
     playerWon = true;
     g_app.gameOver = true;
+    requestUIRedraw();
     s_resultShown = true;
     soundConfirm();
     return;
@@ -1249,6 +1231,7 @@ void updateCrossyRoad(const InputState &input)
   {
     playerWon = false;
     g_app.gameOver = true;
+    requestUIRedraw();
     s_resultShown = true;
     soundError();
     return;
@@ -1455,9 +1438,6 @@ void startInfernalDodger()
   inputSetTextCapture(false);
   mgPauseReset();
 
-  // Capture return UI BEFORE entering MINI_GAME.
-  miniGameSetReturnUi(g_app.uiState);
-
   g_app.inMiniGame = true;
   g_app.gameOver = false;
   playerWon = false;
@@ -1468,9 +1448,15 @@ void startInfernalDodger()
 
   s_prevSelectHeld = false;
 
-  // Enter MINI_GAME after return UI is recorded.
-  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
   currentMiniGame = MiniGame::INFERNAL_DODGER;
+
+  // Never allow "return UI" to be MINI_GAME / MG_PAUSE (causes exit->bounce/lock).
+  UIState retUi = g_app.uiState;
+  if (retUi == UIState::MINI_GAME || retUi == UIState::MG_PAUSE)
+    retUi = UIState::PET_SCREEN;
+
+  miniGameSetReturnUi(retUi);
+  uiActionEnterState(UIState::MINI_GAME, g_app.currentTab, false);
 
   s_dodgerInited = false;
 
@@ -1521,6 +1507,7 @@ void updateInfernalDodger(const InputState &input)
   {
     playerWon = true;
     g_app.gameOver = true;
+    requestUIRedraw();
     s_resultShown = true;
     soundConfirm();
     return;
@@ -1628,6 +1615,7 @@ void updateInfernalDodger(const InputState &input)
       {
         playerWon = false;
         g_app.gameOver = true;
+        requestUIRedraw();
         s_resultShown = true;
         soundError();
         return;
