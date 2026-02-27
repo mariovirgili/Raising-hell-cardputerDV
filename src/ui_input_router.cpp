@@ -29,6 +29,7 @@
 #include "ui_state_sleep_menu.h"
 #include "ui_state_tab_driven.h"
 #include "ui_state_wifi_setup.h"
+#include "ui_state_handlers.h"
 
 static inline bool wantsTextCapture(UIState s)
 {
