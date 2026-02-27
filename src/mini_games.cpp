@@ -87,6 +87,24 @@ static bool miniGameEnterOnce(const InputState &input)
   return enterOnce || input.mgSelectOnce;
 }
 
+static const char* mgItemName(ItemType t)
+{
+  // Preferred: use inventory’s label function (old reference behavior).
+  // If this doesn't compile, see fallback note below.
+  const char* nm = g_app.inventory.getItemLabelForType(t);
+  if (nm && nm[0]) return nm;
+
+  // Fallback: keep something readable even if labels aren’t available.
+  switch (t)
+  {
+    case ITEM_SOUL_FOOD:     return "SOUL FOOD";
+    case ITEM_CURSED_RELIC:  return "CURSED RELIC";
+    case ITEM_DEMON_BONE:    return "DEMON BONE";
+    case ITEM_RITUAL_CHALK:  return "RITUAL CHALK";
+    default:                return "ITEM";
+  }
+}
+
 // -----------------------------------------------------------------------------
 // Mini-game global state
 // -----------------------------------------------------------------------------
@@ -632,29 +650,61 @@ static bool tryAwardWinItem_1in4(ItemType *outType)
 
 static void mgApplyResultAndShowReward(bool won)
 {
-  // Only winners get rewards (your comment says WIN only)
-  if (!won)
-  {
-    s_showReward = false;
-    s_rewardMsg[0] = 0;
-    return;
-  }
+  // Old rules (from your reference):
+  // WIN  => XP +25, INF +roll, MOOD +20, 25% chance random item +1 (also show name)
+  // LOSE => XP +5,  MOOD +10
 
-  // Build reward text
-  ItemType t;
-  if (tryAwardWinItem_1in4(&t))
+  if (won)
   {
-    // If you have a real item-name helper, use it. Otherwise keep it simple:
-    snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You found:\nAN ITEM!");
+    pet.addXP(25);
+
+    const int infReward = rollMiniGameInfReward();
+    addInf(infReward);
+
+    pet.happiness = constrain(pet.happiness + 20, 0, 100);
+
+    ItemType rewardType = ITEM_NONE;
+    const bool wonItem = tryAwardWinItem_1in4(&rewardType);
+
+    if (wonItem)
+    {
+      const char* nm = mgItemName(rewardType);
+      snprintf(
+        s_rewardMsg,
+        sizeof(s_rewardMsg),
+        "You win! XP +25  INF +%d  MOOD +20\nRandom Reward: %s +1",
+        infReward,
+        (nm && nm[0]) ? nm : "ITEM"
+      );
+    }
+    else
+    {
+      snprintf(
+        s_rewardMsg,
+        sizeof(s_rewardMsg),
+        "You win! XP +25  INF +%d  MOOD +20",
+        infReward
+      );
+    }
   }
   else
   {
-    const int inf = rollMiniGameInfReward();
-    addInf(inf); // replace with your real currency function if different
-    snprintf(s_rewardMsg, sizeof(s_rewardMsg), "You earned:\n%d INF", inf);
+    pet.addXP(5);
+    pet.happiness = constrain(pet.happiness + 10, 0, 100);
+
+    snprintf(
+      s_rewardMsg,
+      sizeof(s_rewardMsg),
+      "You lose! XP +5  MOOD +10"
+    );
   }
 
+  saveManagerMarkDirty();
+
+  // Show modal (and clear gameOver so we don’t re-enter result logic)
   s_showReward = true;
+  g_app.gameOver = false;
+
   requestUIRedraw();
 }
 
@@ -1610,8 +1660,7 @@ static inline uint32_t dodgerAliveMsNow(uint32_t now)
   return elapsed;
 }
 
-void startInfernalDodger()
-{
+void startInfernalDodger() {
   inputSetTextCapture(false);
   mgPauseReset();
 
@@ -1704,7 +1753,7 @@ void updateInfernalDodger(const InputState &input)
     soundConfirm();
     return;
   }
-  
+
   const bool leftHeld = input.mgLeftHeld;
   const bool rightHeld = input.mgRightHeld;
 
