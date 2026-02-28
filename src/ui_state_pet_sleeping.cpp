@@ -1,68 +1,60 @@
 #include "ui_state_pet_sleeping.h"
 
 #include "app_state.h"
+#include "graphics.h"
 #include "input.h"
-#include "save_manager.h"
-#include "settings_flow_state.h"
-#include "sound.h"
-#include "ui_menu_state.h"
-#include "ui_runtime.h"
-#include "ui_input_common.h"
+#include "led_status.h" // isPetSleepingNow()
 #include "pet.h"
-#include "settings_nav_state.h"
+#include "ui_actions.h"
+#include "ui_runtime.h"
 
-// These exist elsewhere; keep as forward decls for now.
-bool powerMenuSleepWakeSuppressedNow();
+// Pet Sleep Screen behavior:
+// - If the pet stops sleeping (timer/rest complete), return to PET_SCREEN.
+// - MENU/ESC opens Settings without waking the pet.
+// - ENTER/G (selectOnce/encoderPressOnce) wakes the pet and returns to PET_SCREEN.
 
-void uiPetSleepingHandle(InputState& input)
+void uiPetSleepingHandle(InputState &in)
 {
-  // Suppress immediate wake after returning from power menu
-  if (powerMenuSleepWakeSuppressedNow()) {
-    uiDrainKb(input);
-    input.clearEdges();
+  // If we're not sleeping anymore, bounce back to pet screen.
+  if (!isPetSleepingNow())
+  {
+    uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, true, in, 200);
+    invalidateBackgroundCache();
+    requestUIRedraw();
     return;
   }
 
-  // Wake detection: use selectHeld rising edge (robust even if isChange() misses)
+  // Some keyboard firmwares don't always emit a clean selectOnce edge in this state.
+  // Add a held->edge fallback so ENTER still wakes reliably.
   static bool s_prevSelectHeld = false;
-  const bool enterEdge         = (input.selectHeld && !s_prevSelectHeld);
-  s_prevSelectHeld             = input.selectHeld;
+  const bool selectEdgeFallback = (in.selectHeld && !s_prevSelectHeld);
+  s_prevSelectHeld = in.selectHeld;
 
-  if (enterEdge || input.encoderPressOnce || input.selectOnce) {
-    pet.isSleeping        = false;
-    g_app.isSleeping      = false;
+  // Open settings while sleeping (must NOT wake pet).
+  if (in.menuOnce || in.escOnce)
+  {
+    uiActionEnterStateClean(UIState::SETTINGS, g_app.currentTab, true, in, 150);
+    requestUIRedraw();
+    return;
+  }
+
+  // Wake explicitly on enter/select.
+  // (mgSelectOnce is harmless here; it's usually only set in mini-game, but allows
+  // alternate firmwares/mappings to still wake.)
+  if (in.selectOnce || in.encoderPressOnce || in.mgSelectOnce || selectEdgeFallback)
+  {
+    // Clear global sleep intent flags.
+    g_app.isSleeping = false;
+    g_app.sleepUntilAwakened = false;
+    g_app.sleepUntilRested = false;
     g_app.sleepingByTimer = false;
 
-    saveManagerMarkDirty();
+    // Clear the pet's sleep flag too.
+    pet.isSleeping = false;
 
-    g_app.uiState    = UIState::PET_SCREEN;
-    g_app.currentTab = Tab::TAB_PET;
+    uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, true, in, 200);
+    invalidateBackgroundCache();
     requestUIRedraw();
-
-    g_app.sleepUntilRested   = false;
-    g_app.sleepUntilAwakened = false;
-    g_app.sleepTargetEnergy  = 0;
-
-    uiSwallowTypingAndEdges(input);
     return;
   }
-
-  // ESC opens Settings (without waking)
-  if (input.escOnce) {
-    resetSettingsNav(true);
-    g_settingsFlow.settingsPage = SettingsPage::TOP;
-    g_app.uiState               = UIState::SETTINGS;
-    requestUIRedraw();
-
-    uiDrainKb(input);
-    inputForceClear();
-
-    input.escOnce  = false;
-    input.menuOnce = false;
-    return;
-  }
-
-  // Otherwise swallow
-  uiDrainKb(input);
-  input.clearEdges();
 }

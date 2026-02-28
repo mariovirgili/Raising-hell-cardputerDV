@@ -117,10 +117,11 @@ static bool kbWordHasEsc(const decltype(M5Cardputer.Keyboard.keysState()) &st)
 {
   for (auto wc : st.word)
   {
-    if (!wc) continue;
+    if (!wc)
+      continue;
     const uint8_t uc = (uint8_t)wc;
     if (uc == 0x1B || uc == 0x29 || wc == '`' || wc == '~' || uc == 0xB0)
-    return true;
+      return true;
   }
   return false;
 }
@@ -205,6 +206,25 @@ static void IRAM_ATTR updateEncoderISR()
 
   g_lastEncState = state;
 #endif
+}
+
+// Backspace Helper for preventing del from opening menu
+static inline bool backspaceMapsToMenuInState(UIState s)
+{
+  // If we're on the sleep tab or in the dedicated sleeping UI, DEL/BKSP must do nothing.
+  // This prevents "open menu -> close menu -> wake pet" side effects.
+  if (g_app.currentTab == Tab::TAB_SLEEP)
+    return false;
+
+  switch (s)
+  {
+    case UIState::INVENTORY:
+    case UIState::SHOP:
+    case UIState::PET_SLEEPING:
+      return false; // Backspace inactive here
+    default:
+      return true;
+  }
 }
 
 // -----------------------------------------------------------------------------
@@ -494,7 +514,8 @@ static void readKeyboard(InputState &out)
   {
     for (auto wc : st.word)
     {
-      if (!wc) continue;
+      if (!wc)
+        continue;
       const uint8_t uc = (uint8_t)wc;
       if (uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
       {
@@ -503,10 +524,10 @@ static void readKeyboard(InputState &out)
       }
     }
   }
-  
+
   // Held-probe fallback (works even when word stream doesn't report ESC)
   const bool heldEsc = kbHeldEscKey();
-  
+
   // Unified ESC signal
   const bool escAnyHeld = (escWordThisTick || heldEsc);
 
@@ -583,8 +604,8 @@ static void readKeyboard(InputState &out)
 
   // If nothing changed AND no keys are held, we can skip work.
   // IMPORTANT: include escAnyHeld so ESC never gets skipped by this early return.
-  const bool heldSpecial =
-      heldUp || heldDown || heldLeft || heldRight || escAnyHeld || heldEnter || heldG || heldSpace || heldBackspaceSpecial;
+  const bool heldSpecial = heldUp || heldDown || heldLeft || heldRight || escAnyHeld || heldEnter || heldG ||
+                           heldSpace || heldBackspaceSpecial;
 
   if (!changed && out.kbHeldCount == 0 && !heldSpecial)
     return;
@@ -708,7 +729,7 @@ static void readKeyboard(InputState &out)
       }
       if (inMiniGameUi)
         out.mgQuitOnce = true;
-  
+
       s_settingsKeyLatched = true;
     }
   }
@@ -717,7 +738,7 @@ static void readKeyboard(InputState &out)
     // Key released -> allow a fresh escOnce next press
     s_settingsKeyLatched = false;
   }
-  
+
   // Mini-game "Once" edges from held states.
   // Uses separate latches from s_navUpLatched etc. so these don't block
   // the WASD/word-stream UI nav paths below.
@@ -893,14 +914,13 @@ static void readKeyboard(InputState &out)
         }
         else
         {
-          // UI: backspace/delete acts like BACK/CANCEL.
-          // Some firmwares report the physical ESC key as a delete token.
-          // Emit BOTH so higher layers can treat it like ESC consistently.
-          if (!s_delLatched && acceptNav(s_navMenuMs))
+          // UI: backspace/delete acts like MENU/BACK (except where disabled).
+          // Note: Some firmwares may surface unusual tokens for special keys; we treat
+          // delete/backspace only as "menu/back" and never as ESC here.
+          if (backspaceMapsToMenuInState(g_app.uiState))
           {
-            out.menuOnce = true;
-            out.escOnce  = true;
-            Serial.printf("[IN] DEL->ESC ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+            if (!s_delLatched && acceptNav(s_navMenuMs))
+              out.menuOnce = true;
           }
           s_delLatched = true;
         }
@@ -1040,13 +1060,19 @@ static void readKeyboard(InputState &out)
         }
         else
         {
-          // UI: treat delete/backspace as BACK/CANCEL too.
-          if (!s_delLatched && acceptNav(s_navMenuMs))
+          // UI: treat delete/backspace as MENU/BACK only in allowed states.
+          // IMPORTANT: keep DEL/BKSP inert during sleep (sleep tab or sleeping screen).
+          if (backspaceMapsToMenuInState(g_app.uiState))
           {
-            out.menuOnce = true;
-            out.escOnce  = true;
-            Serial.printf("[IN] HELDDEL->ESC ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+            if (!s_delLatched && acceptNav(s_navMenuMs))
+            {
+              out.menuOnce = true;
+              // Do NOT also emit escOnce here; that was causing close/return side-effects.
+              // out.escOnce = true;
+            }
           }
+    
+          // Always latch while held so we don't spam edges.
           s_delLatched = true;
         }
       }
@@ -1055,7 +1081,6 @@ static void readKeyboard(InputState &out)
         s_delLatched = false;
       }
     }
-
   // Enter edge + optional UI select mapping
   if (st.enter)
   {

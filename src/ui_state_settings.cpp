@@ -54,9 +54,23 @@ void resetSettingsNav(bool resetTopIndex);
 void uiSettingsHandle(InputState& input)
 {
   auto backToReturnPage = [&]() -> bool {
+    // These are "picker" / sub-flow pages that should go back to the page that opened them.
     if (g_settingsFlow.settingsPage == SettingsPage::DECAY_MODE ||
         g_settingsFlow.settingsPage == SettingsPage::AUTO_SCREEN) {
       g_settingsFlow.settingsPage = g_settingsFlow.settingsReturnPage;
+      requestUIRedraw();
+      playBeep();
+      clearInputLatch();
+      return true;
+    }
+    return false;
+  };
+
+  auto backToTopLevel = [&]() -> bool {
+    // From ANY submenu page, ESC should return to the TOP settings menu,
+    // not exit Settings back to the caller.
+    if (g_settingsFlow.settingsPage != SettingsPage::TOP) {
+      g_settingsFlow.settingsPage = SettingsPage::TOP;
       requestUIRedraw();
       playBeep();
       clearInputLatch();
@@ -79,15 +93,22 @@ void uiSettingsHandle(InputState& input)
     g_settingsFlow.settingsReturnValid = false;
 
     uiActionEnterState(retState, retTab, true);
-        playBeep();
+    playBeep();
     clearInputLatch();
   };
 
-  // ESC or MENU: back out of picker subpages, otherwise exit settings
+  // ESC or MENU:
+  //  1) back out of picker subpages (AUTO_SCREEN/DECAY_MODE) to their return page
+  //  2) otherwise, if not on TOP, go back to TOP
+  //  3) otherwise (already on TOP), exit Settings to returnState/returnTab
   if (input.menuOnce || input.escOnce) {
-    if (!backToReturnPage()) {
-      exitSettings();
-    }
+    if (backToReturnPage())
+      return;
+
+    if (backToTopLevel())
+      return;
+
+    exitSettings();
     return;
   }
 

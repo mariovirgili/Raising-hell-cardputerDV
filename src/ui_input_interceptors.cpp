@@ -1,4 +1,3 @@
-
 #include <Arduino.h>
 
 #include "M5Cardputer.h" // <-- direct keyboard probe fallback
@@ -10,10 +9,11 @@
 #include "ui_input_common.h"
 #include "ui_runtime.h"
 #include "ui_suppress.h"
+#include "ui_state_console.h"
 #include "flow_power_menu.h"
 #include "ui_actions.h"
-#include "ui_state_console.h"
 #include "save_manager.h" // saveManagerGetBirthEpoch()
+#include "sleep_state.h"  // isPetSleepingNow() (via led_status.h on your project)
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
@@ -77,13 +77,13 @@ static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-  case UIState::PET_SCREEN:
-  case UIState::INVENTORY:
-  case UIState::SHOP:
-  case UIState::SLEEP_MENU:
-    return true;
-  default:
-    return false;
+    case UIState::PET_SCREEN:
+    case UIState::INVENTORY:
+    case UIState::SHOP:
+    case UIState::SLEEP_MENU:
+      return true;
+    default:
+      return false;
   }
 }
 
@@ -93,50 +93,63 @@ static inline bool escCanOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-  case UIState::CONSOLE:    // handled earlier (closeConsoleAndReturn)
-  case UIState::POWER_MENU: // handled earlier (powerMenuClose)
-  case UIState::SETTINGS:   // IMPORTANT: let settings handler dismiss itself
+    case UIState::CONSOLE:    // handled earlier (closeConsoleAndReturn)
+    case UIState::POWER_MENU: // handled earlier (powerMenuClose)
+    case UIState::SETTINGS:   // IMPORTANT: let settings handler dismiss itself
 
-  case UIState::SET_TIME:
-  case UIState::NAME_PET:
-  case UIState::WIFI_SETUP:
-  case UIState::CHOOSE_PET:
+    case UIState::SET_TIME:
+    case UIState::NAME_PET:
+    case UIState::WIFI_SETUP:
+    case UIState::CHOOSE_PET:
 
-  case UIState::HATCHING:
-  case UIState::EVOLUTION:
-  case UIState::MINI_GAME:
-  case UIState::DEATH:
-  case UIState::BURIAL_SCREEN:
-  case UIState::PET_SLEEPING:
-    return false;
+    case UIState::HATCHING:
+    case UIState::EVOLUTION:
+    case UIState::MINI_GAME:
+    case UIState::DEATH:
+    case UIState::BURIAL_SCREEN:
+      return false;
 
-  default:
-    return true;
+    // NOTE: PET_SLEEPING is allowed (ESC should still open Settings while asleep).
+    default:
+      return true;
   }
 }
 
 static void openSettingsFromHere(InputState &in)
 {
-  // Remember where to go back to
-  g_settingsFlow.settingsReturnState = g_app.uiState;
-  g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+  // Remember where to go back to.
+  // IMPORTANT: if we're currently in the PET_SLEEPING UI state,
+  // always return to PET_SLEEPING on the Sleep tab so exiting Settings
+  // doesn't force-wake the pet.
+  const bool sleepActive = (g_app.uiState == UIState::PET_SLEEPING);
+
+  if (sleepActive)
+  {
+    g_settingsFlow.settingsReturnState = UIState::PET_SLEEPING;
+    g_settingsFlow.settingsReturnTab   = Tab::TAB_SLEEP;
+  }
+  else
+  {
+    g_settingsFlow.settingsReturnState = g_app.uiState;
+    g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+  }
+
   g_settingsFlow.settingsReturnValid = true;
-  
+
   // Enter settings *without* changing tabs
   uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
 
   // Eat edges so they don't double-trigger inside settings
   in.escOnce  = false;
   in.menuOnce = false;
-  in.homeOnce = false; // IMPORTANT: if Q is mapped to "home", don't let it immediately fire after we enter settings
+  in.homeOnce = false; // if Q maps to home, don't let it immediately fire after entering settings
 
   requestUIRedraw();
 
   // Drain any queued text/key stream so we don't "type into" settings
   uiDrainKb(in);
 
-  // Centralized "transition guard": suppress menu briefly + clear latches/edges
-  // (prevents immediate close / re-open loops)
+  // Transition guard: suppress menu briefly + clear latches/edges
   uiGuardTransition(in, 150);
 }
 
@@ -220,8 +233,6 @@ bool uiInputApplyInterceptors(InputState &in)
 {
   // 0) Ensure ESC exists even in tabs where the input layer fails to generate it.
   // Do this BEFORE suppression logic so it participates consistently.
-  // Some UI states fail to generate escOnce at the input layer.
-  // We synthesize a physical ESC edge here so routing is consistent.
   synthesizeEscOnceIfNeeded(in);
 
   // 1) If menu is suppressed, swallow edges and stop.
