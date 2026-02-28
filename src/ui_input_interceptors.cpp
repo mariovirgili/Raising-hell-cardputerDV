@@ -1,23 +1,19 @@
-#include "ui_input_interceptors.h"
 
 #include <Arduino.h>
 
-#include "M5Cardputer.h"   // <-- direct keyboard probe fallback
-
+#include "M5Cardputer.h" // <-- direct keyboard probe fallback
+#include "ui_input_interceptors.h"
 #include "app_state.h"
 #include "input.h"
-
 #include "graphics.h"
 #include "settings_flow_state.h"
+#include "ui_input_common.h"
 #include "ui_runtime.h"
 #include "ui_suppress.h"
-#include "ui_input_common.h"
-
+#include "flow_power_menu.h"
 #include "ui_actions.h"
 #include "ui_state_console.h"
-#include "flow_power_menu.h"
-
-#include "save_manager.h"  // saveManagerGetBirthEpoch()
+#include "save_manager.h" // saveManagerGetBirthEpoch()
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
@@ -35,19 +31,24 @@ static inline bool escPhysHeld()
   // Cardputer "ESC" is commonly the ` / ~ key on many firmwares/layouts.
   // Also try ASCII ESC (0x1B). Some firmwares might expose 0x29 (HID ESC)
   // through isKeyPressed(char) depending on implementation.
-  if (M5Cardputer.Keyboard.isKeyPressed('`')) return true;
-  if (M5Cardputer.Keyboard.isKeyPressed('~')) return true;
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0x1B)) return true; // ASCII ESC
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0x29)) return true; // best-effort
+  if (M5Cardputer.Keyboard.isKeyPressed('`'))
+    return true;
+  if (M5Cardputer.Keyboard.isKeyPressed('~'))
+    return true;
+  if (M5Cardputer.Keyboard.isKeyPressed((char)0x1B))
+    return true; // ASCII ESC
+  if (M5Cardputer.Keyboard.isKeyPressed((char)0x29))
+    return true; // best-effort
 
   // Some layouts have been observed to emit a degree-like glyph in word stream.
   // We can probe it as a held char too.
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0xB0)) return true;
+  if (M5Cardputer.Keyboard.isKeyPressed((char)0xB0))
+    return true;
 
   return false;
 }
 
-static inline void synthesizeEscOnceIfNeeded(InputState& in)
+static inline void synthesizeEscOnceIfNeeded(InputState &in)
 {
   // If your input layer already delivered escOnce, don't interfere.
   if (in.escOnce)
@@ -62,8 +63,6 @@ static inline void synthesizeEscOnceIfNeeded(InputState& in)
     if (!s_escPhysLatched)
     {
       in.escOnce = true;
-      // Optional: keep a breadcrumb so you can see it firing even in "affected tabs"
-      Serial.printf("[IN] ESC synth ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
       s_escPhysLatched = true;
     }
   }
@@ -78,13 +77,13 @@ static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-    case UIState::PET_SCREEN:
-    case UIState::INVENTORY:
-    case UIState::SHOP:
-    case UIState::SLEEP_MENU:
-      return true;
-    default:
-      return false;
+  case UIState::PET_SCREEN:
+  case UIState::INVENTORY:
+  case UIState::SHOP:
+  case UIState::SLEEP_MENU:
+    return true;
+  default:
+    return false;
   }
 }
 
@@ -94,46 +93,54 @@ static inline bool escCanOpenSettingsFrom(UIState s)
 {
   switch (s)
   {
-    case UIState::CONSOLE:      // handled earlier (closeConsoleAndReturn)
-    case UIState::POWER_MENU:   // handled earlier (powerMenuClose)
-    case UIState::SETTINGS:     // IMPORTANT: let settings handler dismiss itself
+  case UIState::CONSOLE:    // handled earlier (closeConsoleAndReturn)
+  case UIState::POWER_MENU: // handled earlier (powerMenuClose)
+  case UIState::SETTINGS:   // IMPORTANT: let settings handler dismiss itself
 
-    case UIState::SET_TIME:
-    case UIState::NAME_PET:
-    case UIState::WIFI_SETUP:
-    case UIState::CHOOSE_PET:
+  case UIState::SET_TIME:
+  case UIState::NAME_PET:
+  case UIState::WIFI_SETUP:
+  case UIState::CHOOSE_PET:
 
-    case UIState::HATCHING:
-    case UIState::EVOLUTION:
-    case UIState::MINI_GAME:
-    case UIState::DEATH:
-    case UIState::BURIAL_SCREEN:
-    case UIState::PET_SLEEPING:
-      return false;
+  case UIState::HATCHING:
+  case UIState::EVOLUTION:
+  case UIState::MINI_GAME:
+  case UIState::DEATH:
+  case UIState::BURIAL_SCREEN:
+  case UIState::PET_SLEEPING:
+    return false;
 
-    default:
-      return true;
+  default:
+    return true;
   }
 }
 
-static void openSettingsFromHere(InputState& in)
+static void openSettingsFromHere(InputState &in)
 {
+  // Remember where to go back to
   g_settingsFlow.settingsReturnState = g_app.uiState;
   g_settingsFlow.settingsReturnTab   = g_app.currentTab;
-
+  g_settingsFlow.settingsReturnValid = true;
+  
+  // Enter settings *without* changing tabs
   uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
 
   // Eat edges so they don't double-trigger inside settings
   in.escOnce  = false;
   in.menuOnce = false;
+  in.homeOnce = false; // IMPORTANT: if Q is mapped to "home", don't let it immediately fire after we enter settings
 
   requestUIRedraw();
+
+  // Drain any queued text/key stream so we don't "type into" settings
   uiDrainKb(in);
-  inputForceClear();
-  clearInputLatch();
+
+  // Centralized "transition guard": suppress menu briefly + clear latches/edges
+  // (prevents immediate close / re-open loops)
+  uiGuardTransition(in, 150);
 }
 
-static bool handleConsoleExit(InputState& in)
+static bool handleConsoleExit(InputState &in)
 {
   if (g_app.uiState != UIState::CONSOLE)
     return false;
@@ -144,7 +151,7 @@ static bool handleConsoleExit(InputState& in)
   return false;
 }
 
-static bool handlePowerMenuExit(InputState& in)
+static bool handlePowerMenuExit(InputState &in)
 {
   if (g_app.uiState != UIState::POWER_MENU)
     return false;
@@ -153,7 +160,7 @@ static bool handlePowerMenuExit(InputState& in)
   {
     powerMenuClose();
 
-    in.escOnce  = false;
+    in.escOnce = false;
     in.menuOnce = false;
 
     requestUIRedraw();
@@ -166,7 +173,7 @@ static bool handlePowerMenuExit(InputState& in)
   return false;
 }
 
-static bool handleBootNamePetFix(InputState& in)
+static bool handleBootNamePetFix(InputState &in)
 {
   // One-time fix: if we ever re-enter NAME_PET after boot with a pet already alive,
   // bounce back to pet screen.
@@ -192,7 +199,7 @@ static bool handleBootNamePetFix(InputState& in)
   return true;
 }
 
-static bool handleMenuSuppression(InputState& in)
+static bool handleMenuSuppression(InputState &in)
 {
   if (!menuSuppressedNow())
     return false;
@@ -209,10 +216,12 @@ static bool handleMenuSuppression(InputState& in)
   return false;
 }
 
-bool uiInputApplyInterceptors(InputState& in)
+bool uiInputApplyInterceptors(InputState &in)
 {
   // 0) Ensure ESC exists even in tabs where the input layer fails to generate it.
   // Do this BEFORE suppression logic so it participates consistently.
+  // Some UI states fail to generate escOnce at the input layer.
+  // We synthesize a physical ESC edge here so routing is consistent.
   synthesizeEscOnceIfNeeded(in);
 
   // 1) If menu is suppressed, swallow edges and stop.
@@ -253,7 +262,4 @@ bool uiInputApplyInterceptors(InputState& in)
   return false;
 }
 
-bool uiHandleGlobalInterceptors(InputState& in)
-{
-  return uiInputApplyInterceptors(in);
-}
+bool uiHandleGlobalInterceptors(InputState &in) { return uiInputApplyInterceptors(in); }

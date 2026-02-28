@@ -38,6 +38,7 @@ struct InputState
   uint8_t tabJump = 255;
 
   bool menuOnce = false;
+  bool homeOnce = false; 
   bool selectOnce = false;
   bool upOnce = false;
   bool downOnce = false;
@@ -115,6 +116,7 @@ struct InputState
   {
     // one-tick edge pulses
     menuOnce = selectOnce = upOnce = downOnce = leftOnce = rightOnce = false;
+    homeOnce = false;
     encoderPressOnce = false;
     screenOnce = false;
     escOnce = false;

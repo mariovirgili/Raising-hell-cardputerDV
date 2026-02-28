@@ -36,6 +36,7 @@
 #include "ui_state_console.h"
 #include "ui_tabs.h"
 #include "wifi_time.h"
+
 #include <Arduino.h>
 #include <cstring>
 
@@ -143,20 +144,6 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   if (!isScreenOn())
   {
-    // Allow keyboard wake while screen is off (not just motion shake).
-    // If you consider this "temp", tell me and I'll remove it.
-    InputState offInput = readInput();
-    if (hasUserActivity(offInput))
-    {
-      SET_SCREEN_POWER(true);
-      noteUserActivity();
-      invalidateBackgroundCache();
-      requestUIRedraw();
-      clearInputLatch();
-      delay(5);
-      return;
-    }
-
     wifiTimeTick();
     updateTime();
     updateBattery();
@@ -344,7 +331,7 @@ void appMainLoopTick()
       soundClick();
     if (input.selectOnce || input.encoderPressOnce)
       soundConfirm();
-    if (input.menuOnce || input.escOnce)
+    if (input.menuOnce || input.homeOnce || input.escOnce)
       soundCancel();
   }
 
@@ -416,6 +403,7 @@ void appMainLoopTick()
     input.tabJump = 255;
     input.consoleOnce = false;
     input.hotSettings = false;
+    input.homeOnce = false;
   }
 
   // If sleeping, block focus-stealing tab hotkeys.
@@ -433,13 +421,14 @@ void appMainLoopTick()
     }
   }
 
-  // Don't allow ESC/C/Q to steal focus on New Pet flow screens
+  // Don't allow ESC/C/Q/tab jumps to steal focus on New Pet flow screens
   if (g_app.uiState == UIState::CHOOSE_PET)
   {
     input.consoleOnce = false;
     input.escOnce = false;
     input.hotSettings = false;
     input.menuOnce = false;
+    input.homeOnce = false;
     input.tabJump = 255;
   }
   else
@@ -461,6 +450,7 @@ void appMainLoopTick()
         input.escOnce = false;
         input.hotSettings = false;
         input.menuOnce = false;
+        input.homeOnce = false;
       }
 
       if (input.tabJump != 255)
@@ -506,25 +496,32 @@ void appMainLoopTick()
 #endif
   }
 
-  // MENU key returns to pet root ONLY when not already on PET_SCREEN.
-  // When on PET_SCREEN (including STAT/FEED/PLAY tabs), MENU should open Settings
-  // via the normal interceptors/menu handler.
-  if (g_app.uiState != UIState::SET_TIME && g_app.uiState != UIState::POWER_MENU &&
-      g_app.uiState != UIState::SETTINGS && g_app.uiState != UIState::CONSOLE && input.menuOnce)
+  // ---------------------------------------------------------------------------
+  // HOME KEY (Q): return to PET tab from anywhere reasonable
+  // IMPORTANT: this is separate from MENU/ESC which are for opening/dismissing menus.
+  // ---------------------------------------------------------------------------
+  if (input.homeOnce)
   {
-    // While sleeping, do NOT hijack menuOnce here.
-    // Let handleMenuInput() decide.
-    if (g_app.uiState != UIState::PET_SLEEPING)
+    const bool canHome =
+        (g_app.uiState != UIState::SET_TIME) &&
+        (g_app.uiState != UIState::POWER_MENU) &&
+        (g_app.uiState != UIState::DEATH) &&
+        (g_app.uiState != UIState::BURIAL_SCREEN) &&
+        (g_app.uiState != UIState::MINI_GAME) &&
+        (g_app.uiState != UIState::HATCHING) &&
+        (g_app.uiState != UIState::EVOLUTION);
+
+    if (canHome && g_app.uiState != UIState::PET_SLEEPING)
     {
-      if (g_app.uiState != UIState::PET_SCREEN)
-      {
-        noteUserActivity();
-  
-        uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, input, 200);
-  
-        invalidateBackgroundCache();
-        return;
-      }
+      noteUserActivity();
+
+      uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, input, 200);
+
+      invalidateBackgroundCache();
+      requestUIRedraw();
+      input = InputState{};
+      clearInputLatch();
+      return;
     }
   }
 
@@ -541,7 +538,7 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   // Input-driven redraw hint (single copy)
   // ---------------------------------------------------------------------------
-  if (input.menuOnce || input.selectOnce || input.upOnce || input.downOnce || (input.encoderDelta != 0))
+  if (input.menuOnce || input.escOnce || input.selectOnce || input.upOnce || input.downOnce || (input.encoderDelta != 0))
   {
     requestUIRedraw();
   }
@@ -606,7 +603,6 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   // Pet tick (ALWAYS run even if Console is open)
   // ---------------------------------------------------------------------------
-
   const bool inDeathFlow = (g_app.uiState == UIState::DEATH) || (g_app.uiState == UIState::MINI_GAME) ||
                            (g_app.uiState == UIState::BURIAL_SCREEN);
 
@@ -633,7 +629,7 @@ void appMainLoopTick()
   }
 
   // ---------------------------------------------------------------------------
-  // Menu input
+  // Menu input (includes global interceptors)
   // ---------------------------------------------------------------------------
   handleMenuInput(input);
 

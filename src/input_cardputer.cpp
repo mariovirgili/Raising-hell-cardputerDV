@@ -922,11 +922,11 @@ static void readKeyboard(InputState &out)
 
       if (!g_textCaptureMode)
       {
-        // Q -> menu edge
+        // Q -> HOME edge (return to pet tab/root)
         if (lc == 'q')
         {
           if (!s_qLatched && acceptNav(s_navMenuMs))
-            out.menuOnce = true;
+            out.homeOnce = true;
           s_qLatched = true;
           continue;
         }
