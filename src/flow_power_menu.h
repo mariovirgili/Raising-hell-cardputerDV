@@ -6,3 +6,5 @@ struct InputState;
 // Power menu
 void openPowerMenuFromHere(uint32_t now);
 void uiPowerMenuHandle(InputState& in);
+
+void powerMenuClose();

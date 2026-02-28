@@ -46,7 +46,7 @@ void inputConsumeEnterOnce() { g_consumeEnterOnce = true; }
 bool g_textCaptureMode = false;
 
 // Keyboard edge latches
-static bool s_settingsKeyLatched = false; // ` or ~
+static bool s_settingsKeyLatched = false; // ESC latch (historically ` / ~ on some layouts)
 static bool s_enterLatched = false;
 static bool s_mgSelectLatched = false; // mini-game Enter/G edge latch (separate from UI Enter)
 static bool s_delLatched = false;
@@ -68,7 +68,9 @@ static bool s_spaceLatched = false;
 // -----------------------------------------------------------------------------
 static inline bool kbHeldChar(char c) { return M5Cardputer.Keyboard.isKeyPressed(c); }
 
-static inline bool kbHeldKey(uint8_t keycode) { return M5Cardputer.Keyboard.isKeyPressed((char)keycode); }
+// NOTE: M5Cardputer::Keyboard.isKeyPressed() is character-based on many firmwares.
+// Passing HID usage IDs here is NOT reliable. Keep this only for ASCII control probes.
+static inline bool kbHeldKey(uint8_t ascii) { return M5Cardputer.Keyboard.isKeyPressed((char)ascii); }
 
 // Your arrow cluster on Cardputer is usually FN-layer punctuation.
 // Common mapping used in Cardputer projects:
@@ -91,7 +93,6 @@ static inline bool kbHeldEscKey()
     return true;
 
   // Some layouts/fonts report this key as degree in the word stream; held-probe is best-effort.
-  // (0xB0 in Latin-1). Not all firmwares will report non-ASCII to isKeyPressed().
   if (kbHeldChar((char)0xB0))
     return true;
 
@@ -101,12 +102,8 @@ static inline bool kbHeldEscKey()
 static inline bool kbHeldBackspaceKey()
 {
   // Try multiple representations.
-  // 0x2A = HID Backspace
-  if (kbHeldKey(0x2A))
-    return true;
-
   // Some firmwares may treat backspace as ASCII BS or DEL.
-  if (kbHeldChar(''))
+  if (kbHeldChar('\b'))
     return true;
   if (kbHeldChar((char)0x08))
     return true; // BS
@@ -120,22 +117,17 @@ static bool kbWordHasEsc(const decltype(M5Cardputer.Keyboard.keysState()) &st)
 {
   for (auto wc : st.word)
   {
-    if (!wc)
-      continue;
+    if (!wc) continue;
     const uint8_t uc = (uint8_t)wc;
-    if (uc == 0x29 || uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
-      return true;
+    if (uc == 0x1B || uc == 0x29 || wc == '`' || wc == '~' || uc == 0xB0)
+    return true;
   }
   return false;
 }
 
 static inline bool kbHeldDeleteKey()
 {
-  // 0x4C = HID Delete (forward delete)
-  if (kbHeldKey(0x4C))
-    return true;
-
-  // Some firmwares may surface forward-delete as ASCII DEL too.
+  // Forward delete often surfaces as ASCII DEL on some firmwares.
   if (kbHeldChar((char)0x7F))
     return true;
 
@@ -297,11 +289,13 @@ void clearInputLatch()
   // Reset keyboard latches.
   // IMPORTANT: preserve latches for keys that are currently HELD.
   auto st = M5Cardputer.Keyboard.keysState();
-  s_settingsKeyLatched = kbWordHasEsc(st); 
 
   // Preserve held state so clearing latches while ESC key is held
   // doesn't synthesize a fresh escOnce next tick.
-  s_settingsKeyLatched = kbWordHasEsc(st);
+  // IMPORTANT: keysState().word can be stale unless isChange() is true on some firmwares.
+  // For latch preservation, only trust the held-probe.
+  s_settingsKeyLatched = kbHeldEscKey();
+
   s_enterLatched = st.enter;                       // preserve held enter
   s_delLatched = (st.del || kbHeldAnyDeleteKey()); // preserve held delete/backspace
 
@@ -320,8 +314,6 @@ void clearInputLatch()
   // It is derived from held state in the keyboard scan; clearing/preserving it
   // during transitions can either synthesize a fresh mgSelectOnce (restart bug)
   // or get stuck true (can't-start bug).
-  //
-  // s_mgSelectLatched = false; // intentionally not touched
 
   // Reset edge tracking for GPIO so next tick doesn't generate "Once"
   const unsigned long now = millis();
@@ -493,6 +485,31 @@ static void readKeyboard(InputState &out)
 
   const bool inMiniGameUi = (g_app.uiState == UIState::MINI_GAME);
 
+  // -----------------------------------------------------------------------------
+  // ESC detection (must NOT depend on `changed`, and must happen BEFORE early-return)
+  // -----------------------------------------------------------------------------
+  // Scan the word stream ONLY when changed (word can be stale otherwise)
+  bool escWordThisTick = false;
+  if (changed)
+  {
+    for (auto wc : st.word)
+    {
+      if (!wc) continue;
+      const uint8_t uc = (uint8_t)wc;
+      if (uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
+      {
+        escWordThisTick = true;
+        break;
+      }
+    }
+  }
+  
+  // Held-probe fallback (works even when word stream doesn't report ESC)
+  const bool heldEsc = kbHeldEscKey();
+  
+  // Unified ESC signal
+  const bool escAnyHeld = (escWordThisTick || heldEsc);
+
   // Always compute mini-game held controls
   const bool heldUp = kbHeldUpArrow();
   const bool heldDown = kbHeldDownArrow();
@@ -512,7 +529,6 @@ static void readKeyboard(InputState &out)
   const bool heldEnter = st.enter;
   const bool heldG = kbHeldChar('g') || kbHeldChar('G');
   const bool heldSpace = kbHeldChar(' ');
-  const bool heldEsc = kbHeldEscKey();
 
   bool delWordThisTick = false;
   if (changed)
@@ -566,8 +582,9 @@ static void readKeyboard(InputState &out)
   }
 
   // If nothing changed AND no keys are held, we can skip work.
+  // IMPORTANT: include escAnyHeld so ESC never gets skipped by this early return.
   const bool heldSpecial =
-      heldUp || heldDown || heldLeft || heldRight || heldEsc || heldEnter || heldG || heldSpace || heldBackspaceSpecial;
+      heldUp || heldDown || heldLeft || heldRight || escAnyHeld || heldEnter || heldG || heldSpace || heldBackspaceSpecial;
 
   if (!changed && out.kbHeldCount == 0 && !heldSpecial)
     return;
@@ -675,52 +692,29 @@ static void readKeyboard(InputState &out)
   bool sawDelWordThisTick = false;
 
   // -----------------------------------------------------------------------------
-  // ESC detection (must NOT depend on `changed`)
+  // ESC edge generation (uses escAnyHeld, not just st.word)
   // -----------------------------------------------------------------------------
-  
-  bool escWordThisTick = false;
-  
-  // Scan the word stream every tick.
-  // Some firmwares do NOT mark ESC as a "changed" key.
-  for (auto wc : st.word)
+  const bool escNow = escAnyHeld;
+
+  if (escNow)
   {
-    if (!wc)
-      continue;
-  
-    const uint8_t uc = (uint8_t)wc;
-  
-    if (uc == 0x29 ||      // HID ESC
-        uc == 0x1B ||      // ASCII ESC
-        wc == '`'  ||      // fallback
-        wc == '~'  ||      // fallback
-        uc == 0xB0)        // observed variant
+    if (!s_settingsKeyLatched)
     {
-      escWordThisTick = true;
-      break;
-    }
-  }
-  
-  const bool escNow = escWordThisTick;
-  
-  if (escNow && !s_settingsKeyLatched)
-  {
-    if (g_textCaptureMode)
-    {
-      if (acceptNav(s_navMenuMs))
-        out.menuOnce = true;
-    }
-    else
-    {
+      // Always emit escOnce for ESC. Let higher layers decide meaning.
       out.escOnce = true;
+      if (out.escOnce)
+      {
+        Serial.printf("[IN] ESC once ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+      }
+      if (inMiniGameUi)
+        out.mgQuitOnce = true;
+  
+      s_settingsKeyLatched = true;
     }
-  
-    if (inMiniGameUi)
-      out.mgQuitOnce = true;
-  
-    s_settingsKeyLatched = true;
   }
-  else if (!escNow)
+  else
   {
+    // Key released -> allow a fresh escOnce next press
     s_settingsKeyLatched = false;
   }
   
@@ -813,10 +807,11 @@ static void readKeyboard(InputState &out)
       // ESC key can show up in the word stream in several forms.
       // We already generate the edge above (escOnce/menuOnce), so just suppress it here.
       const uint8_t ucEsc = (uint8_t)c;
-      if (ucEsc == 0x29 || ucEsc == 0x1B || c == '`' || c == '~' || ucEsc == 0xB0)
+      if (ucEsc == 0x1B || ucEsc == 0x29 || c == '`' || c == '~' || ucEsc == 0xB0)
       {
         continue;
       }
+
       // Arrow keys HID usage IDs: Right=0x4F, Left=0x50, Down=0x51, Up=0x52
       if ((uint8_t)c == 0x52)
       { // Up
@@ -898,9 +893,15 @@ static void readKeyboard(InputState &out)
         }
         else
         {
-          // UI: backspace/delete acts like MENU/BACK
+          // UI: backspace/delete acts like BACK/CANCEL.
+          // Some firmwares report the physical ESC key as a delete token.
+          // Emit BOTH so higher layers can treat it like ESC consistently.
           if (!s_delLatched && acceptNav(s_navMenuMs))
+          {
             out.menuOnce = true;
+            out.escOnce  = true;
+            Serial.printf("[IN] DEL->ESC ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+          }
           s_delLatched = true;
         }
         continue;
@@ -1026,29 +1027,34 @@ static void readKeyboard(InputState &out)
   if (!sawRightThisTick)
     s_navRightLatched = false;
 
-  // Backspace/Delete fallback (if firmware doesn't emit 0x2A/0x4C in st.word)
-  if (!sawDelWordThisTick)
-  {
-    if (heldBackspaceSpecial)
+    // Backspace/Delete fallback (if firmware doesn't emit 0x2A/0x4C in st.word)
+    if (!sawDelWordThisTick)
     {
-      if (g_textCaptureMode)
+      if (heldBackspaceSpecial)
       {
-        if (!s_delLatched)
-          out.kbPush((uint8_t)'\b');
-        s_delLatched = true;
+        if (g_textCaptureMode)
+        {
+          if (!s_delLatched)
+            out.kbPush((uint8_t)'\b');
+          s_delLatched = true;
+        }
+        else
+        {
+          // UI: treat delete/backspace as BACK/CANCEL too.
+          if (!s_delLatched && acceptNav(s_navMenuMs))
+          {
+            out.menuOnce = true;
+            out.escOnce  = true;
+            Serial.printf("[IN] HELDDEL->ESC ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+          }
+          s_delLatched = true;
+        }
       }
       else
       {
-        if (!s_delLatched && acceptNav(s_navMenuMs))
-          out.menuOnce = true;
-        s_delLatched = true;
+        s_delLatched = false;
       }
     }
-    else
-    {
-      s_delLatched = false;
-    }
-  }
 
   // Enter edge + optional UI select mapping
   if (st.enter)

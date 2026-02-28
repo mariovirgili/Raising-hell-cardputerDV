@@ -22,8 +22,4 @@ void uiClearSleepWakeSuppression();
 // -----------------------------------------------------------------------------
 // Transition helper
 // -----------------------------------------------------------------------------
-// Use when switching UI states to avoid accidental double-presses.
-// - Optionally suppress MENU/ESC for a short time
-// - Clears one-shot edges and the input latch
-// NOTE: Does NOT redraw; call requestUIRedraw()/requestFullUIRedraw() at the call site.
 void uiGuardTransition(InputState& input, uint32_t menuSuppressMs = 0);

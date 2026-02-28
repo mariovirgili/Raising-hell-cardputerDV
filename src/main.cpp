@@ -3,19 +3,17 @@
 #include "state_manager.h"
 #include "legacy_app_state.h"
 #include <stdint.h>
-#include "app_loop.h"
 
-void appMainLoopTick();
-void appServicesTick(uint32_t nowMs);
 static LegacyAppState g_legacy;
 
-void setup() {
-    appSetup();
-    state_manager.setState(&g_legacy);
+void setup()
+{
+  appSetup();
+  state_manager.setState(&g_legacy);
 }
 
-void loop() {
-    const uint32_t now = millis();
-    appServicesTick(now); 
-    state_manager.update();
-  }
+void loop()
+{
+  state_manager.update();
+  delay(1); // keep this tiny yield; not temp, prevents RTOS/WDT issues
+}

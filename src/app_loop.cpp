@@ -75,11 +75,35 @@ static inline UIState uiStateForTab(Tab t)
 
 void appMainLoopTick()
 {
-
   // ---------------------------------------------------------------------------
   // TRUE LOOP-ENTRY TIMESTAMP
   // ---------------------------------------------------------------------------
   const uint32_t now = millis();
+
+  // ---------------------------------------------------------------------------
+  // BOOT KEEP-AWAKE (MUST run before SCREEN OFF PATH early return)
+  // Prevents booting into a permanently blank screen if display begins OFF.
+  // ---------------------------------------------------------------------------
+  if (!s_bootKeepAwakeInited)
+  {
+    s_bootKeepAwakeInited = true;
+    s_bootKeepAwakeUntilMs = now + 6000;
+  }
+
+  if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
+  {
+    // Feed inactivity timer during early boot.
+    noteUserActivity();
+
+    // If the panel starts off, force it ON during the boot window.
+    if (!isScreenOn())
+    {
+      SET_SCREEN_POWER(true);
+      invalidateBackgroundCache();
+      requestUIRedraw();
+      clearInputLatch();
+    }
+  }
 
   // ---------------------------------------------------------------------------
   // SERIAL SAFE PRINT HELPERS
@@ -119,6 +143,20 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   if (!isScreenOn())
   {
+    // Allow keyboard wake while screen is off (not just motion shake).
+    // If you consider this "temp", tell me and I'll remove it.
+    InputState offInput = readInput();
+    if (hasUserActivity(offInput))
+    {
+      SET_SCREEN_POWER(true);
+      noteUserActivity();
+      invalidateBackgroundCache();
+      requestUIRedraw();
+      clearInputLatch();
+      delay(5);
+      return;
+    }
+
     wifiTimeTick();
     updateTime();
     updateBattery();
@@ -163,10 +201,8 @@ void appMainLoopTick()
   // ---------------------------------------------------------------------------
   // SCREEN ON PATH
   // ---------------------------------------------------------------------------
-  // ---------------------------------------------------------------------------
   // Force one render after boot so we never sit on a blank screen because
   // uiNeedsRedraw was never set by the boot pipeline.
-  // ---------------------------------------------------------------------------
   if (!s_forcedFirstRender)
   {
     s_forcedFirstRender = true;
@@ -316,31 +352,6 @@ void appMainLoopTick()
   if (hasUserActivity(input))
     noteUserActivity();
 
-  // ---------------------------------------------------------------------------
-  // BOOT KEEP-AWAKE (prevents auto_screen from blanking during early init)
-  // ---------------------------------------------------------------------------
-  if (!s_bootKeepAwakeInited)
-  {
-    s_bootKeepAwakeInited = true;
-    s_bootKeepAwakeUntilMs = now + 6000;
-  }
-
-  if ((int32_t)(now - s_bootKeepAwakeUntilMs) < 0)
-  {
-    // Feed the project's inactivity timer + ensure we render at least once.
-    noteUserActivity();
-    requestUIRedraw();
-
-    // If something already blanked the screen during boot, force it back on.
-    if (!isScreenOn())
-    {
-      SET_SCREEN_POWER(true);
-      invalidateBackgroundCache();
-      requestUIRedraw();
-      clearInputLatch();
-    }
-  }
-
   autoScreenTick();
 
   if (!isScreenOn())
@@ -436,7 +447,6 @@ void appMainLoopTick()
     // Bottom-row tab hotkeys (z x c v b n m) — only when not in restricted screens
     if (g_app.uiState != UIState::NAME_PET && g_app.uiState != UIState::SET_TIME)
     {
-
       if (sleepingNow && input.tabJump != 255)
       {
         input.tabJump = 255;
@@ -456,10 +466,10 @@ void appMainLoopTick()
       if (input.tabJump != 255)
       {
         noteUserActivity();
-      
+
         const Tab nt = (Tab)input.tabJump;
         uiActionEnterStateClean(uiStateForTab(nt), nt, false, input, 120);
-      
+
         invalidateBackgroundCache();
         clearInputLatch();
         return;
@@ -489,7 +499,6 @@ void appMainLoopTick()
 
       invalidateBackgroundCache();
       requestUIRedraw();
-      // Clear ALL edge flags so nothing leaks into the new state this frame
       input = InputState{};
       clearInputLatch();
       return;
@@ -497,27 +506,22 @@ void appMainLoopTick()
 #endif
   }
 
-  // Q/menu key returns to pet tab/root
-  // IMPORTANT: do NOT run this while POWER_MENU is open (it steals menuOnce
-  // from handlePowerMenuInput).
-  // Also do NOT run while SETTINGS or CONSOLE are open — they handle back/cancel
-  // themselves via uiSettingsHandle / uiConsoleHandle.
+  // MENU key returns to pet root ONLY when not already on PET_SCREEN.
+  // When on PET_SCREEN (including STAT/FEED/PLAY tabs), MENU should open Settings
+  // via the normal interceptors/menu handler.
   if (g_app.uiState != UIState::SET_TIME && g_app.uiState != UIState::POWER_MENU &&
       g_app.uiState != UIState::SETTINGS && g_app.uiState != UIState::CONSOLE && input.menuOnce)
   {
-
     // While sleeping, do NOT hijack menuOnce here.
     // Let handleMenuInput() decide.
     if (g_app.uiState != UIState::PET_SLEEPING)
     {
-      noteUserActivity();
-
-      if (g_app.uiState != UIState::PET_SCREEN || g_app.currentTab != Tab::TAB_PET)
+      if (g_app.uiState != UIState::PET_SCREEN)
       {
         noteUserActivity();
-      
+  
         uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, input, 200);
-      
+  
         invalidateBackgroundCache();
         return;
       }
@@ -583,6 +587,7 @@ void appMainLoopTick()
     {
       renderUI();
     }
+
     wifiTimeTick();
     if (g_timeAnchorAttempted || timeIsSynced())
       updateTime();
@@ -615,8 +620,6 @@ void appMainLoopTick()
     else
     {
       pet.update();
-
-      // Detect level-ups right after the pet tick updates XP/level.
       uiMaybeShowLevelUpPopup();
     }
 
@@ -646,22 +649,19 @@ void appMainLoopTick()
                      /*screenOn=*/isScreenOn(),
                      /*inDeathScreen=*/(g_app.uiState == UIState::DEATH));
 
-  // Anim tick
   if (g_sdReady)
   {
     animTick();
   }
 
-  // Anim heartbeat (sleep background frames)
   sleepAnimHeartbeat(now);
   sleepMiniStatsHeartbeat(now);
 
-  // Render
   if (consumeUIRedrawRequest())
   {
     renderUI();
   }
-  // Maintenance AFTER render
+
   wifiTimeTick();
   if (g_timeAnchorAttempted || timeIsSynced())
     updateTime();

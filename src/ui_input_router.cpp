@@ -10,6 +10,8 @@
 // Central state dispatch table
 #include "ui_state_handlers.h"
 
+bool uiInputApplyInterceptors(InputState& in);
+
 static inline bool wantsTextCapture(UIState s)
 {
   switch (s)
@@ -58,7 +60,7 @@ bool uiHandleInput(InputState &in)
   // Keeping all dispatch in one place avoids "wrong handler" bugs.
 
   // Phase 1: global interceptors (power menu, ESC->settings, sleep gate, etc.)
-  if (uiHandleGlobalInterceptors(in))
+  if (uiInputApplyInterceptors(in))
     return true;
 
   if (isNoInputState(g_app.uiState))
