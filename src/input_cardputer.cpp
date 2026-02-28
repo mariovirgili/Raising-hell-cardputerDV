@@ -1,9 +1,7 @@
 #include "input.h"
-
 #include "M5Cardputer.h"
 #include <Arduino.h>
 #include <ctype.h>
-
 #include "app_state.h"
 #include "currency.h"
 #include "display.h"

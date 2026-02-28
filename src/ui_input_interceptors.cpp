@@ -97,6 +97,9 @@ static inline bool escCanOpenSettingsFrom(UIState s)
     case UIState::POWER_MENU: // handled earlier (powerMenuClose)
     case UIState::SETTINGS:   // IMPORTANT: let settings handler dismiss itself
 
+    // Mini-game pause menu MUST own ESC (continue/exit) — never open settings here.
+    case UIState::MG_PAUSE:
+
     case UIState::SET_TIME:
     case UIState::NAME_PET:
     case UIState::WIFI_SETUP:
@@ -107,9 +110,9 @@ static inline bool escCanOpenSettingsFrom(UIState s)
     case UIState::MINI_GAME:
     case UIState::DEATH:
     case UIState::BURIAL_SCREEN:
+    case UIState::PET_SLEEPING:
       return false;
 
-    // NOTE: PET_SLEEPING is allowed (ESC should still open Settings while asleep).
     default:
       return true;
   }
