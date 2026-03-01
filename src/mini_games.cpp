@@ -691,15 +691,15 @@ void miniGameExitToReturnUi(bool beginLockout)
   s_showReward = false;
   s_rewardMsg[0] = 0;
 
-  // Decide where we're going FIRST, and switch away from MG_PAUSE/MINI_GAME
+  // Decide where we're going FIRST, and switch away from MINI_GAME / MG_PAUSE.
   UIState target = miniGameGetReturnUiOrDefault(UIState::PET_SCREEN);
   if (target == UIState::MINI_GAME || target == UIState::MG_PAUSE)
     target = UIState::PET_SCREEN;
 
   miniGameClearReturnUi();
 
-  // IMPORTANT: change state before clearing the mini-game so MG_PAUSE doesn't
-  // render one frame with currentMiniGame == NONE ("NO MINI GAME" flash).
+  // IMPORTANT: switch UI state BEFORE clearing currentMiniGame,
+  // so MG_PAUSE doesn't render one frame with "NO MINI GAME".
   g_app.uiState = target;
 
   // Now tear down the mini-game
@@ -719,9 +719,7 @@ void miniGameExitToReturnUi(bool beginLockout)
   requestFullUIRedraw();
 
   if (beginLockout)
-  {
     mgBeginInputLockout(220);
-  }
 }
 
 // Back-compat: older call sites used this name.
