@@ -171,9 +171,40 @@ uint8_t mgPauseChoice() { return s_choice; }
 // and link against the real one instead.
 uint8_t mgPauseHandle(const InputState& input)
 {
-  (void)input;
+  const uint32_t now = millis();
 
-  // Default behavior: if paused, consume updates; otherwise do nothing.
-  // This keeps builds sane even before wiring real input fields.
-  return s_paused ? MGPAUSE_CONSUME : MGPAUSE_NONE;
+  // While not paused, only ESC (mgQuitOnce) can enter pause (handled elsewhere).
+  // This function primarily handles navigation/selection *while paused*.
+  if (!s_paused) return MGPAUSE_NONE;
+
+  // ESC resumes immediately.
+  if (input.mgQuitOnce)
+  {
+    setPausedInternal(false, now);
+    return MGPAUSE_CONSUME;
+  }
+
+  // Navigate options (0 = Continue, 1 = Exit).
+  if (input.mgUpOnce || input.mgDownOnce)
+  {
+    s_choice = (s_choice == 0) ? 1 : 0;
+    return MGPAUSE_CONSUME;
+  }
+
+  // ENTER selects.
+  if (input.mgSelectOnce)
+  {
+    if (s_choice == 0)
+    {
+      setPausedInternal(false, now);
+      return MGPAUSE_CONSUME;
+    }
+    else
+    {
+      setPausedInternal(false, now);
+      return MGPAUSE_EXIT;
+    }
+  }
+
+  return MGPAUSE_CONSUME;
 }
