@@ -12,6 +12,7 @@
 #include "input_activity_state.h"
 
 static bool s_waitSntpBeforeSync = true;
+static uint32_t s_consoleConnectStartMs = 0;
 
 void wifiTimeInit();
 void wifiTimeTick();
@@ -86,8 +87,8 @@ bool wifiIsEnabled() {
 }
 
 static char s_consoleSsidBuf[33] = {0};
-
 void wifiConsoleBeginConnect(const char* ssid, const char* pass) {
+  s_consoleConnectStartMs = millis();
   if (!ssid) ssid = "";
   if (!pass) pass = "";
 
@@ -100,6 +101,7 @@ void wifiConsoleBeginConnect(const char* ssid, const char* pass) {
 
   // Start connection attempt
   WiFi.begin(ssid, pass);
+  s_consoleConnectStartMs = millis();
 
   // Cache SSID for console display
   strncpy(s_consoleSsidBuf, ssid, sizeof(s_consoleSsidBuf) - 1);
@@ -166,6 +168,33 @@ void wifiSetEnabled(bool en) {
   } else {
     WiFi.mode(WIFI_STA);
     // no forced connect here unless credentials exist
+  }
+}
+
+uint32_t wifiConsoleConnectAgeMs()
+{
+  if (s_consoleConnectStartMs == 0)
+    return 0;
+  return (uint32_t)(millis() - s_consoleConnectStartMs);
+}
+
+int wifiConsoleStatus()
+{
+  return (int)WiFi.status();
+}
+
+const char* wifiConsoleStatusString()
+{
+  switch (WiFi.status())
+  {
+    case WL_IDLE_STATUS:     return "IDLE";
+    case WL_NO_SSID_AVAIL:   return "NO SSID";
+    case WL_SCAN_COMPLETED:  return "SCAN DONE";
+    case WL_CONNECTED:       return "CONNECTED";
+    case WL_CONNECT_FAILED:  return "AUTH FAILED";
+    case WL_CONNECTION_LOST: return "CONNECTION LOST";
+    case WL_DISCONNECTED:    return "DISCONNECTED";
+    default:                 return "UNKNOWN";
   }
 }
 

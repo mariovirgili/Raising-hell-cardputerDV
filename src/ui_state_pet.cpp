@@ -13,13 +13,30 @@
 #include "save_manager.h"
 #include "sound.h"
 #include "ui_menu_state.h" // feedMenuIndex, playMenuIndex
+#include "ui_actions.h"    // uiActionSwallowEdges, uiActionDrainKb
 
-// This is the exact function body that used to live in menu_actions.cpp.
-static void handlePetScreen_local(const InputState &input)
+// PET/STATS/FEED/PLAY all ride UIState::PET_SCREEN.
+//
+// IMPORTANT:
+// Do NOT call clearInputLatch() in this handler.
+// clearInputLatch() rewrites the ESC latch based on a "held ESC" probe,
+// which can get stuck and prevent escOnce from ever firing on PET_SCREEN tabs.
+// Use uiActionSwallowEdges + uiActionDrainKb to swallow without touching key latches.
+
+static inline void swallowThisFrame(InputState& in)
 {
-  // Pet screen is NOT a text-entry surface. If something left text-capture on
-  // (console exit regressions), Enter/arrows can stop working here.
-  inputSetTextCapture(false);
+  uiActionSwallowEdges(in);
+  uiActionDrainKb(in);
+}
+
+static void handlePetScreen_local(InputState &input)
+{
+  // Pet screen is NOT a text-entry surface. If something left text-capture on,
+  // Enter/arrows can stop working here.
+  if (g_textCaptureMode)
+  {
+    inputSetTextCapture(false);
+  }
 
   if (g_app.currentTab == Tab::TAB_FEED)
   {
@@ -39,7 +56,9 @@ static void handlePetScreen_local(const InputState &input)
 
       requestUIRedraw();
       playBeep();
-      clearInputLatch();
+
+      // Swallow this navigation so it doesn't cascade, but keep ESC latch intact.
+      swallowThisFrame(input);
       return;
     }
 
@@ -52,7 +71,9 @@ static void handlePetScreen_local(const InputState &input)
       inputForceClear();
 
       feedUseSelected();
-      clearInputLatch();
+
+      // Swallow any remaining edges/keys this frame (no latch reset).
+      swallowThisFrame(input);
     }
     return;
   }
@@ -77,7 +98,8 @@ static void handlePetScreen_local(const InputState &input)
 
       requestUIRedraw();
       playBeep();
-      clearInputLatch();
+
+      swallowThisFrame(input);
       return;
     }
 
@@ -91,18 +113,15 @@ static void handlePetScreen_local(const InputState &input)
       {
         ui_showMessage("Too tired!");
         soundError();
-        clearInputLatch();
+        swallowThisFrame(input);
         return;
       }
 
       pet.energy = constrain(pet.energy - 10, 0, 100);
       saveManagerMarkDirty();
 
-      // IMPORTANT:
-      // Clear any held/latched key state so the Enter that launches the game
-      // doesn't immediately act inside the mini-game or wedge nav input.
+      // Clear any queued/held input so Enter doesn't immediately act in the game.
       inputForceClear();
-      clearInputLatch();
 
       // Launch selected game
       if (playMenuIndex == 0)
@@ -118,14 +137,15 @@ static void handlePetScreen_local(const InputState &input)
         startCrossyRoad();
       }
 
-      // start*() already clears latches too, but keeping this is harmless and
-      // helps if a start routine changes in the future.
-      clearInputLatch();
+      // Swallow leftover edges for this frame (no latch reset).
+      swallowThisFrame(input);
       return;
     }
 
     return;
   }
+
+  // PET / STATS tabs: passive; no special input here.
 }
 
 void uiPetScreenHandle(InputState &input)

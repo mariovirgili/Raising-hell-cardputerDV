@@ -1,116 +1,39 @@
-// flow_controls_help.cpp
 #include "flow_controls_help.h"
-
-#include <Arduino.h>
 
 #include "app_state.h"
 #include "controls_help_state.h"
-#include "display.h"
-#include "graphics.h"
-#include "input.h"
-#include "settings_flow_state.h"
 #include "ui_actions.h"
-#include "ui_runtime.h"
-#include "ui_suppress.h"
+#include "ui_defs.h"
+#include "input.h"
 
-// Controls Help return target (so Settings->Controls can return back to Settings)
-static bool         s_returnToSettings = false;
-static SettingsPage s_returnPage       = SettingsPage::TOP;
-static int          s_returnTopIndex   = 0;
-static Tab          s_returnTab        = Tab::TAB_PET;
-
+// Public entry points used by app hotkeys / settings menu
 void openControlsHelpFromSettings()
 {
-  s_returnToSettings = true;
-  s_returnPage       = SettingsPage::TOP;
-  s_returnTopIndex   = g_app.settingsIndex;
-
-  // Settings isn't a tab. Preserve whatever tab the app currently thinks it's on.
-  s_returnTab        = g_app.currentTab;
-
-  g_app.uiState = UIState::CONTROLS_HELP;
-  requestFullUIRedraw();
-
-  // Keep it non-sticky
-  clearInputLatch();
-  inputForceClear();
+  // Return to Settings and preserve the current tab.
+  controlsHelpBegin(UIState::SETTINGS, g_app.currentTab);
 }
 
 void openControlsHelpFromAnywhere()
 {
-  if (g_app.uiState == UIState::CONTROLS_HELP)
-    return;
-
-  // If we're in Settings, preserve the current Settings cursor via the existing path.
-  if (g_app.uiState == UIState::SETTINGS)
-  {
-    openControlsHelpFromSettings();
-    return;
-  }
-
-  // Otherwise, capture current screen/tab and open the overlay.
-  s_returnToSettings = false;
-  s_returnTab        = g_app.currentTab;
-
+  // Return to wherever we are right now, preserving the current tab.
   controlsHelpBegin(g_app.uiState, g_app.currentTab);
-  g_app.uiState = UIState::CONTROLS_HELP;
-  requestFullUIRedraw();
-
-  clearInputLatch();
-  inputForceClear();
 }
 
-static void handleControlsHelpInput(InputState &in)
+// Controls help UIState handler (routed by ui_input_router)
+void uiControlsHelpHandle(InputState& in)
 {
-  bool kbDismiss = false;
+  
+// Dismiss on ENTER/SELECT (and optionally MENU/BACK), not ESC.
+// This prevents ESC from skipping required flows/screens.
+if (in.selectOnce || in.menuOnce)
+{
+  // Swallow this frame's input so it doesn't leak into the next screen.
+  uiActionSwallowAll(in);
 
-  // Treat keyboard Enter / Backspace as dismiss too
-  while (in.kbHasEvent())
-  {
-    const KeyEvent ev = in.kbPop();
-    const uint8_t c  = ev.code;
-
-    // Enter can arrive as '\n' (10) or '\r' (13) depending on source
-    // Backspace is '\b' (8)
-    if (c == '\n' || c == '\r' || c == '\b')
-      kbDismiss = true;
-  }
-
-  // Any of these dismisses
-  if (kbDismiss || in.selectOnce || in.encoderPressOnce || in.escOnce || in.menuOnce)
-  {
-    controlsHelpDismiss();
-
-    uiSuppressMenuForMs(250);
-    uiActionDrainKb(in);
-    in.clearEdges();
-    clearInputLatch();
-
-    if (s_returnToSettings)
-    {
-      s_returnToSettings = false;
-
-      g_settingsFlow.settingsPage = s_returnPage;
-      g_app.settingsIndex         = s_returnTopIndex;
-
-      // IMPORTANT: Settings is a UIState, not a Tab.
-      // Preserve the currentTab instead of a fake TAB_SETTINGS.
-      uiActionEnterState(UIState::SETTINGS, s_returnTab, true);
-
-      requestFullUIRedraw();
-      inputForceClear();
-      uiActionSwallowEdges(in);
-      clearInputLatch();
-    }
-
-    return;
-  }
-
-  // otherwise swallow everything (no accidental actions)
-  clearInputLatch();
+  controlsHelpDismiss();
+  return;
 }
 
-void uiControlsHelpHandle(InputState &in)
-{
-  handleControlsHelpInput(in);
+
+  // No other interactions needed for this help screen.
 }

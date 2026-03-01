@@ -1,19 +1,22 @@
-#include <Arduino.h>
-
-#include "M5Cardputer.h" // <-- direct keyboard probe fallback
 #include "ui_input_interceptors.h"
+
+#include <Arduino.h> // millis()
+
 #include "app_state.h"
 #include "input.h"
+
 #include "graphics.h"
 #include "settings_flow_state.h"
-#include "ui_input_common.h"
+#include "settings_nav_state.h"
+#include "ui_defs.h"
 #include "ui_runtime.h"
 #include "ui_suppress.h"
-#include "ui_state_console.h"
+#include "new_pet_flow_state.h"
+#include "ui_input_common.h"
 #include "flow_power_menu.h"
+#include "factory_reset_state.h"
+#include "flow_factory_reset.h"
 #include "ui_actions.h"
-#include "save_manager.h" // saveManagerGetBirthEpoch()
-#include "sleep_state.h"  // isPetSleepingNow() (via led_status.h on your project)
 
 // Keep the boot fix local to this module.
 static bool s_bootNamePetFixApplied = false;
@@ -21,58 +24,6 @@ static bool s_bootNamePetFixApplied = false;
 // Menu/ESC suppression is centralized in ui_suppress.*
 static inline bool menuSuppressedNow() { return uiIsMenuSuppressed(); }
 
-// -----------------------------------------------------------------------------
-// Direct ESC probe (fallback for tabs where InputState::escOnce isn't generated)
-// -----------------------------------------------------------------------------
-static bool s_escPhysLatched = false;
-
-static inline bool escPhysHeld()
-{
-  // Cardputer "ESC" is commonly the ` / ~ key on many firmwares/layouts.
-  // Also try ASCII ESC (0x1B). Some firmwares might expose 0x29 (HID ESC)
-  // through isKeyPressed(char) depending on implementation.
-  if (M5Cardputer.Keyboard.isKeyPressed('`'))
-    return true;
-  if (M5Cardputer.Keyboard.isKeyPressed('~'))
-    return true;
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0x1B))
-    return true; // ASCII ESC
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0x29))
-    return true; // best-effort
-
-  // Some layouts have been observed to emit a degree-like glyph in word stream.
-  // We can probe it as a held char too.
-  if (M5Cardputer.Keyboard.isKeyPressed((char)0xB0))
-    return true;
-
-  return false;
-}
-
-static inline void synthesizeEscOnceIfNeeded(InputState &in)
-{
-  // If your input layer already delivered escOnce, don't interfere.
-  if (in.escOnce)
-  {
-    s_escPhysLatched = true;
-    return;
-  }
-
-  const bool held = escPhysHeld();
-  if (held)
-  {
-    if (!s_escPhysLatched)
-    {
-      in.escOnce = true;
-      s_escPhysLatched = true;
-    }
-  }
-  else
-  {
-    s_escPhysLatched = false;
-  }
-}
-
-// MENU/Q allowed states (same as your original intent)
 static inline bool canOpenSettingsFrom(UIState s)
 {
   switch (s)
@@ -87,193 +38,85 @@ static inline bool canOpenSettingsFrom(UIState s)
   }
 }
 
-// ESC should open settings broadly, but must not steal from modal/text entry states.
-// NOTE: ALSO exclude SETTINGS so ESC can dismiss it normally.
-static inline bool escCanOpenSettingsFrom(UIState s)
+static inline bool escBlockedInState(UIState s)
 {
   switch (s)
   {
-    case UIState::CONSOLE:    // handled earlier (closeConsoleAndReturn)
-    case UIState::POWER_MENU: // handled earlier (powerMenuClose)
-    case UIState::SETTINGS:   // IMPORTANT: let settings handler dismiss itself
-
-    // Mini-game pause menu MUST own ESC (continue/exit) — never open settings here.
-    case UIState::MG_PAUSE:
-
-    case UIState::SET_TIME:
     case UIState::NAME_PET:
-    case UIState::WIFI_SETUP:
     case UIState::CHOOSE_PET:
-
-    case UIState::HATCHING:
-    case UIState::EVOLUTION:
-    case UIState::MINI_GAME:
-    case UIState::DEATH:
-    case UIState::BURIAL_SCREEN:
-    case UIState::PET_SLEEPING:
-      return false;
-
-    default:
+    case UIState::SET_TIME:
       return true;
+    default:
+      return false;
   }
 }
 
-static void openSettingsFromHere(InputState &in)
+// Forward declaration
+static bool uiInterceptGlobalShortcuts(InputState& in);
+
+// -----------------------------------------------------------------------------
+// Global shortcut interception
+// Returns true if a shortcut performed a transition / should consume input.
+// -----------------------------------------------------------------------------
+static bool uiInterceptGlobalShortcuts(InputState& in)
 {
-  // Remember where to go back to.
-  // IMPORTANT: if we're currently in the PET_SLEEPING UI state,
-  // always return to PET_SLEEPING on the Sleep tab so exiting Settings
-  // doesn't force-wake the pet.
-  const bool sleepActive = (g_app.uiState == UIState::PET_SLEEPING);
-
-  if (sleepActive)
+  // ESC key: open Settings menu from allowed states
+  if (in.escOnce)
   {
-    g_settingsFlow.settingsReturnState = UIState::PET_SLEEPING;
-    g_settingsFlow.settingsReturnTab   = Tab::TAB_SLEEP;
-  }
-  else
-  {
-    g_settingsFlow.settingsReturnState = g_app.uiState;
-    g_settingsFlow.settingsReturnTab   = g_app.currentTab;
-  }
+    // Always consume ESC if blocked, so nothing else misinterprets it.
+    if (escBlockedInState(g_app.uiState))
+    {
+      in.clearEdges();
+      return true;
+    }
 
-  g_settingsFlow.settingsReturnValid = true;
+    if (!menuSuppressedNow() && canOpenSettingsFrom(g_app.uiState))
+    {
+      // IMPORTANT:
+      // Set return target BEFORE entering SETTINGS, otherwise Settings can fall back
+      // to PET/tab defaults (symptom: menu flashes then snaps home).
+      g_settingsFlow.settingsReturnState = g_app.uiState;
+      g_settingsFlow.settingsReturnTab   = g_app.currentTab;
+      g_settingsFlow.settingsReturnValid = true;
 
-  // Enter settings *without* changing tabs
-  uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
+      // When opening settings via ESC, start at TOP.
+      g_settingsFlow.settingsPage       = SettingsPage::TOP;
+      g_settingsFlow.settingsReturnPage = SettingsPage::TOP;
 
-  // Eat edges so they don't double-trigger inside settings
-  in.escOnce  = false;
-  in.menuOnce = false;
-  in.homeOnce = false; // if Q maps to home, don't let it immediately fire after entering settings
+      // uiActionEnterState signature: (state, tab, fullRedraw)
+      uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
 
-  requestUIRedraw();
-
-  // Drain any queued text/key stream so we don't "type into" settings
-  uiDrainKb(in);
-
-  // Transition guard: suppress menu briefly + clear latches/edges
-  uiGuardTransition(in, 150);
-}
-
-static bool handleConsoleExit(InputState &in)
-{
-  if (g_app.uiState != UIState::CONSOLE)
-    return false;
-
-  if (in.escOnce || in.menuOnce)
-    return closeConsoleAndReturn(in);
-
-  return false;
-}
-
-static bool handlePowerMenuExit(InputState &in)
-{
-  if (g_app.uiState != UIState::POWER_MENU)
-    return false;
-
-  if (in.escOnce || in.menuOnce)
-  {
-    powerMenuClose();
-
-    in.escOnce = false;
-    in.menuOnce = false;
-
-    requestUIRedraw();
-    uiDrainKb(in);
-    inputForceClear();
-    clearInputLatch();
-    return true;
+      // Swallow everything this tick so ESC doesn't also act as HOME/tab-jump/etc.
+      in.clearEdges();
+      return true;
+    }
   }
 
   return false;
 }
 
-static bool handleBootNamePetFix(InputState &in)
+// -----------------------------------------------------------------------------
+// Public entry point
+// -----------------------------------------------------------------------------
+bool uiHandleGlobalInterceptors(InputState &in)
 {
-  // One-time fix: if we ever re-enter NAME_PET after boot with a pet already alive,
-  // bounce back to pet screen.
-  if (s_bootNamePetFixApplied)
-    return false;
-
-  if (g_app.uiState != UIState::NAME_PET)
-    return false;
-
-  // Use save manager birth epoch (no incomplete-type Pet access)
-  if (saveManagerGetBirthEpoch() == 0)
-    return false;
-
-  s_bootNamePetFixApplied = true;
-
-  uiActionEnterState(UIState::PET_SCREEN, Tab::TAB_PET, true);
-  in.clearEdges();
-
-  requestUIRedraw();
-  uiDrainKb(in);
-  inputForceClear();
-  clearInputLatch();
-  return true;
-}
-
-static bool handleMenuSuppression(InputState &in)
-{
-  if (!menuSuppressedNow())
-    return false;
-
-  // While suppressed, swallow menu/esc edges (and console toggle) so we don't re-trigger.
-  if (in.menuOnce || in.escOnce || in.consoleOnce)
+  // If this tick is suppressed, swallow any menu-ish edges and stop.
+  // (Suppression is used for modal flows where ESC/menu must not work.)
+  if (menuSuppressedNow())
   {
-    in.menuOnce = false;
-    in.escOnce = false;
-    in.consoleOnce = false;
-    return true; // consumed
+    if (in.escOnce || in.menuOnce || in.homeOnce || in.consoleOnce)
+    {
+      uiActionSwallowEdges(in);
+      return true;
+    }
   }
 
-  return false;
-}
-
-bool uiInputApplyInterceptors(InputState &in)
-{
-  // 0) Ensure ESC exists even in tabs where the input layer fails to generate it.
-  // Do this BEFORE suppression logic so it participates consistently.
-  synthesizeEscOnceIfNeeded(in);
-
-  // 1) If menu is suppressed, swallow edges and stop.
-  if (handleMenuSuppression(in))
-    return true;
-
-  // 2) Console dismissal priority (ESC/MENU closes console).
-  if (handleConsoleExit(in))
-    return true;
-
-  // 3) Power menu dismissal (ESC/MENU closes power menu).
-  if (handlePowerMenuExit(in))
-    return true;
-
-  // 4) Boot fixups.
-  if (handleBootNamePetFix(in))
-    return true;
-
-  // 5) If already in Settings, do NOT intercept ESC/MENU here.
-  // Let the Settings handler own dismissal.
-  if (g_app.uiState == UIState::SETTINGS)
-    return false;
-
-  // 6) ESC opens settings broadly (except modal/text-entry states).
-  if (in.escOnce && escCanOpenSettingsFrom(g_app.uiState))
+  // Global shortcuts (ESC -> settings, etc.)
+  if (uiInterceptGlobalShortcuts(in))
   {
-    openSettingsFromHere(in);
-    return true;
-  }
-
-  // 7) MENU/Q opens settings only from allowed states.
-  if (in.menuOnce && canOpenSettingsFrom(g_app.uiState))
-  {
-    openSettingsFromHere(in);
+    uiActionSwallowEdges(in);
     return true;
   }
 
   return false;
 }
-
-bool uiHandleGlobalInterceptors(InputState &in) { return uiInputApplyInterceptors(in); }

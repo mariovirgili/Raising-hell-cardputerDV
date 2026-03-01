@@ -33,6 +33,7 @@
 #include "ui_actions.h"
 #include "ui_level_popup.h"
 #include "ui_runtime.h"
+#include "ui_input_router.h"
 #include "ui_state_console.h"
 #include "ui_tabs.h"
 #include "wifi_time.h"
@@ -197,6 +198,14 @@ void appMainLoopTick()
     invalidateBackgroundCache();
     requestUIRedraw();
     renderUI();
+  }
+
+  // Sync text-capture mode *before* scanning input so Backspace, Enter, etc.
+  // are interpreted correctly on text entry screens (SSID, password, console, etc.).
+  {
+    const bool wantText = uiWantsTextCaptureNow();
+    if (wantText != g_textCaptureMode)
+      inputSetTextCapture(wantText);
   }
 
   InputState input = readInput();

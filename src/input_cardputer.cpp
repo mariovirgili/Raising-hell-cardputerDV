@@ -1,11 +1,11 @@
-#include "input.h"
 #include "M5Cardputer.h"
-#include <Arduino.h>
-#include <ctype.h>
 #include "app_state.h"
 #include "currency.h"
 #include "display.h"
 #include "graphics.h"
+#include "input.h"
+#include <Arduino.h>
+#include <ctype.h>
 
 // -----------------------------------------------------------------------------
 // Forward declarations
@@ -111,19 +111,6 @@ static inline bool kbHeldBackspaceKey()
   return false;
 }
 
-static bool kbWordHasEsc(const decltype(M5Cardputer.Keyboard.keysState()) &st)
-{
-  for (auto wc : st.word)
-  {
-    if (!wc)
-      continue;
-    const uint8_t uc = (uint8_t)wc;
-    if (uc == 0x1B || uc == 0x29 || wc == '`' || wc == '~' || uc == 0xB0)
-      return true;
-  }
-  return false;
-}
-
 static inline bool kbHeldDeleteKey()
 {
   // Forward delete often surfaces as ASCII DEL on some firmwares.
@@ -178,6 +165,7 @@ static volatile int8_t g_quadCount = 0;
 static const int8_t QEM[16] = {0, -1, 1, 0, 1, 0, 0, -1, -1, 0, 0, 1, 0, 1, -1, 0};
 
 static void IRAM_ATTR updateEncoderISR()
+
 {
 #if defined(ENC_A) && defined(ENC_B)
   uint8_t a = (uint8_t)digitalRead(ENC_A);
@@ -506,21 +494,58 @@ static void readKeyboard(InputState &out)
   // -----------------------------------------------------------------------------
   // ESC detection (must NOT depend on `changed`, and must happen BEFORE early-return)
   // -----------------------------------------------------------------------------
-  // Scan the word stream ONLY when changed (word can be stale otherwise)
   bool escWordThisTick = false;
+
+  // Scan the word stream ONLY when changed (word can be stale otherwise)
   if (changed)
   {
+    uint8_t seq = 0; // 0=none, 1=saw ESC, 2=saw ESC[
     for (auto wc : st.word)
     {
       if (!wc)
         continue;
+
       const uint8_t uc = (uint8_t)wc;
-      if (uc == 0x1B || wc == '`' || wc == '~' || uc == 0xB0)
+
+      if (seq == 0)
       {
-        escWordThisTick = true;
-        break;
+        if (uc == 0x1B)
+        {
+          // Might be a naked ESC, or the start of an ANSI sequence.
+          seq = 1;
+          continue;
+        }
+
+        // Non-ANSI representations of ESC key some firmwares emit
+        if (wc == '`' || wc == '~' || uc == 0xB0)
+          escWordThisTick = true;
+
+        continue;
       }
+
+      if (seq == 1)
+      {
+        // ANSI arrow prefix: ESC[
+        if (wc == '[')
+        {
+          seq = 2;
+          continue;
+        }
+
+        // ESC not followed by '[' -> treat as real ESC
+        escWordThisTick = true;
+        seq = 0;
+        continue;
+      }
+
+      // seq == 2 : ESC [ <code>  (arrows). Don't mark as ESC.
+      seq = 0;
     }
+
+    // IMPORTANT FIX:
+    // If the stream ended right after a lone ESC (0x1B), that IS a real ESC press.
+    if (seq == 1)
+      escWordThisTick = true;
   }
 
   // Held-probe fallback (works even when word stream doesn't report ESC)
@@ -529,7 +554,11 @@ static void readKeyboard(InputState &out)
   // Unified ESC signal
   const bool escAnyHeld = (escWordThisTick || heldEsc);
 
-  // Always compute mini-game held controls
+  // If ESC isn't held, always ensure the latch can't get stuck true due to earlier clears.
+  if (!escAnyHeld)
+    s_settingsKeyLatched = false;
+
+    // Always compute mini-game held controls
   const bool heldUp = kbHeldUpArrow();
   const bool heldDown = kbHeldDownArrow();
   const bool heldLeft = kbHeldLeftArrow();
@@ -714,32 +743,52 @@ static void readKeyboard(InputState &out)
   // ESC edge generation (uses escAnyHeld, not just st.word)
   // -----------------------------------------------------------------------------
   const bool escNow = escAnyHeld;
-
+  
+  // Block ESC on mandatory boot/timekeeping screens so users can't skip them.
+  auto escBlockedInState = [](UIState s) -> bool
+  {
+    switch (s)
+    {
+      case UIState::NAME_PET:
+      case UIState::CHOOSE_PET:
+      case UIState::SET_TIME:
+        return true;
+      default:
+        return false;
+    }
+  };
+  
+  const bool escBlockedNow = escBlockedInState(g_app.uiState);
+  
+  // Cooldown: prevents menu flicker if some code clears the latch while ESC is still held.
+  static uint32_t s_escOnceMs = 0;
+  const uint32_t kEscCooldownMs = 250;
+  
   if (escNow)
   {
     if (!s_settingsKeyLatched)
     {
-      // Always emit escOnce for ESC. Let higher layers decide meaning.
-      out.escOnce = true;
-      if (out.escOnce)
+      if (!escBlockedNow)
       {
-        Serial.printf("[IN] ESC once ui=%d tab=%d\n", (int)g_app.uiState, (int)g_app.currentTab);
+        if ((uint32_t)(now - s_escOnceMs) >= kEscCooldownMs)
+        {
+          out.escOnce = true;
+          s_escOnceMs = now;
+        }
       }
+  
       if (inMiniGameUi)
         out.mgQuitOnce = true;
-
+  
       s_settingsKeyLatched = true;
     }
   }
   else
   {
-    // Key released -> allow a fresh escOnce next press
     s_settingsKeyLatched = false;
   }
 
   // Mini-game "Once" edges from held states.
-  // Uses separate latches from s_navUpLatched etc. so these don't block
-  // the WASD/word-stream UI nav paths below.
   static bool s_mgNavUpLatched = false;
   static bool s_mgNavDownLatched = false;
   static bool s_mgNavLeftLatched = false;
@@ -823,8 +872,6 @@ static void readKeyboard(InputState &out)
       if (!c)
         continue;
 
-      // ESC key can show up in the word stream in several forms.
-      // We already generate the edge above (escOnce/menuOnce), so just suppress it here.
       const uint8_t ucEsc = (uint8_t)c;
       if (ucEsc == 0x1B || ucEsc == 0x29 || c == '`' || c == '~' || ucEsc == 0xB0)
       {
@@ -905,16 +952,12 @@ static void readKeyboard(InputState &out)
 
         if (g_textCaptureMode)
         {
-          // Console: backspace deletes a character
           if (!s_delLatched)
             out.kbPush((uint8_t)'\b');
           s_delLatched = true;
         }
         else
         {
-          // UI: backspace/delete acts like MENU/BACK (except where disabled).
-          // Note: Some firmwares may surface unusual tokens for special keys; we treat
-          // delete/backspace only as "menu/back" and never as ESC here.
           if (backspaceMapsToMenuInState(g_app.uiState))
           {
             if (!s_delLatched && acceptNav(s_navMenuMs))
@@ -925,7 +968,7 @@ static void readKeyboard(InputState &out)
         continue;
       }
 
-      // Backslash -> console toggle (never push into kb queue)
+      // Backslash -> console toggle
       if (c == '\\')
       {
         if (!s_cLatched && acceptNav(s_navConMs))
@@ -940,7 +983,7 @@ static void readKeyboard(InputState &out)
 
       if (!g_textCaptureMode)
       {
-        // Q -> HOME edge (return to pet tab/root)
+        // Q -> HOME edge
         if (lc == 'q')
         {
           if (!s_qLatched && acceptNav(s_navMenuMs))
@@ -970,29 +1013,14 @@ static void readKeyboard(InputState &out)
         // Bottom row tab jumps
         switch (lc)
         {
-        case 'z':
-          out.tabJump = 0;
-          continue;
-        case 'x':
-          out.tabJump = 1;
-          continue;
-        case 'c':
-          out.tabJump = 2;
-          continue;
-        case 'v':
-          out.tabJump = 3;
-          continue;
-        case 'b':
-          out.tabJump = 4;
-          continue;
-        case 'n':
-          out.tabJump = 5;
-          continue;
-        case 'm':
-          out.tabJump = 6;
-          continue;
-        default:
-          break;
+          case 'z': out.tabJump = 0; continue;
+          case 'x': out.tabJump = 1; continue;
+          case 'c': out.tabJump = 2; continue;
+          case 'v': out.tabJump = 3; continue;
+          case 'b': out.tabJump = 4; continue;
+          case 'n': out.tabJump = 5; continue;
+          case 'm': out.tabJump = 6; continue;
+          default: break;
         }
 
         // WASD / HJKL / EWO nav cluster
@@ -1036,49 +1064,38 @@ static void readKeyboard(InputState &out)
   }
 
   // Release nav latches when key no longer present
-  if (!sawUpThisTick)
-    s_navUpLatched = false;
-  if (!sawDownThisTick)
-    s_navDownLatched = false;
-  if (!sawLeftThisTick)
-    s_navLeftLatched = false;
-  if (!sawRightThisTick)
-    s_navRightLatched = false;
+  if (!sawUpThisTick) s_navUpLatched = false;
+  if (!sawDownThisTick) s_navDownLatched = false;
+  if (!sawLeftThisTick) s_navLeftLatched = false;
+  if (!sawRightThisTick) s_navRightLatched = false;
 
-    // Backspace/Delete fallback (if firmware doesn't emit 0x2A/0x4C in st.word)
-    if (!sawDelWordThisTick)
+  // Backspace/Delete fallback
+  if (!sawDelWordThisTick)
+  {
+    if (heldBackspaceSpecial)
     {
-      if (heldBackspaceSpecial)
+      if (g_textCaptureMode)
       {
-        if (g_textCaptureMode)
-        {
-          if (!s_delLatched)
-            out.kbPush((uint8_t)'\b');
-          s_delLatched = true;
-        }
-        else
-        {
-          // UI: treat delete/backspace as MENU/BACK only in allowed states.
-          // IMPORTANT: keep DEL/BKSP inert during sleep (sleep tab or sleeping screen).
-          if (backspaceMapsToMenuInState(g_app.uiState))
-          {
-            if (!s_delLatched && acceptNav(s_navMenuMs))
-            {
-              out.menuOnce = true;
-              // Do NOT also emit escOnce here; that was causing close/return side-effects.
-              // out.escOnce = true;
-            }
-          }
-    
-          // Always latch while held so we don't spam edges.
-          s_delLatched = true;
-        }
+        if (!s_delLatched)
+          out.kbPush((uint8_t)'\b');
+        s_delLatched = true;
       }
       else
       {
-        s_delLatched = false;
+        if (backspaceMapsToMenuInState(g_app.uiState))
+        {
+          if (!s_delLatched && acceptNav(s_navMenuMs))
+            out.menuOnce = true;
+        }
+        s_delLatched = true;
       }
     }
+    else
+    {
+      s_delLatched = false;
+    }
+  }
+
   // Enter edge + optional UI select mapping
   if (st.enter)
   {

@@ -1,6 +1,10 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
+
+bool factoryResetConfirmActive();
+void factoryResetCancelConfirm();
 
 struct InputState;
 

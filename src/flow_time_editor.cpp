@@ -1,322 +1,271 @@
-// flow_time_editor.cpp
 #include "flow_time_editor.h"
 
 #include <Arduino.h>
 #include <sys/time.h>
 #include <time.h>
-#include <cstring>
 
 #include "app_state.h"
 #include "input.h"
-#include "save_manager.h"
-#include "settings_flow_state.h"
 #include "time_editor_state.h"
-#include "time_state.h"
 #include "time_persist.h"
-#include "ui_runtime.h"
-#include "graphics.h"
-#include "new_pet_flow_state.h"
 #include "ui_actions.h"
+#include "ui_invalidate.h"
 
-static bool         g_setTimeReturnToSettings   = true;
-static SettingsPage g_setTimeReturnSettingsPage = SettingsPage::SYSTEM;
+// -----------------------------------------------------------------------------
+// Set-Time flow
+//
+// This module owns the SET_TIME UI behavior.
+//
+// Expected UX (matches graphics.cpp drawSetDateTimePanel()):
+//   - g_setTimeField selects: 0=year,1=month,2=day,3=hour,4=min,5=OK pill
+//   - Left/Right: move selection (wrap)
+//   - Up/Down: adjust selected field (only when field 0-4)
+//   - Enter/Select:
+//        - If on OK: commit and return
+//        - Otherwise: jump selection to OK (no commit)
+//   - ESC:
+//        - If cancel allowed: return without commit
+//        - If cancel blocked (boot gate): ignored
+//   - Menu/Backspace:
+//        - If not on OK: jump to OK
+//        - If on OK: behaves like cancel (if allowed)
+// -----------------------------------------------------------------------------
 
-// ------------------------------------------------------------------
-// Helpers
-// ------------------------------------------------------------------
-static inline void drainKb(InputState& in)
+static constexpr uint8_t kFieldYear   = 0;
+static constexpr uint8_t kFieldMonth  = 1;
+static constexpr uint8_t kFieldDay    = 2;
+static constexpr uint8_t kFieldHour   = 3;
+static constexpr uint8_t kFieldMinute = 4;
+static constexpr uint8_t kFieldOk     = 5;
+
+static inline bool fieldIsAdjustable(uint8_t f) { return (f <= kFieldMinute); }
+
+static void normalizeAndClampTm(struct tm& t)
 {
-  while (in.kbHasEvent()) (void)in.kbPop();
-}
-
-static inline int daysInMonth(int year, int mon0)
-{
-  static const int d[] = {31,28,31,30,31,30,31,31,30,31,30,31};
-  int dm = d[mon0];
-  if (mon0 == 1)
+  // Normalize with mktime() (handles overflow like month 13, day 0, etc.)
+  time_t epoch = mktime(&t);
+  if (epoch < 0)
   {
-    bool leap = ((year % 4) == 0 && (year % 100) != 0) || ((year % 400) == 0);
-    if (leap) dm = 29;
+    // Fallback to a sane default if normalization fails.
+    memset(&t, 0, sizeof(t));
+    t.tm_year = 2026 - 1900;
+    t.tm_mon  = 0;
+    t.tm_mday = 1;
+    t.tm_hour = 12;
+    t.tm_min  = 0;
+    t.tm_sec  = 0;
+    (void)mktime(&t);
+    return;
   }
-  return dm;
-}
 
-static void adjustField(int delta)
-{
-  int year = g_setTimeTm.tm_year + 1900;
-  int mon0 = g_setTimeTm.tm_mon;  // 0..11
-  int day  = g_setTimeTm.tm_mday; // 1..31
-
-  auto wrapInt = [&](int v, int lo, int hi) -> int {
-    const int range = (hi - lo + 1);
-    while (v < lo) v += range;
-    while (v > hi) v -= range;
-    return v;
-  };
-
-  switch (g_setTimeField)
+  // Clamp year range (helps avoid weird UI states if the user holds keys).
+  const int year = t.tm_year + 1900;
+  if (year < 2000)
   {
-    case 0: {
-      year = wrapInt(year + delta, 2020, 2099);
-      g_setTimeTm.tm_year = year - 1900;
-
-      const int dim = daysInMonth(year, mon0);
-      g_setTimeTm.tm_mday = wrapInt(g_setTimeTm.tm_mday, 1, dim);
-      break;
-    }
-
-    case 1: {
-      mon0 = wrapInt(mon0 + delta, 0, 11);
-      g_setTimeTm.tm_mon = mon0;
-
-      const int dim = daysInMonth(year, mon0);
-      g_setTimeTm.tm_mday = wrapInt(g_setTimeTm.tm_mday, 1, dim);
-      break;
-    }
-
-    case 2: {
-      const int dim = daysInMonth(year, mon0);
-      day = wrapInt(day + delta, 1, dim);
-      g_setTimeTm.tm_mday = day;
-      break;
-    }
-
-    case 3:
-      g_setTimeTm.tm_hour = wrapInt(g_setTimeTm.tm_hour + delta, 0, 23);
-      break;
-
-    case 4:
-      g_setTimeTm.tm_min = wrapInt(g_setTimeTm.tm_min + delta, 0, 59);
-      break;
-
-    default:
-      break;
+    t.tm_year = 2000 - 1900;
+    (void)mktime(&t);
+  }
+  else if (year > 2099)
+  {
+    t.tm_year = 2099 - 1900;
+    (void)mktime(&t);
   }
 }
 
-static void returnFromSetTime(InputState& in)
+static void initEditorFromNow()
 {
-  // Default fallbacks
-  UIState targetState = UIState::SETTINGS;
-  Tab     targetTab   = g_app.currentTab;
-
-  if (g_setTimeReturnValid)
-  {
-    if (g_setTimeReturnToSettings)
-    {
-      targetState = UIState::SETTINGS;
-      targetTab   = g_app.currentTab; // Settings is not a Tab; preserve currentTab.
-      g_settingsFlow.settingsPage = g_setTimeReturnSettingsPage;
-    }
-    else
-    {
-      targetState = (UIState)g_setTimeReturnState;
-      targetTab   = (Tab)g_setTimeReturnTab;
-    }
-  }
-  else
-  {
-    targetState = UIState::SETTINGS;
-    targetTab   = g_app.currentTab;
-    g_settingsFlow.settingsPage = SettingsPage::SYSTEM;
-  }
-
-  // If returning to egg select, require clean release before hatch
-  if (targetState == UIState::CHOOSE_PET)
-    g_choosePetBlockHatchUntilRelease = true;
-
-  uiActionEnterState(targetState, targetTab, true);
-  requestUIRedraw();
-
-  uiActionDrainKb(in);
-  uiActionSwallowEdges(in);
-  clearInputLatch();
-}
-
-// ------------------------------------------------------------------
-// Set Time editor entry/return bookkeeping
-// ------------------------------------------------------------------
-static void beginSetTimeEditor(bool forceNoCancel,
-                               bool returnToSettings,
-                               SettingsPage returnSettingsPage,
-                               UIState returnState,
-                               Tab returnTab)
-{
-  // Ensure arrow keys / encoder map to UI navigation (not keyboard text capture)
-  inputSetTextCapture(false);
-  g_textCaptureMode = false;
-
-  // Initialize from current local time if valid, else a sane default
+  // Seed editor from current system time.
   time_t now = time(nullptr);
-  if (now > 1700000000) // ~late 2023, "valid enough"
-  {
-    localtime_r(&now, &g_setTimeTm);
-  }
-  else
+  if (now <= 0)
   {
     memset(&g_setTimeTm, 0, sizeof(g_setTimeTm));
     g_setTimeTm.tm_year = 2026 - 1900;
-    g_setTimeTm.tm_mon  = 0; // Jan
+    g_setTimeTm.tm_mon  = 0;
     g_setTimeTm.tm_mday = 1;
     g_setTimeTm.tm_hour = 12;
     g_setTimeTm.tm_min  = 0;
     g_setTimeTm.tm_sec  = 0;
+    normalizeAndClampTm(g_setTimeTm);
+    return;
   }
 
-  g_setTimeField  = 0; // 0..4 fields, 5 = OK
-  g_setTimeActive = true;
+  struct tm* lt = localtime(&now);
+  if (!lt)
+  {
+    memset(&g_setTimeTm, 0, sizeof(g_setTimeTm));
+    g_setTimeTm.tm_year = 2026 - 1900;
+    g_setTimeTm.tm_mon  = 0;
+    g_setTimeTm.tm_mday = 1;
+    g_setTimeTm.tm_hour = 12;
+    g_setTimeTm.tm_min  = 0;
+    g_setTimeTm.tm_sec  = 0;
+    normalizeAndClampTm(g_setTimeTm);
+    return;
+  }
 
-  g_setTimeForceNoCancel = forceNoCancel;
-
-  g_setTimeReturnValid = true;
-  g_setTimeReturnState = (uint8_t)returnState;
-  g_setTimeReturnTab   = (uint8_t)returnTab;
-
-  g_setTimeReturnToSettings   = returnToSettings;
-  g_setTimeReturnSettingsPage = returnSettingsPage;
-
-  // Discard residue so it won't interfere
-  clearInputLatch();
-  inputForceClear();
-
-  g_app.uiState = UIState::SET_TIME;
-  requestFullUIRedraw();
-  clearInputLatch();
+  g_setTimeTm = *lt;
+  g_setTimeTm.tm_isdst = -1; // let mktime decide
+  normalizeAndClampTm(g_setTimeTm);
 }
 
-void beginSetTimeEditorFromSettings(SettingsPage returnSettingsPage, UIState returnState, Tab returnTab)
+static void adjustEditorField(uint8_t field, int delta)
 {
-  beginSetTimeEditor(
-    false,                 // forceNoCancel
-    true,                  // returnToSettings
-    returnSettingsPage,
-    returnState,
-    returnTab
-  );
-  clearInputLatch();
+  switch (field)
+  {
+    case kFieldYear:   g_setTimeTm.tm_year += delta; break;
+    case kFieldMonth:  g_setTimeTm.tm_mon  += delta; break;
+    case kFieldDay:    g_setTimeTm.tm_mday += delta; break;
+    case kFieldHour:   g_setTimeTm.tm_hour += delta; break;
+    case kFieldMinute: g_setTimeTm.tm_min  += delta; break;
+    default: return;
+  }
+
+  normalizeAndClampTm(g_setTimeTm);
 }
+
+static void returnFromSetTime()
+{
+  g_setTimeActive = false;
+
+  // Return to stored state/tab if valid; otherwise, fall back to PET_SCREEN.
+  if (g_setTimeReturnValid)
+    uiActionEnterState((UIState)g_setTimeReturnState, (Tab)g_setTimeReturnTab, true);
+  else
+    uiActionEnterState(UIState::PET_SCREEN, g_app.currentTab, true);
+}
+
+static void commitSetTime()
+{
+  // Commit edited tm -> system time.
+  struct tm tmp = g_setTimeTm;
+  tmp.tm_isdst = -1;
+  time_t epoch = mktime(&tmp);
+  if (epoch > 0)
+  {
+    timeval tv;
+    tv.tv_sec  = epoch;
+    tv.tv_usec = 0;
+    settimeofday(&tv, nullptr);
+  }
+
+  // Persist anchor used by your time system.
+  saveTimeAnchor();
+}
+
+// -----------------------------------------------------------------------------
+// Public entry points
+// -----------------------------------------------------------------------------
 
 void beginForcedSetTimeBootGate(UIState returnState, Tab returnTab)
 {
-  inputSetTextCapture(false);
-  g_textCaptureMode = false;
+  g_setTimeReturnValid = true;
+  g_setTimeReturnState = (uint8_t)returnState;
+  g_setTimeReturnTab   = (uint8_t)returnTab;
+  g_setTimeForceNoCancel = true;
+  g_setTimeActive = true;
+  g_setTimeField = kFieldYear;
+  initEditorFromNow();
 
-  beginSetTimeEditor(
-    true,                 // forceNoCancel
-    false,                // returnToSettings
-    SettingsPage::SYSTEM, // unused when returnToSettings=false
-    returnState,
-    returnTab
-  );
-
-  clearInputLatch();
+  uiActionEnterState(UIState::SET_TIME, g_app.currentTab, true);
+  requestUIRedraw();
+  inputForceClear();
 }
 
-// ==================================================================
-// TIME SETTING INPUT
-// ==================================================================
-static void handleTimeSetInput(InputState &in)
+void beginSetTimeEditorFromSettings(SettingsPage /*page*/, UIState returnState, Tab returnTab)
 {
-  // Map keyboard arrow/enter keys into edge-style behavior
-  bool kbLeft  = false;
-  bool kbRight = false;
-  bool kbUp    = false;
-  bool kbDown  = false;
-  bool kbEnter = false;
+  g_setTimeReturnValid = true;
+  g_setTimeReturnState = (uint8_t)returnState;
+  g_setTimeReturnTab   = (uint8_t)returnTab;
+  g_setTimeForceNoCancel = false;
+  g_setTimeActive = true;
+  g_setTimeField = kFieldYear;
+  initEditorFromNow();
 
-  while (in.kbHasEvent())
-  {
-    const KeyEvent ev = in.kbPop();
-    const uint8_t c  = ev.code;
-
-    if (c == '\n' || c == '\r') kbEnter = true;
-    else if (c == 0x1B) {} // ignore ESC here (handled via escOnce/menuOnce)
-    else if (c == 0x08) {} // ignore backspace
-    else if (c == 'A') kbUp = true;     // adjust if your arrow mapping differs
-    else if (c == 'B') kbDown = true;
-    else if (c == 'C') kbRight = true;
-    else if (c == 'D') kbLeft = true;
-  }
-
-  if (in.escOnce || in.menuOnce)
-  {
-    if (g_setTimeForceNoCancel)
-    {
-      requestUIRedraw();
-      clearInputLatch();
-      return;
-    }
-
-    returnFromSetTime(in);
-    return;
-  }
-
-  if (in.leftOnce || kbLeft)
-  {
-    if (g_setTimeField == 0) g_setTimeField = 5;
-    else g_setTimeField--;
-
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  if (in.rightOnce || kbRight)
-  {
-    g_setTimeField++;
-    if (g_setTimeField > 5) g_setTimeField = 0;
-
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
-  if (g_setTimeField <= 4)
-  {
-    if (in.upOnce || kbUp)   { adjustField(+1); requestUIRedraw(); clearInputLatch(); return; }
-    if (in.downOnce || kbDown) { adjustField(-1); requestUIRedraw(); clearInputLatch(); return; }
-  }
-
-  if (in.selectOnce || kbEnter || in.encoderPressOnce)
-  {
-    if (g_setTimeField < 5)
-    {
-      g_setTimeField++;
-      if (g_setTimeField > 5) g_setTimeField = 5;
-      requestUIRedraw();
-      clearInputLatch();
-      return;
-    }
-
-    tm tmp = g_setTimeTm;
-    tmp.tm_isdst = -1;
-    time_t t = mktime(&tmp);
-
-    if (t > 0)
-    {
-      timeval tv;
-      tv.tv_sec  = t;
-      tv.tv_usec = 0;
-      settimeofday(&tv, nullptr);
-
-      updateTime();
-      saveTimeAnchor();
-    }
-
-    g_setTimeActive        = false;
-    g_setTimeForceNoCancel = false;
-
-    returnFromSetTime(in);
-    requestFullUIRedraw();
-    return;
-  }
-
-  // Default: drain any typing residue and swallow edges
-  drainKb(in);
-  clearInputLatch();
+  uiActionEnterState(UIState::SET_TIME, g_app.currentTab, true);
+  requestUIRedraw();
+  inputForceClear();
 }
+
+// -----------------------------------------------------------------------------
+// UI handler
+// -----------------------------------------------------------------------------
 
 void uiSetTimeHandle(InputState& in)
 {
-  handleTimeSetInput(in);
+  if (!g_setTimeActive)
+    return;
+
+  bool anyUiChange = false;
+
+  // Left/Right change selection (wrap)
+  if (in.leftOnce)
+  {
+    g_setTimeField = (g_setTimeField == 0) ? kFieldOk : (uint8_t)(g_setTimeField - 1);
+    anyUiChange = true;
+  }
+  if (in.rightOnce)
+  {
+    g_setTimeField = (g_setTimeField >= kFieldOk) ? 0 : (uint8_t)(g_setTimeField + 1);
+    anyUiChange = true;
+  }
+
+  // Up/Down adjust current field
+  if (in.upOnce && fieldIsAdjustable(g_setTimeField))
+  {
+    adjustEditorField(g_setTimeField, +1);
+    anyUiChange = true;
+  }
+  if (in.downOnce && fieldIsAdjustable(g_setTimeField))
+  {
+    adjustEditorField(g_setTimeField, -1);
+    anyUiChange = true;
+  }
+
+  // Enter/Select behavior: commit only when OK selected.
+  if (in.selectOnce)
+  {
+    if (g_setTimeField == kFieldOk)
+    {
+      commitSetTime();
+      returnFromSetTime();
+      return;
+    }
+    else
+    {
+      // Enter shouldn't do anything except move focus to OK.
+      g_setTimeField = kFieldOk;
+      anyUiChange = true;
+    }
+  }
+
+  // Menu/backspace acts as "go to OK" first; cancel only when already on OK.
+  if (in.menuOnce)
+  {
+    if (g_setTimeField != kFieldOk)
+    {
+      g_setTimeField = kFieldOk;
+      anyUiChange = true;
+    }
+    else if (!g_setTimeForceNoCancel)
+    {
+      returnFromSetTime();
+      return;
+    }
+  }
+
+  // ESC cancels (unless forced)
+  if (in.escOnce)
+  {
+    if (!g_setTimeForceNoCancel)
+    {
+      returnFromSetTime();
+      return;
+    }
+  }
+
+  if (anyUiChange)
+    requestUIRedraw();
+
+  // Do not allow other systems to interpret these edges.
+  in.clearEdges();
 }

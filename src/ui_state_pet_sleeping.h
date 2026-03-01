@@ -1,5 +1,5 @@
 #pragma once
-
-struct InputState;
+#include "input.h"
 
 void uiPetSleepingHandle(InputState& in);
+void uiPetSleepingOnEnter(const InputState& in);

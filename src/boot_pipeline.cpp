@@ -296,6 +296,12 @@ void postBootInitTick()
       {
         if (!g_controlsHelpSeen)
         {
+          // Ensure boot wizard knows where to go after WiFi/time steps complete.
+          extern UIState g_bootWizardAfterOkState;
+          extern Tab     g_bootWizardAfterOkTab;
+          g_bootWizardAfterOkState = afterOk;
+          g_bootWizardAfterOkTab   = Tab::TAB_PET;
+        
           // After Controls Help is dismissed, it should land on the wizard prompt.
           controlsHelpBegin(UIState::BOOT_WIFI_PROMPT, Tab::TAB_PET);
           return;

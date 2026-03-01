@@ -1,182 +1,219 @@
 #include "ui_state_wifi_setup.h"
 
-#include "input.h"
+#include <Arduino.h>
+#include <ctype.h>
+#include <string.h>
 
 #include "app_state.h"
-#include "settings_flow_state.h"
-#include "ui_defs.h"
-
-#include "sound.h"
-#include "ui_runtime.h"
-#include "ui_input_utils.h"
-#include "ui_input_common.h"
-
-#include "save_manager.h"
-#include "wifi_power.h"
-#include "wifi_store.h"
+#include "input.h"
+#include "ui_actions.h"
+#include "ui_input_common.h"   // uiDrainKb
+#include "ui_runtime.h"        // requestUIRedraw
+#include "wifi_setup_state.h"  // g_wifi, g_wifiSetupFromBootWizard
 #include "wifi_time.h"
-#include "wifi_setup_state.h"
+#include "wifi_store.h"
 
-#include <cstring>
-#include "ui_input_common.h"
-
-void ui_showMessage(const char* msg);
-
-// ----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 // Helpers
-// ----------------------------------------------------------------------------
-
-static void wifiSetupAppendChar(char c) {
-  const int curLen = (int)strlen(g_wifi.buf);
-  const int maxLen = (int)sizeof(g_wifi.buf) - 1;
-  if (curLen >= maxLen) return;
-
-  g_wifi.buf[curLen]     = c;
-  g_wifi.buf[curLen + 1] = '\0';
+// -----------------------------------------------------------------------------
+static inline uint8_t clampU8(uint8_t v, uint8_t lo, uint8_t hi)
+{
+  if (v < lo) return lo;
+  if (v > hi) return hi;
+  return v;
 }
 
-static bool wifiSetupBackspace() {
-  const int curLen = (int)strlen(g_wifi.buf);
-  if (curLen <= 0) return false;
-  g_wifi.buf[curLen - 1] = '\0';
-  return true;
+static inline uint8_t currentMaxLen()
+{
+  // SSID: 32 chars, PASS: 64 chars
+  return (g_wifi.setupStage == 0) ? 32 : 64;
 }
 
-static void wifiSetupCancel(InputState &in) {
-  if (g_wifiSetupFromBootWizard) {
-    g_wifiSetupFromBootWizard = false;
-    g_app.uiState             = UIState::BOOT_WIFI_PROMPT;
-  } else {
-    g_app.uiState = UIState::SETTINGS;
-  }
-
-  ui_showMessage("Canceled");
+static void wifiSetupResetForStage(uint8_t stage)
+{
+  g_wifi.setupStage = clampU8(stage, 0, 1);
+  g_wifi.buf[0] = '\0';
   requestUIRedraw();
-
-  inputSetTextCapture(false);
-  g_textCaptureMode = false;
-
-  uiDrainKb(in);
-  clearInputLatch();
-  playBeep();
 }
 
-static void wifiSetupAdvanceOrFinish(InputState &in) {
-  if (g_wifi.setupStage == 0) {
-    // Save SSID
+static void wifiSetupCommitBufferToCurrentField()
+{
+  if (g_wifi.setupStage == 0)
+  {
     strncpy(g_wifi.ssid, g_wifi.buf, sizeof(g_wifi.ssid) - 1);
     g_wifi.ssid[sizeof(g_wifi.ssid) - 1] = '\0';
-
-    g_wifi.buf[0]     = '\0';
-    g_wifi.setupStage = 1;
-
-    requestUIRedraw();
-    playBeep();
-    clearInputLatch();
-    return;
   }
-
-  if (g_wifi.setupStage == 1) {
-    // Save PASS
+  else
+  {
     strncpy(g_wifi.pass, g_wifi.buf, sizeof(g_wifi.pass) - 1);
     g_wifi.pass[sizeof(g_wifi.pass) - 1] = '\0';
-
-    // Persist + enable wifi
-    wifiStoreSave(g_wifi.ssid, g_wifi.pass);
-
-    wifiSetEnabled(true);
-    settingsSetWifiEnabled(true);
-    applyWifiPower(true);
-
-    // Return out
-    if (g_wifiSetupFromBootWizard) {
-      g_wifiSetupFromBootWizard = false;
-      g_app.uiState             = UIState::BOOT_WIFI_WAIT;
-    } else {
-      g_app.uiState = UIState::SETTINGS;
-    }
-
-    requestUIRedraw();
-
-    inputSetTextCapture(false);
-    g_textCaptureMode = false;
-
-    uiDrainKb(in);
-    clearInputLatch();
-    playBeep();
-    return;
   }
 }
 
-// ----------------------------------------------------------------------------
-// WiFi Setup (SSID/PASS entry) handler
-// ----------------------------------------------------------------------------
+static void wifiSetupBackspace()
+{
+  const size_t n = strnlen(g_wifi.buf, sizeof(g_wifi.buf));
+  if (n == 0) return;
+  g_wifi.buf[n - 1] = '\0';
+  requestUIRedraw();
+}
 
-void uiWifiSetupHandle(InputState &in) {
-  bool changed      = false;
-  bool pressedEnter = false;
-  bool pressedEsc   = false;
+static void wifiSetupAppendChar(char c)
+{
+  const uint8_t maxLen = currentMaxLen();
+  const size_t n = strnlen(g_wifi.buf, sizeof(g_wifi.buf));
+  if (n >= maxLen) return;
+  if (n + 1 >= sizeof(g_wifi.buf)) return;
 
-  // Read keyboard events directly. In text-capture mode, the *_Once shortcuts
-  // (menuOnce/selectOnce/escOnce) may be suppressed by input_cardputer.cpp,
-  // so we must handle Enter/Backspace/Esc via the KeyEvent queue.
-  while (in.kbHasEvent()) {
-    const KeyEvent ev = in.kbPop();
-    const uint8_t  kc = ev.code;
+  g_wifi.buf[n] = c;
+  g_wifi.buf[n + 1] = '\0';
+  requestUIRedraw();
+}
 
-    if (kc == 0) break;
+static void wifiSetupCancel()
+{
+  // Clear any pending keyboard input to prevent "fallthrough" presses.
+  inputForceClear();
 
-    // Treat ASCII ESC as cancel
-    if (kc == 27) {
-      pressedEsc = true;
-      continue;
-    }
-
-    // In your mapping, '`' / '~' normally acts like ESC when NOT in text capture.
-    // When text capture is enabled, it becomes a normal character, so we make it cancel here.
-    if (kc == '`' || kc == '~') {
-      pressedEsc = true;
-      continue;
-    }
-
-    // Enter variants
-    if (kc == '\n' || kc == '\r') {
-      pressedEnter = true;
-      continue;
-    }
-
-    // Backspace variants
-    if (kc == '\b' || kc == 127) {
-      if (wifiSetupBackspace()) changed = true;
-      continue;
-    }
-
-    // Printable ASCII
-    if (kc >= 32 && kc <= 126) {
-      const int before = (int)strlen(g_wifi.buf);
-      wifiSetupAppendChar((char)kc);
-      if ((int)strlen(g_wifi.buf) != before) changed = true;
-      continue;
-    }
-
-    // ignore everything else
-  }
-
-  // Also allow hardware/menu flags if they still come through.
-  if (in.escOnce || in.menuOnce) pressedEsc = true;
-
-  if (pressedEsc) {
-    wifiSetupCancel(in);
+  // If this was entered from the boot wizard, return to its prompt.
+  if (g_wifiSetupFromBootWizard)
+  {
+    uiActionEnterState(UIState::BOOT_WIFI_PROMPT, g_app.currentTab, true);
     return;
   }
 
-  if (changed) {
-    requestUIRedraw();
+  // Otherwise, return to settings.
+  uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
+}
+
+static void wifiSetupSelect()
+{
+  // Stage 0: SSID -> move to PASS
+  if (g_wifi.setupStage == 0)
+  {
+    wifiSetupCommitBufferToCurrentField();
+    wifiSetupResetForStage(1);
+    return;
   }
 
-  // Advance on Enter, or encoder press/select if available.
-  const bool advance = pressedEnter || in.selectOnce || in.encoderPressOnce;
-  if (!advance) return;
+  // Stage 1: PASS -> commit and proceed
+  wifiSetupCommitBufferToCurrentField();
 
-  wifiSetupAdvanceOrFinish(in);
+  // Persist credentials (so the rest of the system can use them)
+  wifiStoreSave(String(g_wifi.ssid), String(g_wifi.pass));
+
+  // Kick off connection attempt NOW (this is what makes BOOT_WIFI_WAIT dismiss)
+  wifiConsoleBeginConnect(g_wifi.ssid, g_wifi.pass);
+
+  if (g_wifiSetupFromBootWizard)
+  {
+    uiActionEnterState(UIState::BOOT_WIFI_WAIT, g_app.currentTab, true);
+    return;
+  }
+
+  // If entered from Settings, return there (connection continues in background)
+  uiActionEnterState(UIState::SETTINGS, g_app.currentTab, true);
+}
+
+static void wifiSetupNavLeft()
+{
+  // Left goes back a stage (PASS -> SSID)
+  if (g_wifi.setupStage == 1)
+  {
+    wifiSetupCommitBufferToCurrentField();
+
+    // Load SSID into buffer for editing.
+    strncpy(g_wifi.buf, g_wifi.ssid, sizeof(g_wifi.buf) - 1);
+    g_wifi.buf[sizeof(g_wifi.buf) - 1] = '\0';
+
+    g_wifi.setupStage = 0;
+    requestUIRedraw();
+  }
+}
+
+static void wifiSetupNavRight()
+{
+  // Right advances stage (SSID -> PASS)
+  if (g_wifi.setupStage == 0)
+  {
+    wifiSetupCommitBufferToCurrentField();
+
+    // Load PASS into buffer for editing.
+    strncpy(g_wifi.buf, g_wifi.pass, sizeof(g_wifi.buf) - 1);
+    g_wifi.buf[sizeof(g_wifi.buf) - 1] = '\0';
+
+    g_wifi.setupStage = 1;
+    requestUIRedraw();
+  }
+}
+
+static void wifiSetupNavUp()   {}
+static void wifiSetupNavDown() {}
+
+// -----------------------------------------------------------------------------
+// Public state handler
+// -----------------------------------------------------------------------------
+void uiWifiSetupHandle(InputState &in)
+{
+  // Ensure DEL/BKSP are treated as text editing, not menu/back.
+  if (!g_textCaptureMode)
+    inputSetTextCapture(true);
+
+  // Keyboard text events: limit per tick so we don't starve rendering.
+  bool didTextChange = false;
+  for (int i = 0; i < 16; ++i)
+  {
+    if (in.kbQHead == in.kbQTail) break;
+
+    // Your InputState::kbPop() returns a KeyEvent (no args).
+    KeyEvent ev = in.kbPop();
+    const uint8_t code = ev.code;
+
+    // Ignore synthetic/meta keys.
+    if (code == 0 || code == RH_KEY_FN || code == RH_KEY_SHIFT)
+      continue;
+
+    // Backspace / delete
+    if (code == (uint8_t)'\b' || code == (uint8_t)0x7F || code == RH_KEY_BACKSPACE)
+    {
+      wifiSetupBackspace();
+      didTextChange = true;
+      continue;
+    }
+
+    // Enter / select
+    if (code == (uint8_t)'\n' || code == (uint8_t)'\r')
+    {
+      wifiSetupSelect();
+      continue;
+    }
+
+    // Printable character
+    const char c = (char)code;
+    if (isprint((unsigned char)c))
+    {
+      wifiSetupAppendChar(c);
+      didTextChange = true;
+    }
+  }
+
+  // Nav (kept harmless; screen mostly uses left/right stage switching).
+  if (in.leftOnce)  wifiSetupNavLeft();
+  if (in.rightOnce) wifiSetupNavRight();
+  if (in.upOnce)    wifiSetupNavUp();
+  if (in.downOnce)  wifiSetupNavDown();
+
+  // Select and cancel.
+  if (in.selectOnce) wifiSetupSelect();
+
+  // Only ESC cancels. Do NOT use menuOnce here.
+  if (in.escOnce)
+  {
+    wifiSetupCancel();
+    return;
+  }
+
+  // If text changed, swallow remaining queued key events this tick.
+  if (didTextChange)
+    uiDrainKb(in);
 }

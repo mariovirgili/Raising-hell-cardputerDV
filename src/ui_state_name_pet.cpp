@@ -26,7 +26,8 @@ void uiNamePetHandle(InputState& in)
   bool changed = false;
 
   // Back cancels back to choose pet
-  if (in.menuOnce || in.escOnce) {
+  if (in.menuOnce) {
+    // ESC is intentionally ignored on NAME_PET (it's used elsewhere in the boot flow).
     inputSetTextCapture(false);
     g_textCaptureMode = false;
 

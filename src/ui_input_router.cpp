@@ -3,65 +3,76 @@
 #include "app_state.h"
 #include "input.h"
 
-#include "ui_input_interceptors.h"
-
 #include "ui_actions.h"
-
-// Central state dispatch table
+#include "ui_input_interceptors.h"
 #include "ui_state_handlers.h"
+#include "ui_state_pet_sleeping.h"
 
-bool uiInputApplyInterceptors(InputState& in);
-
-static inline bool wantsTextCapture(UIState s)
+// ----------------------------------------------------------------------------
+// Text capture policy
+// ----------------------------------------------------------------------------
+bool uiWantsTextCaptureForState(UIState s)
 {
   switch (s)
   {
-  case UIState::CONSOLE:
-  case UIState::WIFI_SETUP:
-  case UIState::NAME_PET:
-    return true;
-  default:
-    return false;
+    case UIState::CONSOLE:
+    case UIState::WIFI_SETUP:
+    case UIState::NAME_PET:
+      return true;
+
+    default:
+      return false;
   }
 }
 
+bool uiWantsTextCaptureNow()
+{
+  return uiWantsTextCaptureForState(g_app.uiState);
+}
+
+// ----------------------------------------------------------------------------
+// No-input states (swallow edges)
+// ----------------------------------------------------------------------------
 static inline bool isNoInputState(UIState s)
 {
   switch (s)
   {
-  case UIState::BOOT:
-    return true;
-  default:
-    return false;
+    case UIState::BOOT:
+      return true;
+    default:
+      return false;
   }
 }
 
-static bool dispatchToHandler(UIState s, InputState &in)
+static bool dispatchToHandler(UIState s, InputState& in)
 {
   return uiDispatchToStateHandler(s, in);
 }
 
-
-bool uiHandleInput(InputState &in)
+bool uiHandleInput(InputState& in)
 {
   static bool s_lastTextCapture = false;
-
-  const bool desiredTextCapture = wantsTextCapture(g_app.uiState);
+  const bool desiredTextCapture = uiWantsTextCaptureNow();
   if (desiredTextCapture != s_lastTextCapture)
   {
     inputSetTextCapture(desiredTextCapture);
     s_lastTextCapture = desiredTextCapture;
   }
 
-  // NOTE:
-  // We no longer special-case console/name/wifi dispatch here.
-  // Text-capture is already toggled above (inputSetTextCapture), and the
-  // per-state handlers can decide what ESC/MENU does.
-  // Keeping all dispatch in one place avoids "wrong handler" bugs.
-
-  // Phase 1: global interceptors (power menu, ESC->settings, sleep gate, etc.)
-  if (uiInputApplyInterceptors(in))
+  // Phase 1: global interceptors
+  if (uiHandleGlobalInterceptors(in))
     return true;
+
+  // ---- State entry hook (prevents carried-held edges on entry) ----
+  static UIState s_prevState = UIState::BOOT;
+  if (g_app.uiState != s_prevState)
+  {
+    if (g_app.uiState == UIState::PET_SLEEPING)
+      uiPetSleepingOnEnter(in);
+
+    s_prevState = g_app.uiState;
+  }
+  // ---------------------------------------------------------------
 
   if (isNoInputState(g_app.uiState))
   {

@@ -651,18 +651,43 @@ void drawBootWifiWaitScreen(bool connected, int rssi)
   spr.setTextSize(1);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
 
+  const char* ssid = wifiConsoleSsid();
+  const uint32_t ageMs = wifiConsoleConnectAgeMs();
+  const uint32_t ageS  = ageMs / 1000;
+  const char* st = wifiConsoleStatusString();
+
   spr.drawString("Connecting WiFi...", 10, 10);
+
+  if (ssid && ssid[0])
+    spr.drawString((String("SSID: ") + ssid).c_str(), 10, 28);
+  else
+    spr.drawString("SSID: (none)", 10, 28);
+
+  spr.drawString((String("Status: ") + st).c_str(), 10, 46);
+  spr.drawString((String("Elapsed: ") + String(ageS) + "s").c_str(), 10, 64);
+
   if (connected)
   {
-    spr.drawString("Connected", 10, 40);
-    spr.drawString(("RSSI: " + String(rssi)).c_str(), 10, 60);
-    spr.drawString("Advancing to Timezone...", 10, 90);
+    spr.drawString("Connected", 10, 86);
+    spr.drawString(("RSSI: " + String(rssi)).c_str(), 10, 104);
+    spr.drawString("Advancing to Timezone...", 10, 126);
   }
   else
   {
-    spr.drawString("Not connected yet", 10, 40);
-    spr.drawString("ESC: Skip", 10, 90);
+    // Make failure state obvious after a reasonable wait.
+    if (ageS >= 20)
+    {
+      spr.drawString("Still not connected.", 10, 92);
+      spr.drawString("Check password/signal.", 10, 110);
+      spr.drawString("ESC: Skip  (or re-enter WiFi)", 10, 132);
+    }
+    else
+    {
+      spr.drawString("Not connected yet", 10, 92);
+      spr.drawString("ESC: Skip", 10, 132);
+    }
   }
+
   spr.pushSprite(0, 0);
 }
 

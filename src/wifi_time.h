@@ -35,3 +35,7 @@ void        wifiConsoleDisconnect(bool eraseCreds);
 const char* wifiConsoleSsid();
 int         wifiConsoleRssi();
 const char* wifiConsoleIpString();
+
+uint32_t    wifiConsoleConnectAgeMs();
+int         wifiConsoleStatus();
+const char* wifiConsoleStatusString();
