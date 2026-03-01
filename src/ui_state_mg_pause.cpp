@@ -1,75 +1,53 @@
 #include "ui_state_mg_pause.h"
 
 #include "app_state.h"
-#include "graphics.h"
 #include "input.h"
+#include "mg_pause_core.h"
 #include "mg_pause_menu.h"
 #include "mini_games.h"
-#include <Arduino.h>
+#include "ui_actions.h"
+#include "ui_runtime.h"
 #include "ui_suppress.h"
 
-void uiMgPauseHandle(InputState &in)
+void uiMgPauseEnter()
 {
-  const uint32_t now = millis();
+  // Ensure we are in the paused state and the cursor starts at "Continue".
+  mgPauseSetPaused(true);
+  mgPauseSetChoice(0);
 
-  // ESC resumes back to MINI_GAME
-  if (in.mgQuitOnce)
+  requestFullUIRedraw();
+}
+
+void uiMgPauseHandle(InputState& in)
+{
+  // Keep menu suppressed while we're in the pause UI (ESC should resume game, not open Settings).
+  uiSuppressMenuForMs(150);
+
+  // If we somehow got here while not paused, immediately return to mini game.
+  if (!mgPauseIsPaused())
   {
-    mgPauseSetPaused(false);
-    mgPauseUpdateClocks(now);
-
-    // Prevent the ESC edge from triggering something immediately after resume
-    uiGuardTransition(in);
-
-    g_app.uiState = UIState::MINI_GAME;
-    requestUIRedraw();
+    uiActionEnterStateClean(UIState::MINI_GAME, g_app.currentTab, false, in, 150);
+    requestFullUIRedraw();
     return;
   }
 
-  // Navigate (0=Continue, 1=Exit)
-  if (in.mgUpOnce || in.mgLeftOnce)
+  // Drive the pause menu interaction
+  const uint8_t r = mgPauseHandle(in);
+
+  if (r == MGPAUSE_EXIT)
   {
-    mgPauseSetChoice(0);
-    requestUIRedraw();
-    return;
-  }
-  if (in.mgDownOnce || in.mgRightOnce)
-  {
-    mgPauseSetChoice(1);
-    requestUIRedraw();
+    miniGameExitToReturnUi(true);
+    requestFullUIRedraw();
     return;
   }
 
-  // Confirm (ENTER)
-  if (in.mgSelectOnce)
+  // Continue: mgPauseHandle() should have cleared pause via action
+  if (!mgPauseIsPaused())
   {
-    const uint8_t choice = mgPauseChoice();
-
-    if (choice == 0) // Continue
-    {
-      mgPauseSetPaused(false);
-      mgPauseUpdateClocks(now);
-
-      // Kill the ENTER edge so it doesn't double-trigger in MINI_GAME
-      uiGuardTransition(in);
-
-      g_app.uiState = UIState::MINI_GAME;
-      requestUIRedraw();
-      return;
-    }
-
-    if (choice == 1) // Exit
-    {
-      mgPauseSetPaused(false);
-      mgPauseUpdateClocks(now);
-      mgPauseSetChoice(0);
-
-      // CRITICAL: kill the ENTER edge BEFORE we return to the PET/PLAY UI,
-      // otherwise the Play handler sees it and starts the minigame again.
-      uiGuardTransition(in);
-
-      miniGameExitToReturnUi(true);
-      return;
-    }
+    uiActionEnterStateClean(UIState::MINI_GAME, g_app.currentTab, false, in, 150);
+    requestFullUIRedraw();
+    return;
   }
+
+  // Still paused: let the pause menu render path handle it.
 }

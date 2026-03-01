@@ -1,40 +1,43 @@
 #include "ui_state_inventory.h"
 
 #include "app_state.h"
+#include "graphics.h"
 #include "input.h"
-#include "save_manager.h"
 #include "sound.h"
+#include "ui_actions.h"
 #include "ui_input_utils.h"
 #include "ui_runtime.h"
 
 void uiInventoryHandle(InputState& in)
 {
-  if (uiIsBack(in)) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
+  // Back goes to pet tab/state.
+  if (uiIsBack(in))
+  {
+    uiActionEnterStateClean(UIState::PET_SCREEN, Tab::TAB_PET, false, in, 150);
+    requestFullUIRedraw();
     clearInputLatch();
     return;
   }
 
-  const int count = g_app.inventory.countItems();
-  if (count == 0) {
-    g_app.uiState = UIState::PET_SCREEN;
-    requestUIRedraw();
-    clearInputLatch();
-    return;
-  }
-
+  // Navigate visible inventory entries.
   const int move = uiNavMove(in);
-  if (move != 0) {
-    uiWrapIndex(g_app.inventory.selectedIndex, move, count);
-    requestUIRedraw();
-    playBeep();
+  if (move != 0)
+  {
+    const int count = g_app.inventory.countItems();
+    if (count > 0)
+    {
+      uiWrapIndex(g_app.inventory.selectedIndex, move, count);
+      requestUIRedraw();
+      playBeep();
+    }
+    clearInputLatch();
     return;
   }
 
-  if (uiIsSelect(in)) {
+  // Use selected item.
+  if (uiIsSelect(in))
+  {
     g_app.inventory.useSelectedItem();
-    saveManagerMarkDirty();
     requestUIRedraw();
     clearInputLatch();
   }

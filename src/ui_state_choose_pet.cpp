@@ -11,6 +11,7 @@
 #include "ui_new_pet_flow.h"
 #include "ui_runtime.h"
 #include "graphics.h"
+#include "ui_actions.h"
 
 void uiChoosePetHandle(InputState& in)
 {
@@ -113,11 +114,9 @@ void uiChoosePetHandle(InputState& in)
     g_app.flow.hatch.flashStartMs = 0;
 
     // Enter the modal hatching state
-    g_app.uiState = UIState::HATCHING;
-
-    invalidateBackgroundCache();
+    uiActionEnterStateClean(UIState::HATCHING, Tab::TAB_PET, false, in, 150);
     requestFullUIRedraw();
-
+                
     // Swallow any stray edges/typing so we don't instantly skip phases
     while (in.kbHasEvent()) (void)in.kbPop();
     inputForceClear();
