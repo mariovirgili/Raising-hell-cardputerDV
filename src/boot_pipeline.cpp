@@ -333,8 +333,10 @@ void postBootInitTick()
     {
       DBG_ON("[BOOT] No SD save -> UIState::CHOOSE_PET\n");
 
-      g_app.inventory.init();
-      ui_setBootSplashActive(false);
+      // No SD save means we are bootstrapping a brand-new pet.
+      // IMPORTANT: do NOT resurrect old inventory from the legacy EEPROM mirror.
+      // Use the canonical starter inventory instead.
+      g_app.inventory.resetToDefaults();      ui_setBootSplashActive(false);
 
       // If controls help hasn’t been seen, do: (forced time) -> help -> time -> choose pet.
       if (!g_controlsHelpSeen)

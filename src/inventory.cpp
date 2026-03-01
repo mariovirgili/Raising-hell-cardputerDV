@@ -8,6 +8,12 @@
 #include "app_state.h"
 #include "evolution_flow.h"
 
+// EEPROM mirror of inventory persists across power cycles.
+// IMPORTANT: This must be explicitly cleared on factory reset and death,
+// otherwise a new pet can inherit the previous pet's inventory.
+static constexpr int INVENTORY_EEPROM_ADDR  = 40;
+static constexpr int INVENTORY_EEPROM_BYTES = Inventory::MAX_ITEMS * 2; // type + qty per slot
+
 // Forward declarations for theme helpers
 static const char* itemNameForPet(ItemType type, PetType petType);
 static const char* itemDescForPet(ItemType type, PetType petType);
@@ -152,6 +158,11 @@ static void applyItemMeta(Item &it, PetType petType) {
   it.description = itemDescForPet(it.type, petType);
 }
 
+// Convenience overload for older call sites.
+static void applyItemMeta(Item &it) {
+  applyItemMeta(it, pet.type);
+}
+
 ItemDeltas inventoryPreviewDeltas(ItemType type)
 {
   ItemDeltas d;
@@ -207,6 +218,14 @@ void Inventory::init() {
   }
 }
 
+void Inventory::clear() {
+  for (int i = 0; i < MAX_ITEMS; ++i) {
+    items[i] = Item();
+  }
+  selectedIndex = 0;
+  itemCount = 0;
+}
+
 // =====================================================================
 // SAVE (2 bytes per slot: type, qty)
 // NOTE: If you fully migrate to SD saves, you can stop calling this,
@@ -216,8 +235,19 @@ void Inventory::save() {
   saveManagerMarkDirty();
 
   // Optional EEPROM sync during transition (same idea as pet.save)
-  int addr = 40;
+  int addr = INVENTORY_EEPROM_ADDR;
   for (int i = 0; i < MAX_ITEMS; i++) {
+    EEPROM.write(addr++, (uint8_t)items[i].type);
+    EEPROM.write(addr++, (uint8_t)items[i].quantity);
+  }
+  EEPROM.commit();
+}
+
+void Inventory::syncEepromNoDirty()
+{
+  int addr = INVENTORY_EEPROM_ADDR;
+  for (int i = 0; i < MAX_ITEMS; i++)
+  {
     EEPROM.write(addr++, (uint8_t)items[i].type);
     EEPROM.write(addr++, (uint8_t)items[i].quantity);
   }
@@ -228,30 +258,27 @@ void Inventory::save() {
 // LOAD
 // =====================================================================
 void Inventory::load() {
-  int addr = 40;
-
+  int addr = INVENTORY_EEPROM_ADDR;
   for (int i = 0; i < MAX_ITEMS; i++) {
-    uint8_t t = EEPROM.read(addr++);
-    uint8_t q = EEPROM.read(addr++);
+    items[i].type = (ItemType)EEPROM.read(addr++);
+    items[i].quantity = EEPROM.read(addr++);
+  }
 
-    // Keep your existing guard. (This assumes ITEM_ELDRITCH_EYE is last valid.)
-    if (t > (uint8_t)ITEM_ELDRITCH_EYE) {
-      items[i] = Item();
-      continue;
-    }
-
-    items[i].type     = (ItemType)t;
-    items[i].quantity = (int)q;
-
-    // Empty slot safety
-    if (items[i].type == ITEM_NONE || items[i].quantity <= 0) {
-      items[i] = Item();
-      continue;
-    }
-
-    // Theme-aware naming (Devil vs Eldritch etc.)
+  // Apply metadata based on pet type
+  for (int i = 0; i < MAX_ITEMS; i++) {
     applyItemMeta(items[i], pet.type);
   }
+}
+
+void Inventory::wipePersistedEeprom()
+{
+  // Keep it safe even if another module didn't call EEPROM.begin yet.
+  EEPROM.begin(512);
+  for (int i = 0; i < INVENTORY_EEPROM_BYTES; i++)
+  {
+    EEPROM.write(INVENTORY_EEPROM_ADDR + i, 0);
+  }
+  EEPROM.commit();
 }
 
 void Inventory::toPersist(InvPersist &out) const {
@@ -572,6 +599,29 @@ bool inventoryUseOne(ItemType type)
   g_app.inventory.removeItem(type, 1);
   saveManagerMarkDirty();
   return true;
+}
+
+// ------------------------------
+// Stock new pet inventory with basics
+// ------------------------------
+void Inventory::resetToDefaults()
+{
+  // Canonical default loadout (keep in sync with makeDefaultSavePayload()).
+  for (int i = 0; i < MAX_ITEMS; i++)
+  {
+    items[i] = Item();
+  }
+
+  items[0].type     = ITEM_SOUL_FOOD;
+  items[0].quantity = 3;
+  applyItemMeta(items[0], pet.type);
+
+  items[1].type     = ITEM_CURSED_RELIC;
+  items[1].quantity = 1;
+  applyItemMeta(items[1], pet.type);
+
+  // Persist to EEPROM and mark the save dirty so SD will be updated.
+  save();
 }
 
 // -----------------------------------------------------------------------------

@@ -69,6 +69,16 @@ public:
   void init();
   void save();
   void load();
+  void resetToDefaults();
+  void clear();
+  
+  // Clears the EEPROM-backed inventory mirror so a new pet cannot
+// inherit items after a factory reset or death.
+void wipePersistedEeprom();
+
+// Writes the current in-memory inventory to EEPROM without marking
+// the SD save "dirty". Useful after loading/unpacking a save.
+void syncEepromNoDirty();
 
   // ------------------------------------
   // Add & Remove

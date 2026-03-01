@@ -35,6 +35,7 @@
 static bool dirty = false;
 static uint32_t lastSaveMs = 0;
 static const uint32_t DEBOUNCE_MS = 2000;
+static void newPetInternalNoSave(bool resetName = false);
 
 // One (and ONLY one) instance
 static SettingsData g_settings;
@@ -106,15 +107,29 @@ static void clearNamePendingFlag() {
   if (SD.exists(NAME_PENDING_FLAG_PATH)) SD.remove(NAME_PENDING_FLAG_PATH);
 }
 
+// Back-compat: older code called this name.
+static void removeNamePendingFlag() {
+  clearNamePendingFlag();
+}
+
 static void forceChoosePetFlowFromBoot() {
+  // Starting a brand-new pet lifecycle.
+  // Reset *all* runtime state (including inventory) to defaults so nothing can
+  // carry over from a previous pet (death path, deleted saves, etc.).
+  newPetInternalNoSave(/*resetName=*/true);
+
   inputSetTextCapture(false);
   g_textCaptureMode = false;
 
+  // No pending name.
+  clearNamePendingFlag();
+
+  // Go to Choose Pet flow state
   g_app.uiState = UIState::CHOOSE_PET;
   g_app.currentTab = Tab::TAB_PET;
-
   g_app.uiNeedsRedraw = true;
-  requestFullUIRedraw();
+
+  // Clear latches
   clearInputLatch();
 }
 
@@ -340,7 +355,9 @@ static void pack(SavePayload &p) {
 static void unpack(const SavePayload &p) {
   pet.fromPersist(p.pet);
   g_app.inventory.fromPersist(p.inv);
-
+  // Keep the EEPROM mirror in sync with the authoritative payload.
+  // This prevents stale inventory from leaking across factory reset/death.
+  g_app.inventory.syncEepromNoDirty();
   // Always come up awake
   pet.isSleeping      = false;
   g_app.isSleeping          = false;
@@ -574,9 +591,14 @@ static void saveSettingsToSD_internal() {
   SD.rename(SET_TMP_PATH, SET_PATH);
 }
 
-static void newPetInternalNoSave() {
+static void newPetInternalNoSave(bool resetName) {
   SavePayload p = makeDefaultSavePayload();
   unpack(p);
+
+  if (resetName) {
+    // Ensure the runtime pet name is blank for a fresh flow.
+    pet.name[0] = '\0';
+  }
 
   writeNamePendingFlag();
 }
@@ -704,17 +726,37 @@ bool saveManagerLoad() {
   const bool saveOk = loadSaveFromSD_internal();
 
   if (saveOk) {
+
     if (namePendingFlagExists()) {
       DBGLN_ON("[SAVE] name_pending.flag present -> forcing NAME_PET flow");
       forceNamePetFlowFromBoot();
-    } else if (isBlankName(pet.name)) {
+    }
+    else if (isBlankName(pet.name)) {
       DBGLN_ON("[SAVE] Blank pet name but NOT in pending-name flow -> forcing CHOOSE_PET");
       forceChoosePetFlowFromBoot();
     }
+
+    return true;
   }
 
-  printState("SAVE LOAD(post)");
-  return saveOk;
+  // -----------------------------------------------------------------------
+  // NEW: No valid save found (factory reset / first boot / corruption)
+  //      Initialize a clean default payload so inventory and pet state
+  //      are reset properly.
+  // -----------------------------------------------------------------------
+
+  DBGLN_ON("[SAVE] No valid save found -> applying default payload");
+
+  SavePayload def = makeDefaultSavePayload();
+  unpack(def);
+  
+  // Ensure a fresh save gets written soon so we don't re-default every boot.
+  saveManagerMarkDirty();
+
+  // Force new pet flow on fresh boot.
+  forceChoosePetFlowFromBoot();
+
+  return false;
 }
 
 bool saveManagerSave() {
@@ -843,41 +885,42 @@ void saveManagerFactoryReset()
   invalidateTimeNow();
   
   writeFirstRunFlag();
+  // Also wipe the EEPROM-backed inventory mirror so a brand-new pet cannot
+  // inherit inventory across a factory reset.
+  g_app.inventory.wipePersistedEeprom();
 
   delay(50);
   ESP.restart();
 }
 
 // ------------------------------------------------------------
-// DELETE PET SAVE ONLY (bury)
-// ------------------------------------------------------------
-void saveManagerDeletePetOnly() {
-  if (!g_sdReady) return;
-
-  SD.remove(SAVE_TMP_PATH);
-  SD.remove(SAVE_PATH);
-  SD.remove(NAME_PENDING_FLAG_PATH);
-
-  dirty = false;
-}
-
-// ------------------------------------------------------------
 // DELETE ALL SAVES (true death)
 // ------------------------------------------------------------
-void saveManagerDeleteAll() {
-  if (!g_sdReady) return;
+void saveManagerDeleteAll()
+{
+  // Used when the pet is buried (hard reset of pet-related data)
+  if (!g_sdReady)
+    return;
 
-  SD.remove(SAVE_TMP_PATH);
-  SD.remove(SAVE_PATH);
-  SD.remove(SET_TMP_PATH);
-  SD.remove(SET_PATH);
-  SD.remove(GAMEOPT_TMP_PATH);
-  SD.remove(GAMEOPT_PATH);
-  SD.remove(NAME_PENDING_FLAG_PATH);
+  // Remove all pet-related blobs (settings / game options may remain elsewhere)
+  SD.remove(SAVE_PATH);                      // /raising_hell/save/save.bin
+  SD.remove("/raising_hell/save/pet.bin");
+  SD.remove("/raising_hell/save/inventory.bin");
 
-  #if defined(ARDUINO_ARCH_ESP32)
-  SD.rmdir(SAVE_DIR);
-  #endif
+  // Also wipe the EEPROM-backed inventory mirror so the next pet starts clean.
+g_app.inventory.wipePersistedEeprom();
+}
 
-  dirty = false;
+void saveManagerDeletePetOnly()
+{
+  // Delete ONLY the pet + inventory. Keep settings/game options.
+  if (!g_sdReady)
+    return;
+
+  SD.remove("/raising_hell/save/pet.bin");
+  SD.remove("/raising_hell/save/inventory.bin");
+  SD.remove(SAVE_PATH);                      // if you still store some pet-state here
+
+  // Also wipe the EEPROM-backed inventory mirror so the next pet starts clean.
+g_app.inventory.wipePersistedEeprom();
 }

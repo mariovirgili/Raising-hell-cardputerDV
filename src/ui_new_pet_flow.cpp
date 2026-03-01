@@ -9,6 +9,7 @@
 #include "new_pet_flow_state.h"
 #include "pet.h"
 #include "ui_runtime.h"
+#include "save_manager.h"
 
 void beginNamePetFlow()
 {
@@ -34,6 +35,12 @@ void finalizeNewPetFromName(InputState& in)
   // Commit chosen type into the final saved pet
   pet.type = g_pendingPetType;
 
+  // New pet must start with the canonical starter inventory, regardless of
+  // what the previous pet had (death / factory reset / flow restart, etc.).
+  g_app.inventory.resetToDefaults();
+  saveManagerMarkDirty();
+  saveManagerForce();
+  
   g_app.newPetFlowActive = false;
 
   // Leave NAME flow and go back to pet screen
