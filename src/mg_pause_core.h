@@ -1,52 +1,55 @@
 #pragma once
+
 #include <stdint.h>
 
 struct InputState;
 
-// Results for a “pause gate” check.
-enum MgPauseGateResult : uint8_t {
-  MG_GATE_RUN = 0,   // Run game update/draw normally
-  MG_GATE_SKIP,      // Don’t advance game simulation this frame (paused)
-  MG_GATE_EXIT        // User chose Exit from pause overlay
+// Result from the pause gate: what the mini-game runner should do this frame.
+enum class MgPauseGateResult : uint8_t
+{
+  MG_GATE_RUN  = 0,  // run normal update/draw
+  MG_GATE_SKIP = 1,  // paused: skip updating game simulation
+  MG_GATE_EXIT = 2,  // paused+Exit chosen: bail to return UI
 };
 
-// Core pause lifecycle
-void mgPauseReset();
-bool mgPauseIsPaused();
+// -----------------------------------------------------------------------------
+// Gate API (pause truth + timing freeze)
+// -----------------------------------------------------------------------------
+void     mgPauseGateReset();
+bool     mgPauseGateIsPaused();
+uint32_t mgPauseGateStartMs();
+uint32_t mgPauseGateAccumulatedMs();
+bool     mgPauseGateConsumeJustResumed();
+void     mgPauseGateSetPaused(bool paused);
 
-// Pause gating + input consumption
-MgPauseGateResult mgPauseGate(const InputState& input, uint32_t nowMs, bool activePlay);
+// Freeze/unfreeze a caller-owned “active play clock”
+void mgPauseGateUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t& io_activePlayMs);
 
-// Timekeeping helpers
-void mgPauseUpdateClocks(uint32_t nowMs);
-uint32_t mgPauseAccumulatedMs();                 // total paused time so far
-uint32_t mgPauseElapsedSince(uint32_t startMs, uint32_t nowMs);  // elapsed excluding paused time
-
-// Edges
-bool mgPauseConsumeJustResumed();                // true once after resume
-
-// Safety: force off without leaving “sticky” state
-void mgPauseForceOffNoStick();
+// Handle ESC toggle + paused-menu input consumption.
+MgPauseGateResult mgPauseGateHandle(const InputState& input);
 
 // -----------------------------------------------------------------------------
-// Public pause API used by mini_games.cpp and UI
+// Public / legacy API used by mini_games.cpp (thin wrappers)
 // -----------------------------------------------------------------------------
-
 void     mgPauseReset();
-
-// Pause state
 bool     mgPauseIsPaused();
 void     mgPauseSetPaused(bool paused);
-
-// Clock helpers
 uint32_t mgPauseStartMs();
 uint32_t mgPauseAccumMs();
 bool     mgPauseJustResumedConsume();
-void     mgPauseUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t &io_activePlayMs);
 
-// Menu selection
+// New-style clock update (preferred)
+void mgPauseUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t& io_activePlayMs);
+
+// Legacy single-arg wrapper (keep only if existing callers still use it)
+void mgPauseUpdateClocks(uint32_t nowMs);
+
+// Menu selection helpers (0=Continue, 1=Exit)
 void     mgPauseSetChoice(uint8_t choice);
 uint8_t  mgPauseChoice();
 
-// Input handler (returns MGPAUSE_* from mg_pause_menu.h)
-uint8_t  mgPauseHandle(const InputState& input);
+// Pause menu handler return values are MGPAUSE_* (declared in mg_pause_menu.h)
+uint8_t mgPauseHandle(const InputState& input);
+
+// Hard unpause
+void mgPauseForceOffNoStick();
