@@ -4,6 +4,7 @@
 
 #include "mg_pause_menu.h" // MGPAUSE_* constants
 #include "input.h"
+#include "ui_mg_pause_menu.h" // uiMgPauseMenuActivate(), uiMgPauseMenuCount()
 
 // -----------------------------------------------------------------------------
 // Single source of truth for pause state
@@ -95,34 +96,42 @@ void mgPauseGateUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t &io_activ
 
 MgPauseGateResult mgPauseGateHandle(const InputState& input)
 {
-  // If we aren't paused, game runs normally.
+  const uint32_t now = millis();
+
+  // ESC (mapped to mgQuitOnce) toggles pause.
+  if (input.mgQuitOnce)
+  {
+    if (!s_paused)
+    {
+      setPausedInternal(true, now);
+      return MgPauseGateResult::MG_GATE_SKIP; // paused now; skip game update
+    }
+
+    // If already paused, ESC resumes.
+    setPausedInternal(false, now);
+    return MgPauseGateResult::MG_GATE_RUN;
+  }
+
+  // Not paused? game runs normally.
   if (!s_paused)
   {
     return MgPauseGateResult::MG_GATE_RUN;
   }
 
-  // If paused, let the pause menu consume input / update selection.
-  // mgPauseHandle() returns MGPAUSE_* constants.
+  // Paused: consume input and possibly resume/exit.
   const uint8_t r = mgPauseHandle(input);
 
-  // If pause menu says exit, bubble that up to the minigame runner.
   if (r == MGPAUSE_EXIT)
   {
-    // Usually you want to clear paused state when exiting.
-    setPausedInternal(false, millis());
     return MgPauseGateResult::MG_GATE_EXIT;
   }
 
-  // If pause menu says resume, clear pause and allow game to run.
-  if (r == MGPAUSE_NONE)
+  // If Continue was chosen, mgPauseSetPaused(false) will have cleared s_paused.
+  if (!s_paused)
   {
-    // If your mgPauseHandle() uses NONE to mean "not paused / resume",
-    // ensure gate state matches.
-    if (s_paused) setPausedInternal(false, millis());
     return MgPauseGateResult::MG_GATE_RUN;
   }
 
-  // Otherwise we remain paused; game update should be skipped.
   return MgPauseGateResult::MG_GATE_SKIP;
 }
 
@@ -147,64 +156,91 @@ void mgPauseUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t &io_activePla
   mgPauseGateUpdateClocks(nowMs, activePlay, io_activePlayMs);
 }
 
+void mgPauseForceOffNoStick()
+{
+  // Hard stop: unpause without caring about “stickiness”
+  setPausedInternal(false, millis());
+}
+
+void mgPauseSetChoice(uint8_t choice)
+{
+  s_choice = (choice != 0) ? 1 : 0;
+}
+
+uint8_t mgPauseChoice()
+{
+  return s_choice;
+}
+
 // -----------------------------------------------------------------------------
 // Legacy compatibility wrapper (used by mini_games.cpp etc.)
 // -----------------------------------------------------------------------------
 
 void mgPauseUpdateClocks(uint32_t nowMs)
 {
-  // If not paused, nothing special to do.
+  // This overload exists because older code calls mgPauseUpdateClocks(nowMs).
+  // We only need it to "freeze" pause start while paused.
   if (!s_paused)
+  {
     return;
+  }
 
-  // While paused, accumulate time.
   if (s_pauseStartMs == 0)
+  {
     s_pauseStartMs = nowMs;
+  }
 }
 
-void mgPauseSetChoice(uint8_t choice) { s_choice = (choice != 0) ? 1 : 0; }
-
-uint8_t mgPauseChoice() { return s_choice; }
-
-// IMPORTANT: mgPauseHandle is the menu-layer input handler and should return MGPAUSE_*.
-// If you have a real implementation elsewhere (mg_pause_menu.cpp), delete this stub
-// and link against the real one instead.
 uint8_t mgPauseHandle(const InputState& input)
 {
-  const uint32_t now = millis();
-
-  // While not paused, only ESC (mgQuitOnce) can enter pause (handled elsewhere).
-  // This function primarily handles navigation/selection *while paused*.
-  if (!s_paused) return MGPAUSE_NONE;
-
-  // ESC resumes immediately.
-  if (input.mgQuitOnce)
+  if (!s_paused)
   {
-    setPausedInternal(false, now);
-    return MGPAUSE_CONSUME;
+    return MGPAUSE_NONE;
   }
 
-  // Navigate options (0 = Continue, 1 = Exit).
+  const int count = uiMgPauseMenuCount();
+  if (count > 0 && (int)s_choice >= count)
+  {
+    s_choice = 0;
+  }
+
+  // Up/Down changes selection
   if (input.mgUpOnce || input.mgDownOnce)
   {
-    s_choice = (s_choice == 0) ? 1 : 0;
-    return MGPAUSE_CONSUME;
-  }
-
-  // ENTER selects.
-  if (input.mgSelectOnce)
-  {
-    if (s_choice == 0)
+    if (count <= 1)
     {
-      setPausedInternal(false, now);
-      return MGPAUSE_CONSUME;
+      s_choice = 0;
     }
     else
     {
-      setPausedInternal(false, now);
-      return MGPAUSE_EXIT;
+      // 2-item menu: just toggle
+      s_choice = (s_choice == 0) ? 1 : 0;
     }
+    return MGPAUSE_NONE;
   }
 
-  return MGPAUSE_CONSUME;
+  // Enter activates selection
+  if (input.mgSelectOnce)
+  {
+    // ui action handlers expect a non-const InputState&
+    InputState& in = const_cast<InputState&>(input);
+    uiMgPauseMenuActivate((int)s_choice, in);
+
+    // If “Continue” was chosen, it should have unpaused us.
+    if (!s_paused)
+    {
+      return MGPAUSE_NONE;
+    }
+
+    // If “Exit” was chosen, the UI action should have queued return UI.
+    // We still return EXIT so the mini-game runner can bail immediately.
+    if (s_choice == 1)
+    {
+      return MGPAUSE_EXIT;
+    }
+
+    return MGPAUSE_NONE;
+  }
+
+  return MGPAUSE_NONE;
 }
