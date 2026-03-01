@@ -50,7 +50,7 @@ ItemDeltas inventoryPreviewDeltas(ItemType type);
 // ------------------------------------
 class Inventory {
 public:
-  static constexpr int MAX_ITEMS = 20;
+  static constexpr int MAX_ITEMS = 16;
 
   Inventory()
   : selectedIndex(0),
@@ -71,7 +71,7 @@ public:
   void load();
   void resetToDefaults();
   void clear();
-  
+
   // Clears the EEPROM-backed inventory mirror so a new pet cannot
 // inherit items after a factory reset or death.
 void wipePersistedEeprom();
