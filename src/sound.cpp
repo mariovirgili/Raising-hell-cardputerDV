@@ -83,7 +83,16 @@ static void startSequence(const ToneStep* seq, uint8_t count) {
   s_seqCount = count;
   s_seqIdx = 0;
   s_playing = true;
-  s_nextChangeMs = millis();
+
+  const uint32_t now = millis();
+
+  // Kick the first step immediately so the very first UI sound after boot
+  // can't get "lost" waiting for the next soundTick().
+  const ToneStep& st0 = s_seq[0];
+  speakerTone(st0.freqHz, st0.ms);
+
+  s_seqIdx = 1;
+  s_nextChangeMs = now + (uint32_t)st0.ms + (uint32_t)st0.gapMs;
 }
 
 void soundTick() {
@@ -204,6 +213,13 @@ void initSound() {
 
   // OFF means fully muted (including sequences)
   soundEnabled = (s_volumeLevel != SOUND_VOL_OFF);
+
+  // Prime the speaker PWM/timer once so the first "real" UI beep isn't lost.
+  // (First tone after boot can be swallowed by the driver init.)
+  if (soundEnabled) {
+    M5Cardputer.Speaker.tone(2000, 1);  // 1ms: effectively inaudible
+    delay(2);                           // let the driver latch the timer
+  }
 }
 
 void toggleSound() {
@@ -226,6 +242,13 @@ void toggleSound() {
 // -----------------------------------------------------------------------------
 static inline bool uiSfxCooldown(uint32_t minMs) {
   const uint32_t now = millis();
+
+  // Allow the very first UI sound after boot.
+  if (s_lastUiSfxMs == 0) {
+    s_lastUiSfxMs = now;
+    return false;
+  }
+
   if ((uint32_t)(now - s_lastUiSfxMs) < minMs) return true;
   s_lastUiSfxMs = now;
   return false;

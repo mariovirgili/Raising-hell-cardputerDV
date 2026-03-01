@@ -661,6 +661,12 @@ static void readKeyboard(InputState &out)
 
     auto acceptP = [&](uint32_t &lastMs) -> bool
     {
+      // Allow first press after boot.
+      if (lastMs == 0)
+      {
+        lastMs = t;
+        return true;
+      }
       if ((t - lastMs) < kPuncCooldownMs)
         return false;
       lastMs = t;
@@ -715,6 +721,12 @@ static void readKeyboard(InputState &out)
 
   auto acceptNav = [&](uint32_t &lastMs) -> bool
   {
+    // Allow first press after boot.
+    if (lastMs == 0)
+    {
+      lastMs = now;
+      return true;
+    }
     if ((now - lastMs) < kNavCooldownMs)
       return false;
     lastMs = now;

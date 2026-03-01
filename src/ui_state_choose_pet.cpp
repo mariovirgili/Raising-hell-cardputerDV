@@ -90,9 +90,14 @@ void uiChoosePetHandle(InputState& in)
     {
       g_pendingPetType = nextType;
       pet.type = g_pendingPetType; // keep previews consistent
-      requestUIRedraw();
+
+      // Full redraw here prevents ghosting because drawChoosePetScreen()
+      // only clears the background when redrawBg == true.
+      requestFullUIRedraw();
+
       playBeep();
     }
+
     clearInputLatch();
     return;
   }
@@ -116,7 +121,7 @@ void uiChoosePetHandle(InputState& in)
     // Enter the modal hatching state
     uiActionEnterStateClean(UIState::HATCHING, Tab::TAB_PET, false, in, 150);
     requestFullUIRedraw();
-                
+
     // Swallow any stray edges/typing so we don't instantly skip phases
     while (in.kbHasEvent()) (void)in.kbPop();
     inputForceClear();
