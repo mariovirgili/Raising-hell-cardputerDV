@@ -40,6 +40,8 @@
 #include "death_state.h"
 #include "factory_reset_state.h"
 #include "inventory_state.h"
+#include "mg_pause_menu.h"
+#include "mini_game_pause_menu.h"
 #include "mini_games.h"
 #include "name_entry_state.h"
 #include "settings_flow_state.h"
@@ -48,13 +50,12 @@
 #include "system_status_state.h"
 #include "time_state.h"
 #include "ui_menu_state.h"
+#include "ui_power_menu.h"
 #include "ui_sleep_menu.h"
 #include "user_toggles_state.h"
 #include "version.h"
 #include "wifi_setup_state.h"
 #include <lgfx/v1/misc/DataWrapper.hpp>
-#include "mini_game_pause_menu.h"
-#include "mg_pause_menu.h"
 
 bool g_forcePetBgCache = false;
 static void drawBurialScreen();
@@ -652,10 +653,10 @@ void drawBootWifiWaitScreen(bool connected, int rssi)
   spr.setTextSize(1);
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
 
-  const char* ssid = wifiConsoleSsid();
+  const char *ssid = wifiConsoleSsid();
   const uint32_t ageMs = wifiConsoleConnectAgeMs();
-  const uint32_t ageS  = ageMs / 1000;
-  const char* st = wifiConsoleStatusString();
+  const uint32_t ageS = ageMs / 1000;
+  const char *st = wifiConsoleStatusString();
 
   spr.drawString("Connecting WiFi...", 10, 10);
 
@@ -2454,7 +2455,8 @@ void drawSleepMenu()
   const int contentBottom = contentY + contentH;
 
   const int totalItems = uiSleepMenuCount();
-  if (totalItems <= 0) return;
+  if (totalItems <= 0)
+    return;
 
   sleepMenuIndex = clampi(sleepMenuIndex, 0, totalItems - 1);
 
@@ -4370,7 +4372,7 @@ static void drawCurrentScreen(bool redrawBg)
     drawBootNtpWaitScreen(wifiIsConnected(), timeIsSynced());
     return;
 
-    case UIState::MG_PAUSE:
+  case UIState::MG_PAUSE:
     // Draw the mini-game frame underneath, then overlay the pause menu UI.
     drawMiniGameScreen();
     mgDrawPauseOverlay();
@@ -4748,8 +4750,7 @@ static void drawPowerMenuOverlay()
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
   spr.drawString("POWER MENU", screenW / 2, y + 8);
 
-  const char *items[] = {"Sleep", "Reboot", "Shut Down"};
-  const int itemCount = (int)(sizeof(items) / sizeof(items[0]));
+  const int itemCount = uiPowerMenuCount();
 
   const int listX = x + 16;
   int yy = y + 26;
@@ -4769,7 +4770,7 @@ static void drawPowerMenuOverlay()
     }
 
     spr.setTextDatum(TL_DATUM);
-    spr.drawString(items[i], listX, yy);
+    spr.drawString(uiPowerMenuLabel(i), listX, yy);
     yy += 20;
   }
 

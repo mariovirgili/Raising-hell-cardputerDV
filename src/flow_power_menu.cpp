@@ -25,6 +25,7 @@
 #include "ui_actions.h"
 
 #include "ui_sleep_menu_actions.h"
+#include "ui_power_menu.h"
 
 bool powerMenuSleepWakeSuppressedNow() { return uiIsSleepWakeSuppressed(); }
 
@@ -45,6 +46,38 @@ void openPowerMenuFromHere(uint32_t nowMs)
   inputForceClear();
 
   requestFullUIRedraw();
+}
+
+void powerMenuActSleep()
+{
+  // Sleep (pet sleep, not deep sleep)
+  powerMenuClose();
+  uiSleepMenuEnterSleep(millis());
+}
+
+void powerMenuActReboot()
+{
+  saveManagerForce();
+  delay(40);
+  ESP.restart();
+}
+
+void powerMenuActShutdown()
+{
+  saveManagerForce();
+  applyWifiPower(false);
+
+  SET_SCREEN_POWER(false);
+
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
+  esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0);
+
+  rtc_gpio_deinit(GPIO_NUM_0);
+  rtc_gpio_pullup_en(GPIO_NUM_0);
+  rtc_gpio_pulldown_dis(GPIO_NUM_0);
+
+  delay(60);
+  esp_deep_sleep_start();
 }
 
 void powerMenuClose()
@@ -117,7 +150,7 @@ static void handlePowerMenuInput(InputState& input)
     uiGuardTransition(input, returningToSleep ? 400 : 0);
     return;  }
 
-  const int itemCount = 3;
+    const int itemCount = uiPowerMenuCount();
 
   int mv = 0;
   if (input.upOnce) mv = -1;
@@ -147,41 +180,7 @@ static void handlePowerMenuInput(InputState& input)
     inputForceClear();
     clearInputLatch();
 
-    if (powerMenuIndex == 0)
-    {
-      // Sleep (pet sleep, not deep sleep)
-      powerMenuClose();
-      uiSleepMenuEnterSleep(millis());
-      return;
-    }
-
-    if (powerMenuIndex == 1)
-    {
-      saveManagerForce();
-      delay(40);
-      ESP.restart();
-      return;
-    }
-
-    if (powerMenuIndex == 2)
-    {
-      saveManagerForce();
-      applyWifiPower(false);
-
-      SET_SCREEN_POWER(false);
-
-      esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);
-      esp_sleep_enable_ext0_wakeup(GPIO_NUM_0, 0);
-
-      rtc_gpio_deinit(GPIO_NUM_0);
-      rtc_gpio_pullup_en(GPIO_NUM_0);
-      rtc_gpio_pulldown_dis(GPIO_NUM_0);
-
-      delay(60);
-      esp_deep_sleep_start();
-      return;
-    }
-
+    uiPowerMenuActivate(powerMenuIndex, input);
     return;
   }
 
