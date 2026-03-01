@@ -1,166 +1,179 @@
 #include "mg_pause_core.h"
-#include "input.h"
+
 #include <Arduino.h>
 
+#include "mg_pause_menu.h" // MGPAUSE_* constants
+#include "input.h"
+
 // -----------------------------------------------------------------------------
-// Pause core state
+// Single source of truth for pause state
 // -----------------------------------------------------------------------------
 
-static bool     s_paused       = false;
+static bool     s_paused = false;
 static uint32_t s_pauseStartMs = 0;
-static uint32_t s_pauseAccumMs = 0;   // total time spent paused
-static bool     s_justResumed  = false;
+static uint32_t s_pauseAccumMs = 0;
+static bool     s_justResumed = false;
 
-// Edge tracking (so holding ESC/ENTER doesn’t toggle repeatedly)
-static bool s_prevEscHeld   = false;
-static bool s_prevEnterHeld = false;
+// Menu selection (0 = Continue, 1 = Exit)
+static uint8_t  s_choice = 0;
 
-// Overlay selection (0 = Continue, 1 = Exit)
-static uint8_t s_choice = 0;
-
-// If you already have constants elsewhere, match them.
-static const uint8_t MGPAUSE_CONTINUE = 0;
-static const uint8_t MGPAUSE_EXIT     = 1;
-
-void mgPauseReset()
+static inline void setPausedInternal(bool p, uint32_t now)
 {
-  s_paused        = false;
-  s_pauseStartMs  = 0;
-  s_pauseAccumMs  = 0;
-  s_justResumed   = false;
-  s_prevEscHeld   = false;
-  s_prevEnterHeld = false;
-  s_choice        = 0;
-}
+  if (p == s_paused) return;
 
-bool mgPauseIsPaused()
-{
-  return s_paused;
-}
-
-void mgPauseForceOffNoStick()
-{
-  s_paused       = false;
-  s_pauseStartMs = 0;
-  // Don’t touch accum; it’s harmless, but clear edge + inputs
-  s_justResumed   = false;
-  s_prevEscHeld   = false;
-  s_prevEnterHeld = false;
-  s_choice        = 0;
-}
-
-static inline bool escPressedEdge(const InputState& in)
-{
-  // In this project, ESC maps to mgQuit* (see input.h)
-  // Treat mgQuitOnce as an edge, and also synthesize an edge from held.
-  const bool held = in.mgQuitHeld;
-  const bool edge = in.mgQuitOnce || (held && !s_prevEscHeld);
-  s_prevEscHeld = held;
-  return edge;
-}
-
-static inline bool enterPressedEdge(const InputState& in)
-{
-  // In this project, ENTER maps to mgSelect* (see input.h)
-  const bool held = in.mgSelectHeld;
-  const bool edge = in.mgSelectOnce || (held && !s_prevEnterHeld);
-  s_prevEnterHeld = held;
-  return edge;
-}
-
-static void enterPause(uint32_t nowMs)
-{
-  s_paused       = true;
-  s_pauseStartMs = nowMs;
-  s_choice       = 0;        // default highlight “Continue”
-  s_justResumed  = false;
-}
-
-static void leavePause(uint32_t nowMs)
-{
-  if (s_paused)
+  if (p)
   {
-    // accumulate time spent paused
-    const uint32_t dt = nowMs - s_pauseStartMs;
-    s_pauseAccumMs += dt;
+    s_paused = true;
+    s_pauseStartMs = now;
+    s_choice = 0;
+  }
+  else
+  {
+    if (s_pauseStartMs != 0)
+    {
+      s_pauseAccumMs += (now - s_pauseStartMs);
+      s_pauseStartMs = 0;
+    }
+    s_paused = false;
+    s_justResumed = true;
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Gate API (existing)
+// -----------------------------------------------------------------------------
+
+void mgPauseGateReset()
+{
+  s_paused = false;
+  s_pauseStartMs = 0;
+  s_pauseAccumMs = 0;
+  s_justResumed = false;
+  s_choice = 0;
+}
+
+bool mgPauseGateIsPaused() { return s_paused; }
+
+uint32_t mgPauseGateStartMs() { return s_pauseStartMs; }
+
+uint32_t mgPauseGateAccumulatedMs() { return s_pauseAccumMs; }
+
+bool mgPauseGateConsumeJustResumed()
+{
+  if (!s_justResumed) return false;
+  s_justResumed = false;
+  return true;
+}
+
+void mgPauseGateSetPaused(bool paused)
+{
+  setPausedInternal(paused, millis());
+}
+
+void mgPauseGateUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t &io_activePlayMs)
+{
+  // If not paused, time always advances normally.
+  if (!s_paused)
+  {
+    io_activePlayMs = nowMs;
+    return;
   }
 
-  s_paused       = false;
-  s_pauseStartMs = 0;
-  s_justResumed  = true;
+  // If paused:
+  // - while actively playing, freeze activePlayMs at pause start
+  // - when not actively playing (e.g., reward modal), let it advance
+  if (activePlay)
+  {
+    if (s_pauseStartMs == 0) s_pauseStartMs = nowMs;
+    io_activePlayMs = s_pauseStartMs;
+  }
+  else
+  {
+    io_activePlayMs = nowMs;
+  }
 }
+
+MgPauseGateResult mgPauseGateHandle(const InputState& input)
+{
+  // If we aren't paused, game runs normally.
+  if (!s_paused)
+  {
+    return MgPauseGateResult::MG_GATE_RUN;
+  }
+
+  // If paused, let the pause menu consume input / update selection.
+  // mgPauseHandle() returns MGPAUSE_* constants.
+  const uint8_t r = mgPauseHandle(input);
+
+  // If pause menu says exit, bubble that up to the minigame runner.
+  if (r == MGPAUSE_EXIT)
+  {
+    // Usually you want to clear paused state when exiting.
+    setPausedInternal(false, millis());
+    return MgPauseGateResult::MG_GATE_EXIT;
+  }
+
+  // If pause menu says resume, clear pause and allow game to run.
+  if (r == MGPAUSE_NONE)
+  {
+    // If your mgPauseHandle() uses NONE to mean "not paused / resume",
+    // ensure gate state matches.
+    if (s_paused) setPausedInternal(false, millis());
+    return MgPauseGateResult::MG_GATE_RUN;
+  }
+
+  // Otherwise we remain paused; game update should be skipped.
+  return MgPauseGateResult::MG_GATE_SKIP;
+}
+
+// -----------------------------------------------------------------------------
+// Public "classic" API used by mini_games.cpp
+// -----------------------------------------------------------------------------
+
+void mgPauseReset() { mgPauseGateReset(); }
+
+bool mgPauseIsPaused() { return mgPauseGateIsPaused(); }
+
+void mgPauseSetPaused(bool paused) { mgPauseGateSetPaused(paused); }
+
+uint32_t mgPauseStartMs() { return mgPauseGateStartMs(); }
+
+uint32_t mgPauseAccumMs() { return mgPauseGateAccumulatedMs(); }
+
+bool mgPauseJustResumedConsume() { return mgPauseGateConsumeJustResumed(); }
+
+void mgPauseUpdateClocks(uint32_t nowMs, bool activePlay, uint32_t &io_activePlayMs)
+{
+  mgPauseGateUpdateClocks(nowMs, activePlay, io_activePlayMs);
+}
+
+// -----------------------------------------------------------------------------
+// Legacy compatibility wrapper (used by mini_games.cpp etc.)
+// -----------------------------------------------------------------------------
 
 void mgPauseUpdateClocks(uint32_t nowMs)
 {
-  // This exists so callers can “tick” pause timing every frame if desired.
-  // Nothing to do here right now.
-  (void)nowMs;
-}
-
-uint32_t mgPauseAccumulatedMs()
-{
-  return s_pauseAccumMs;
-}
-
-uint32_t mgPauseElapsedSince(uint32_t startMs, uint32_t nowMs)
-{
-  // elapsed excluding paused time.
-  // If currently paused, don’t count time since pause began either.
-  uint32_t pausedTotal = s_pauseAccumMs;
-  if (s_paused) {
-    pausedTotal += (nowMs - s_pauseStartMs);
-  }
-
-  const uint32_t raw = (nowMs >= startMs) ? (nowMs - startMs) : 0;
-  return (raw >= pausedTotal) ? (raw - pausedTotal) : 0;
-}
-
-bool mgPauseConsumeJustResumed()
-{
-  const bool v = s_justResumed;
-  s_justResumed = false;
-  return v;
-}
-
-MgPauseGateResult mgPauseGate(const InputState& input, uint32_t nowMs, bool activePlay)
-{
-  // If the mini-game isn’t in “active play” (reward modal, etc), don’t allow pausing to stick.
-  if (!activePlay)
-  {
-    if (s_paused) mgPauseForceOffNoStick();
-    return MG_GATE_RUN;
-  }
-
-  // ESC toggles pause/resume
-  if (escPressedEdge(input))
-  {
-    if (!s_paused) enterPause(nowMs);
-    else leavePause(nowMs);
-
-    return s_paused ? MG_GATE_SKIP : MG_GATE_RUN;
-  }
-
+  // If not paused, nothing special to do.
   if (!s_paused)
-  {
-    return MG_GATE_RUN;
-  }
+    return;
 
-  // While paused: UP/DOWN moves choice, ENTER selects
-  // Project input uses mgUp*/mgDown* (and encoderDelta).
-  if (input.mgUpOnce || input.mgUpHeld || (input.encoderDelta < 0))   s_choice = MGPAUSE_CONTINUE;
-  if (input.mgDownOnce || input.mgDownHeld || (input.encoderDelta > 0)) s_choice = MGPAUSE_EXIT;
+  // While paused, accumulate time.
+  if (s_pauseStartMs == 0)
+    s_pauseStartMs = nowMs;
+}
 
-  if (enterPressedEdge(input))
-  {
-    if (s_choice == MGPAUSE_EXIT)
-    {
-      leavePause(nowMs); // resume clock first so callers don’t inherit paused offsets
-      return MG_GATE_EXIT;
-    }
+void mgPauseSetChoice(uint8_t choice) { s_choice = (choice != 0) ? 1 : 0; }
 
-    leavePause(nowMs);
-    return MG_GATE_RUN;
-  }
+uint8_t mgPauseChoice() { return s_choice; }
 
-  return MG_GATE_SKIP;
+// IMPORTANT: mgPauseHandle is the menu-layer input handler and should return MGPAUSE_*.
+// If you have a real implementation elsewhere (mg_pause_menu.cpp), delete this stub
+// and link against the real one instead.
+uint8_t mgPauseHandle(const InputState& input)
+{
+  (void)input;
+
+  // Default behavior: if paused, consume updates; otherwise do nothing.
+  // This keeps builds sane even before wiring real input fields.
+  return s_paused ? MGPAUSE_CONSUME : MGPAUSE_NONE;
 }

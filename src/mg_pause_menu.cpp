@@ -1,110 +1,14 @@
 #include "mg_pause_menu.h"
 
-#include <Arduino.h>
-
-#include "input.h"
-#include "display.h"      // spr, screenW/screenH, TFT_* colors, *_DATUM
+#include "display.h"
+#include "mg_pause_core.h" // mgPauseIsPaused / mgPauseChoice
 #include "graphics.h"
-#include "ui_runtime.h"
-#include "mg_pause.h"   // or whatever header declares mgPause* + mgDrawPauseOverlay
-#include "ui_mg_pause_menu.h" 
-
-// -----------------------------------------------------------------------------
-// Minimal pause manager implementation
-// (Compiles now; you can wire actual ESC/ENTER semantics inside mgPauseHandle())
-// -----------------------------------------------------------------------------
-
-static bool     s_paused = false;
-static uint32_t s_pauseStartMs = 0;
-static uint32_t s_pauseAccumMs = 0;
-static bool     s_justResumed = false;
-
-// Menu selection (0 = Continue, 1 = Exit)
-static uint8_t  s_choice = 0;
-
-static inline void setPaused(bool p, uint32_t now)
-{
-  if (p == s_paused) return;
-
-  if (p)
-  {
-    s_paused = true;
-    s_pauseStartMs = now;
-    s_choice = 0;
-  }
-  else
-  {
-    // leaving pause: accumulate time
-    if (s_pauseStartMs != 0)
-    {
-      s_pauseAccumMs += (now - s_pauseStartMs);
-      s_pauseStartMs = 0;
-    }
-    s_paused = false;
-    s_justResumed = true;
-  }
-}
-
-uint32_t mgPauseStartMs() { return s_pauseStartMs; }
-
-uint32_t mgPauseAccumMs()
-{
-  // Only the accumulated finished pauses (active pause time is handled by callers).
-  return s_pauseAccumMs;
-}
-
-bool mgPauseJustResumedConsume()
-{
-  if (!s_justResumed) return false;
-  s_justResumed = false;
-  return true;
-}
-
-void mgPauseSetPaused(bool paused)
-{
-  // Use current time for correct clock accumulation.
-  const uint32_t now = millis();
-  setPaused(paused, now);
-}
-
-void mgPauseSetChoice(uint8_t choice)
-{
-  s_choice = (choice != 0) ? 1 : 0;
-}
-
-uint8_t mgPauseChoice()
-{
-  return s_choice;
-}
-
-uint8_t mgPauseHandle(const InputState& input)
-{
-  const uint32_t now = millis();
-  (void)input;
-
-  // ---------------------------------------------------------------------------
-  // IMPORTANT:
-  // Right now we *do not* assume any specific InputState members exist for ESC/ENTER
-  // (because your build errors show older names like escPressed/enterPressed were removed).
-  //
-  // This function is the correct place to map your real keys once you confirm the
-  // actual InputState fields (ex: input.escOnce, input.keyEscOnce, etc).
-  //
-  // For now: no toggling, no exit. This makes the build clean immediately.
-  // ---------------------------------------------------------------------------
-
-  if (!s_paused) return MGPAUSE_NONE;
-
-  // If we ever setPaused(true), we'd handle menu navigation here using known-safe inputs.
-  // Keep it conservative for now.
-  (void)now;
-  return MGPAUSE_CONSUME;
-}
 
 void mgDrawPauseOverlay()
 {
-  // Minimal overlay (safe even if you keep pause disabled for the moment)
-  if (!s_paused) return;
+  if (!mgPauseIsPaused()) return;
+
+  const uint8_t choice = mgPauseChoice();
 
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
@@ -125,14 +29,10 @@ void mgDrawPauseOverlay()
   const int ox = bx + 12;
   const int oy = by + 28;
 
-  const int itemCount = uiMgPauseMenuCount();
-  for (int i = 0; i < itemCount; ++i)
-  {
-    String line = (s_choice == (uint8_t)i) ? "> " : "  ";
-    line += uiMgPauseMenuLabel(i);
-    spr.drawString(line.c_str(), ox, oy + 20 * i, 2);
-  }
-  
+  spr.setTextColor(TFT_WHITE, TFT_BLACK);
+  spr.drawString((choice == 0) ? "> Continue" : "  Continue", ox, oy, 2);
+  spr.drawString((choice == 1) ? "> Exit"     : "  Exit",     ox, oy + 20, 2);
+
   spr.setTextDatum(BC_DATUM);
   spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
   spr.drawCentreString("ESC: Resume   ENTER: Select", gW/2, by + bh - 8, 1);
