@@ -8,6 +8,7 @@
 #include "ui_input_common.h"
 #include "ui_input_utils.h"
 #include "ui_runtime.h"
+#include "ui_death_menu.h"
 
 extern int deathMenuIndex;
 
@@ -15,7 +16,7 @@ void uiDeathHandle(InputState& in)
 {
   const int move = uiNavMove(in);
   if (move != 0) {
-    uiWrapIndex(deathMenuIndex, move, 2);
+    uiWrapIndex(deathMenuIndex, move, uiDeathMenuCount());
     requestUIRedraw();
     playBeep();
     clearInputLatch();
@@ -24,33 +25,5 @@ void uiDeathHandle(InputState& in)
 
   if (!uiIsSelect(in)) return;
 
-  clearInputLatch();
-  inputForceClear();
-
-  if (deathMenuIndex == 0) {
-    g_app.inMiniGame = true;
-    g_app.gameOver   = false;
-    g_app.uiState    = UIState::MINI_GAME;
-    requestUIRedraw();
-
-    invalidateBackgroundCache();
-
-    startResurrectionRun();
-    currentMiniGame = MiniGame::RESURRECTION;
-
-    inputForceClear();
-    clearInputLatch();
-    return;
-  }
-
-  soundResetDeathDirgeLatch();
-  soundFuneralDirge();
-
-  g_app.uiState = UIState::BURIAL_SCREEN;
-  requestUIRedraw();
-
-  invalidateBackgroundCache();
-
-  inputForceClear();
-  clearInputLatch();
+  uiDeathMenuActivate(deathMenuIndex, in);
 }

@@ -14,6 +14,8 @@
 #include "sound.h"
 #include "ui_menu_state.h" // feedMenuIndex, playMenuIndex
 #include "ui_actions.h"    // uiActionSwallowEdges, uiActionDrainKb
+#include "ui_play_menu.h"
+#include "ui_feed_menu.h"
 
 // PET/STATS/FEED/PLAY all ride UIState::PET_SCREEN.
 //
@@ -40,6 +42,8 @@ static void handlePetScreen_local(InputState &input)
 
   if (g_app.currentTab == Tab::TAB_FEED)
   {
+    const int kFeedItems = uiFeedMenuCount();
+
     int mv = 0;
     if (input.leftOnce || input.upOnce || (input.encoderDelta < 0))
       mv = -1;
@@ -49,15 +53,13 @@ static void handlePetScreen_local(InputState &input)
     if (mv != 0)
     {
       feedMenuIndex += mv;
-      if (feedMenuIndex < 0)
-        feedMenuIndex = 1;
-      if (feedMenuIndex > 1)
-        feedMenuIndex = 0;
+      while (feedMenuIndex < 0)
+        feedMenuIndex += kFeedItems;
+      feedMenuIndex %= kFeedItems;
 
       requestUIRedraw();
       playBeep();
 
-      // Swallow this navigation so it doesn't cascade, but keep ESC latch intact.
       swallowThisFrame(input);
       return;
     }
@@ -67,12 +69,10 @@ static void handlePetScreen_local(InputState &input)
 
     if (confirmOnce)
     {
-      // Prevent the confirm press from leaking into any follow-up UI.
       inputForceClear();
 
-      feedUseSelected();
+      uiFeedMenuActivate(feedMenuIndex, input);
 
-      // Swallow any remaining edges/keys this frame (no latch reset).
       swallowThisFrame(input);
     }
     return;
@@ -80,8 +80,7 @@ static void handlePetScreen_local(InputState &input)
 
   if (g_app.currentTab == Tab::TAB_PLAY)
   {
-    // Play tab games (keep in sync with drawPlayTabMock() labels)
-    static const int kPlayItems = 3;
+    const int kPlayItems = uiPlayMenuCount();
 
     int mv = 0;
     if (input.leftOnce || input.upOnce || (input.encoderDelta < 0))
@@ -124,18 +123,7 @@ static void handlePetScreen_local(InputState &input)
       inputForceClear();
 
       // Launch selected game
-      if (playMenuIndex == 0)
-      {
-        startFlappyFireball();
-      }
-      else if (playMenuIndex == 1)
-      {
-        startInfernalDodger();
-      }
-      else
-      {
-        startCrossyRoad();
-      }
+      uiPlayMenuActivate(playMenuIndex, input);
 
       // Swallow leftover edges for this frame (no latch reset).
       swallowThisFrame(input);

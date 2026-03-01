@@ -1,9 +1,9 @@
 #pragma once
 #include <stdint.h>
-#include "mg_pause.h"
 
 struct InputState;
 
+// Core pause API
 void     mgPauseReset();
 void     mgPauseForceOffNoStick();
 void     mgPauseUpdateClocks(uint32_t nowMs);
@@ -15,5 +15,8 @@ bool     mgPauseJustResumedConsume();
 
 uint8_t  mgPauseHandle(const InputState& in);
 
-// drawing
+// Drawing
 void     mgDrawPauseOverlay();
+
+// Menu helpers (mgPauseSetPaused / choice helpers)
+#include "mg_pause_menu.h"

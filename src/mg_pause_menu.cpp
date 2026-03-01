@@ -7,6 +7,7 @@
 #include "graphics.h"
 #include "ui_runtime.h"
 #include "mg_pause.h"   // or whatever header declares mgPause* + mgDrawPauseOverlay
+#include "ui_mg_pause_menu.h" 
 
 // -----------------------------------------------------------------------------
 // Minimal pause manager implementation
@@ -124,10 +125,14 @@ void mgDrawPauseOverlay()
   const int ox = bx + 12;
   const int oy = by + 28;
 
-  spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString((s_choice == 0) ? "> Continue" : "  Continue", ox, oy, 2);
-  spr.drawString((s_choice == 1) ? "> Exit"     : "  Exit",     ox, oy + 20, 2);
-
+  const int itemCount = uiMgPauseMenuCount();
+  for (int i = 0; i < itemCount; ++i)
+  {
+    String line = (s_choice == (uint8_t)i) ? "> " : "  ";
+    line += uiMgPauseMenuLabel(i);
+    spr.drawString(line.c_str(), ox, oy + 20 * i, 2);
+  }
+  
   spr.setTextDatum(BC_DATUM);
   spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
   spr.drawCentreString("ESC: Resume   ENTER: Select", gW/2, by + bh - 8, 1);

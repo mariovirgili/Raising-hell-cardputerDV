@@ -52,6 +52,9 @@
 #include "ui_menu_state.h"
 #include "ui_power_menu.h"
 #include "ui_sleep_menu.h"
+#include "ui_play_menu.h"
+#include "ui_feed_menu.h"
+#include "ui_death_menu.h"
 #include "user_toggles_state.h"
 #include "version.h"
 #include "wifi_setup_state.h"
@@ -2348,8 +2351,7 @@ void drawFeedMenu()
   const int contentH = SCREEN_H - TOP_BAR_H - TAB_BAR_H;
   const int contentBottom = contentY + contentH;
 
-  static const char *labels[] = {"Just a Snack", "Until Full"};
-  const int totalItems = 2;
+  const int totalItems = uiFeedMenuCount();
 
   g_app.feedMenuIndex = clampi(g_app.feedMenuIndex, 0, totalItems - 1);
 
@@ -2426,8 +2428,7 @@ void drawFeedMenu()
     int th = spr.fontHeight();
     int ty = y + (itemH - th) / 2;
 
-    String line = labels[i];
-    if (i == 1)
+    String line = uiFeedMenuLabel(i);    if (i == 1)
     {
       const int SOUL_FOOD_HUNGER_GAIN = 20;
       int missing = 100 - pet.hunger;
@@ -3464,14 +3465,7 @@ static void drawPlayTabMock(bool redrawBg)
   const int contentH = SCREEN_H - TOP_BAR_H - TAB_BAR_H;
   const int contentBottom = contentY + contentH;
 
-  // Keep this list in sync with handlePetScreen()'s Play tab launcher.
-  static const char *labels[] = {
-      "Flappy Fireball",
-      "Infernal Dodger",
-      "Crossy Road",
-  };
-
-  const int totalItems = (int)(sizeof(labels) / sizeof(labels[0]));
+  const int totalItems = uiPlayMenuCount();
 
   playMenuIndex = clampi(playMenuIndex, 0, totalItems - 1);
 
@@ -3519,8 +3513,7 @@ static void drawPlayTabMock(bool redrawBg)
     int ty = y + (itemH - th) / 2;
 
     spr.setTextColor(textCol, fill);
-    spr.drawCentreString(labels[index], cx, ty, 2);
-  }
+    spr.drawCentreString(uiPlayMenuLabel(index), cx, ty, 2);  }
 
   if (start > 0 || (start + visCount < totalItems))
   {
@@ -5146,9 +5139,15 @@ static void drawDeathScreen(bool /*redrawBg*/)
   spr.setTextSize(1);
 
   spr.setTextColor(TFT_WHITE, TFT_BLACK);
-  spr.drawString(deathMenuIndex == 0 ? "> RESURRECT" : "  RESURRECT", screenW / 2, y0);
-  spr.drawString(deathMenuIndex == 1 ? "> BURY" : "  BURY", screenW / 2, y0 + gap);
 
+  const int itemCount = uiDeathMenuCount();
+  for (int i = 0; i < itemCount; ++i)
+  {
+    String line = (deathMenuIndex == i) ? "> " : "  ";
+    line += uiDeathMenuLabel(i);
+    spr.drawString(line.c_str(), screenW / 2, y0 + gap * i);
+  }
+  
   spr.setTextFont(1);
   spr.setTextDatum(TC_DATUM);
   spr.drawString("UP/DOWN + ENTER", screenW / 2, screenH - 16);
