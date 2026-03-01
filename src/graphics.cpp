@@ -48,6 +48,7 @@
 #include "system_status_state.h"
 #include "time_state.h"
 #include "ui_menu_state.h"
+#include "ui_sleep_menu.h"
 #include "user_toggles_state.h"
 #include "version.h"
 #include "wifi_setup_state.h"
@@ -2452,8 +2453,8 @@ void drawSleepMenu()
   const int contentH = SCREEN_H - TOP_BAR_H - TAB_BAR_H;
   const int contentBottom = contentY + contentH;
 
-  static const char *labels[] = {"Until Awakened", "Until Rested", "4 hours", "8 hours"};
-  const int totalItems = 4;
+  const int totalItems = uiSleepMenuCount();
+  if (totalItems <= 0) return;
 
   sleepMenuIndex = clampi(sleepMenuIndex, 0, totalItems - 1);
 
@@ -2501,7 +2502,7 @@ void drawSleepMenu()
     int ty = y + (itemH - th) / 2;
 
     spr.setTextColor(textCol, fill);
-    spr.drawCentreString(labels[i], cx, ty, 2);
+    spr.drawCentreString(uiSleepMenuLabel(i), cx, ty, 2);
   }
 
   spr.setTextDatum(TL_DATUM);
