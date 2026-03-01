@@ -6,7 +6,6 @@
 #include "graphics.h"
 #include "input.h"
 #include "mg_pause_core.h"
-#include "mg_pause_menu.h"
 #include "mini_games.h"
 #include "ui_actions.h"
 #include "ui_runtime.h"
@@ -25,7 +24,6 @@ void uiMiniGameHandle(InputState& in)
 
   if (gate == MgPauseGateResult::MG_GATE_EXIT)
   {
-    // Exit immediately back to return UI.
     miniGameExitToReturnUi(true);
     requestFullUIRedraw();
     return;
@@ -33,7 +31,13 @@ void uiMiniGameHandle(InputState& in)
 
   if (gate == MgPauseGateResult::MG_GATE_SKIP)
   {
-    // paused: only draw overlay/menu elsewhere
+    // If we just paused, immediately swap to MG_PAUSE so the draw path
+    // renders the mini-game frame + overlay this tick.
+    if (mgPauseIsPaused())
+    {
+      uiActionEnterStateClean(UIState::MG_PAUSE, g_app.currentTab, false, in, 150);
+      requestFullUIRedraw();
+    }
     return;
   }
 

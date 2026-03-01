@@ -691,32 +691,38 @@ void miniGameExitToReturnUi(bool beginLockout)
   s_showReward = false;
   s_rewardMsg[0] = 0;
 
-  g_app.inMiniGame = false;
-  g_app.gameOver = false;
-  playerWon = false;
-  currentMiniGame = MiniGame::NONE;
-
+  // Decide where we're going FIRST, and switch away from MG_PAUSE/MINI_GAME
   UIState target = miniGameGetReturnUiOrDefault(UIState::PET_SCREEN);
   if (target == UIState::MINI_GAME || target == UIState::MG_PAUSE)
     target = UIState::PET_SCREEN;
 
   miniGameClearReturnUi();
 
+  // IMPORTANT: change state before clearing the mini-game so MG_PAUSE doesn't
+  // render one frame with currentMiniGame == NONE ("NO MINI GAME" flash).
+  g_app.uiState = target;
+
+  // Now tear down the mini-game
+  g_app.inMiniGame = false;
+  g_app.gameOver   = false;
+  playerWon        = false;
+  currentMiniGame  = MiniGame::NONE;
+
   mgPauseReset();
   clearInputLatch();
 
-  // NEW: prevent the Exit-confirm ENTER from triggering Play-tab confirmOnce
+  // Prevent Exit-confirm ENTER from triggering other UI confirms
   inputForceClear();
   s_prevSelectHeld = false;
 
-  g_app.uiState = target;
-
   invalidateBackgroundCache();
-  requestUIRedraw();
+  requestFullUIRedraw();
 
   if (beginLockout)
+  {
     mgBeginInputLockout(220);
   }
+}
 
 // Back-compat: older call sites used this name.
 static void exitMiniGameToReturnUi(bool beginLockout) { miniGameExitToReturnUi(beginLockout); }

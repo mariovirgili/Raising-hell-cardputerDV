@@ -31,8 +31,16 @@ void uiMgPauseHandle(InputState& in)
     return;
   }
 
+  const uint8_t before = mgPauseChoice();
+
   // Drive the pause menu interaction
   const uint8_t r = mgPauseHandle(in);
+
+  // If selection changed, redraw immediately so navigation feels snappy.
+  if (mgPauseChoice() != before)
+  {
+    requestUIRedraw();
+  }
 
   if (r == MGPAUSE_EXIT)
   {
@@ -49,5 +57,5 @@ void uiMgPauseHandle(InputState& in)
     return;
   }
 
-  // Still paused: let the pause menu render path handle it.
+  // Still paused: draw path will render MG_PAUSE state.
 }
