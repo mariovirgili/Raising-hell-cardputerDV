@@ -435,20 +435,20 @@ static const char *PATH_SHOP_ELDRITCH_EYE = "/raising_hell/graphics/ui/shop_item
 #define AL_EGG_PNG "/raising_hell/graphics/pet/egg/al_egg.png"
 
 // Pet-area background (drawn at PET_AREA_Y)
-static const char *PATH_BG_DEVIL_BABY = "/raising_hell/graphics/background/hell_bg.jpg";
-static const char *PATH_BG_DEVIL_TEEN = "/raising_hell/graphics/background/dev_teen_bg.jpg";
-static const char *PATH_BG_DEVIL_ADULT = "/raising_hell/graphics/background/dev_ad_bg.jpg";
-static const char *PATH_BG_DEVIL_ELDER = "/raising_hell/graphics/background/dev_el_bg.jpg";
+static const char *PATH_BG_DEVIL_BABY = "/raising_hell/graphics/background/dev/hell_bg.jpg";
+static const char *PATH_BG_DEVIL_TEEN = "/raising_hell/graphics/background/dev/dev_teen_bg.jpg";
+static const char *PATH_BG_DEVIL_ADULT = "/raising_hell/graphics/background/dev/dev_ad_bg.jpg";
+static const char *PATH_BG_DEVIL_ELDER = "/raising_hell/graphics/background/dev/dev_el_bg.jpg";
 
-static const char *PATH_BG_ELDRITCH = "/raising_hell/graphics/background/eld_bg.jpg";
-static const char *PATH_BG_ELDRITCH_TEEN = "/raising_hell/graphics/background/eld_teen_bg.jpg";
-static const char *PATH_BG_ELDRITCH_ADULT = "/raising_hell/graphics/background/eld_ad_bg.jpg";
-static const char *PATH_BG_ELDRITCH_ELDER = "/raising_hell/graphics/background/eld_el_bg.jpg";
+static const char *PATH_BG_ELDRITCH = "/raising_hell/graphics/background/eld/eld_bg.jpg";
+static const char *PATH_BG_ELDRITCH_TEEN = "/raising_hell/graphics/background/eld/eld_teen_bg.jpg";
+static const char *PATH_BG_ELDRITCH_ADULT = "/raising_hell/graphics/background/eld/eld_ad_bg.jpg";
+static const char *PATH_BG_ELDRITCH_ELDER = "/raising_hell/graphics/background/eld/eld_el_bg.jpg";
 
-static const char *PATH_BG_KAIJU = "/raising_hell/graphics/background/kai_bg.jpg";
-static const char *PATH_BG_ALIEN = "/raising_hell/graphics/background/al_bg.jpg";
-static const char *PATH_BG_ANUBIS = "/raising_hell/graphics/background/anu_bg.jpg";
-static const char *PATH_BG_AXOLOTL = "/raising_hell/graphics/background/axo_bg.jpg";
+static const char *PATH_BG_KAIJU = "/raising_hell/graphics/background/kai/kai_bg.jpg";
+static const char *PATH_BG_ALIEN = "/raising_hell/graphics/background/al/al_bg.jpg";
+static const char *PATH_BG_ANUBIS = "/raising_hell/graphics/background/anu/anu_bg.jpg";
+static const char *PATH_BG_AXOLOTL = "/raising_hell/graphics/background/axo/axo_bg.jpg";
 
 static inline const char *bgPathForPet(PetType t)
 {
