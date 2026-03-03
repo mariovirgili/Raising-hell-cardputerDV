@@ -1264,132 +1264,104 @@ const char *getBioStatusImagePath()
   // --------------------------------------------------------------------------
   if (pet.type == PET_DEVIL)
   {
-    // ----------------
-    // BABY DEVIL (stage 0)
-    // ----------------
+    // ---------------- BABY ----------------
     if (pet.evoStage == 0)
     {
       switch (mood)
       {
-      case MOOD_SICK:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_sck_bio.png";
-      case MOOD_TIRED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_trd_bio.png";
-      case MOOD_HUNGRY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_hgy_bio.png";
-      case MOOD_MAD:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_agy_bio.png";
-      case MOOD_BORED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_brd_bio.png";
-      case MOOD_HAPPY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_hpy_bio.png";
-      default:
-        return "/raising_hell/graphics/pet/bio/dev/dev_baby_hpy_bio.png";
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/dev/dev_baby_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/dev/dev_baby_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/dev/dev_baby_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/dev/dev_baby_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/dev/dev_baby_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/dev/dev_baby_hpy_bio.png";
       }
     }
-
-    // ----------------
-    // TEEN DEVIL (stage 1)
-    // ----------------
+  
+    // ---------------- TEEN ----------------
     if (pet.evoStage == 1)
     {
       switch (mood)
       {
-      case MOOD_SICK:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_sck_bio.png";
-      case MOOD_TIRED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_trd_bio.png";
-      case MOOD_HUNGRY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_hgy_bio.png";
-      case MOOD_MAD:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_agy_bio.png";
-      case MOOD_BORED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_brd_bio.png";
-      case MOOD_HAPPY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_hpy_bio.png";
-      default:
-        return "/raising_hell/graphics/pet/bio/dev/dev_teen_hpy_bio.png";
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/dev/dev_teen_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/dev/dev_teen_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/dev/dev_teen_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/dev/dev_teen_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/dev/dev_teen_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/dev/dev_teen_hpy_bio.png";
       }
     }
-
-    // ----------------
-    // ADULT DEVIL (stage 2)
-    // ----------------
+  
+    // ---------------- ADULT ----------------
     if (pet.evoStage == 2)
     {
       switch (mood)
       {
-      case MOOD_SICK:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_sck_bio.png";
-      case MOOD_TIRED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_trd_bio.png";
-      case MOOD_HUNGRY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_hgy_bio.png";
-      case MOOD_MAD:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_agy_bio.png";
-      case MOOD_BORED:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_brd_bio.png";
-      case MOOD_HAPPY:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_hpy_bio.png";
-      default:
-        return "/raising_hell/graphics/pet/bio/dev/dev_ad_hpy_bio.png";
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/dev/dev_ad_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/dev/dev_ad_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/dev/dev_ad_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/dev/dev_ad_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/dev/dev_ad_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/dev/dev_ad_hpy_bio.png";
       }
     }
-
-    // ----------------
-    // ELDER DEVIL (stage 3+)
-    // ----------------
-    switch (mood)
+  
+    // ---------------- ELDER ----------------
+    if (pet.evoStage >= 3)
     {
-    case MOOD_SICK:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_sck_bio.png";
-    case MOOD_TIRED:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_trd_bio.png";
-    case MOOD_HUNGRY:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_hgy_bio.png";
-    case MOOD_MAD:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_agy_bio.png";
-    case MOOD_BORED:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_brd_bio.png";
-    case MOOD_HAPPY:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_hpy_bio.png";
-    default:
-      return "/raising_hell/graphics/pet/bio/dev/dev_el_hpy_bio.png";
+      switch (mood)
+      {
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/dev/dev_el_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/dev/dev_el_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/dev/dev_el_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/dev/dev_el_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/dev/dev_el_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/dev/dev_el_hpy_bio.png";
+      }
     }
-  }
-
+  } // <-- THIS WAS MISSING
+  
+  
   // --------------------------------------------------------------------------
-  // ELDRITCH BIOS (new) — currently BABY only (stage 0)
+  // ELDRITCH BIOS
   // --------------------------------------------------------------------------
   if (pet.type == PET_ELDRITCH)
   {
+    // ---------------- BABY ----------------
     if (pet.evoStage == 0)
     {
       switch (mood)
       {
-      case MOOD_SICK:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_sck_bio.png";
-      case MOOD_TIRED:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_trd_bio.png";
-      case MOOD_HUNGRY:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_hgy_bio.png";
-      case MOOD_MAD:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_agy_bio.png";
-      case MOOD_BORED:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_brd_bio.png";
-      case MOOD_HAPPY:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
-      default:
-        return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/eld/eld_baby_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/eld/eld_baby_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/eld/eld_baby_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/eld/eld_baby_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/eld/eld_baby_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
       }
     }
-
-    // If you haven't added eld teen/adult/elder bios yet, keep a sane fallback:
+  
+    // ---------------- TEEN ----------------
+    if (pet.evoStage == 1)
+    {
+      switch (mood)
+      {
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/eld/eld_teen_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/eld/eld_teen_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/eld/eld_teen_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/eld/eld_teen_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/eld/eld_teen_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/eld/eld_teen_hpy_bio.png";
+      }
+    }
+  
+    // Fallback for future stages
     return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
   }
-
+  
+  
   // --------------------------------------------------------------------------
-  // Fallback
+  // Global Fallback
   // --------------------------------------------------------------------------
   return "/raising_hell/graphics/pet/bio/dev/dev_baby_hpy_bio.png";
 }
