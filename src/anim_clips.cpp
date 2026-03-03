@@ -15,63 +15,63 @@
 // (moved from graphics.cpp into the clip registry)
 // ---------------------------
 static const char* kDevBabyHappyBall[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/hpy/dev_baby_hpy_ball1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/hpy/dev_baby_hpy_ball2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/hpy/dev_baby_hpy_ball3.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/hpy/dev_baby_hpy_ball4.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hpy/dev_baby_hpy_ball1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hpy/dev_baby_hpy_ball2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hpy/dev_baby_hpy_ball3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hpy/dev_baby_hpy_ball4.png",
 };
 
 // ---------------------------
 // Devil baby HUNGRY rub (your new 2-frame animation)
 // ---------------------------
 static const char* kDevBabyHungryRub[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/hgy/dev_baby_hgy_rub1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/hgy/dev_baby_hgy_rub2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hgy/dev_baby_hgy_rub1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/hgy/dev_baby_hgy_rub2.png",
 };
 
 // ---------------------------
 // Devil baby BORED ball play (4-frame)
 // ---------------------------
 static const char* kDevBabyBoredRoll[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/brd/dev_baby_brd_roll1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/brd/dev_baby_brd_roll2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/brd/dev_baby_brd_roll3.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/brd/dev_baby_brd_roll4.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/brd/dev_baby_brd_roll1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/brd/dev_baby_brd_roll2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/brd/dev_baby_brd_roll3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/brd/dev_baby_brd_roll4.png",
 };
 
 // ---------------------------
 // Devil baby ANGRY (ported from pet_anim.cpp)
 // ---------------------------
 static const char* kDevBabyAngryBob[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_bob1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_bob2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_bob3.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_bob4.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_bob1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_bob2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_bob3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_bob4.png",
 };
 
 static const char* kDevBabyAngrySwipe[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_swipe1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_swipe2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_swipe3.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/ang/dev_baby_swipe4.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_swipe1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_swipe2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_swipe3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/ang/dev_baby_swipe4.png",
 };
 
 // ---------------------------
 // Devil baby SLEEPY
 // ---------------------------
 static const char* kDevBabySleepyNod[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/slp/dev_baby_slp_nod1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/slp/dev_baby_slp_nod2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/slp/dev_baby_slp_nod3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/slp/dev_baby_slp_nod1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/slp/dev_baby_slp_nod2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/slp/dev_baby_slp_nod3.png",
 };
 
 // ---------------------------
 // Devil baby SICK
 // ---------------------------
 static const char* kDevBabySickCrawl[] = {
-  "/raising_hell/graphics/pet/anim/dev/baby/sck/dev_baby_sck_crawl1.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/sck/dev_baby_sck_crawl2.png",
-  "/raising_hell/graphics/pet/anim/dev/baby/sck/dev_baby_sck_crawl3.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/sck/dev_baby_sck_crawl1.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/sck/dev_baby_sck_crawl2.png",
+  "/raising_hell/graphics/pet/anim/dev/bb/sck/dev_baby_sck_crawl3.png",
 };
 
 // ---------------------------
@@ -202,182 +202,241 @@ static const char* kDevAdultSickLay[] = {
 // Devil elder BORED spin (5-frame)
 // ---------------------------
 static const char* kDevElderBoredSpin[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin2.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin3.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin4.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin5.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/brd/dev_edr_spin1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin3.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin4.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin5.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/brd/dev_edr_spin1.png",
 };
 
 // ---------------------------
 // Devil elder ANGRY fire (4-frame)
 // ---------------------------
 static const char* kDevElderAngryFire[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/agy/dev_el_angry_fire1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/agy/dev_el_angry_fire2.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/agy/dev_el_angry_fire3.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/agy/dev_el_angry_fire4.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/agy/dev_el_angry_fire1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/agy/dev_el_angry_fire2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/agy/dev_el_angry_fire3.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/agy/dev_el_angry_fire4.png",
 };
 
 // ---------------------------
 // Devil elder HAPPY shake (4-frame)
 // ---------------------------
 static const char* kDevElderHappyShake[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/hpy/dev_elder_hpy_shake1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/hpy/dev_elder_hpy_shake2.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/hpy/dev_elder_hpy_shake3.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/hpy/dev_elder_hpy_shake4.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hpy/dev_elder_hpy_shake1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hpy/dev_elder_hpy_shake2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hpy/dev_elder_hpy_shake3.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hpy/dev_elder_hpy_shake4.png",
 };
 
 // ---------------------------
 // Devil elder HUNGRY rub (3-frame)
 // ---------------------------
 static const char* kDevElderHungryRub[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/hgy/dev_el_hgy_rub1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/hgy/dev_el_hgy_rub2.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/hgy/dev_el_hgy_rub3.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hgy/dev_el_hgy_rub1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hgy/dev_el_hgy_rub2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/hgy/dev_el_hgy_rub3.png",
 };
 
 // ---------------------------
 // Devil elder TIRED sit (2-frame head bob)
 // ---------------------------
 static const char* kDevElderTiredSit[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/trd/dev_edr_trd_sit1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/trd/dev_edr_trd_sit2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/trd/dev_edr_trd_sit1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/trd/dev_edr_trd_sit2.png",
 };
 
 // ---------------------------
 // Devil elder SICK cough (3-frame)
 // ---------------------------
 static const char* kDevElderSickCough[] = {
-  "/raising_hell/graphics/pet/anim/dev/edr/sck/dev_edr_sck_cough1.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/sck/dev_edr_sck_cough2.png",
-  "/raising_hell/graphics/pet/anim/dev/edr/sck/dev_edr_sck_cough3.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/sck/dev_edr_sck_cough1.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/sck/dev_edr_sck_cough2.png",
+  "/raising_hell/graphics/pet/anim/dev/ed/sck/dev_edr_sck_cough3.png",
 };
 
 // ---------------------------
 // Eldritch baby HAPPY sit (4-frame)
 // ---------------------------
 static const char* kEldBabyHappySit[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit3.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit4.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hpy/eld_baby_hpy_sit1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hpy/eld_baby_hpy_sit2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hpy/eld_baby_hpy_sit3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hpy/eld_baby_hpy_sit4.png",
 };
 
 // ---------------------------
 // Eldritch baby HUNGRY rub (3-frame)
 // ---------------------------
 static const char* kEldBabyHungryRub[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hgy/eld_baby_hgy_rub1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hgy/eld_baby_hgy_rub2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/hgy/eld_baby_hgy_rub3.png",
 };
 
 // ---------------------------
 // Eldritch baby ANGRY wave (4-frame)
 // ---------------------------
 static const char* kEldBabyAngryWave[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave3.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave4.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/ang/eld_baby_agy_wave1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/ang/eld_baby_agy_wave2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/ang/eld_baby_agy_wave3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/ang/eld_baby_agy_wave4.png",
 };
 
 // ---------------------------
 // Eldritch baby BORED ball (5-frame)
 // ---------------------------
 static const char* kEldBabyBoredBall[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball3.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball4.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball5.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/brd/eld_baby_brd_ball1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/brd/eld_baby_brd_ball2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/brd/eld_baby_brd_ball3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/brd/eld_baby_brd_ball4.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/brd/eld_baby_brd_ball5.png",
 };
 
 // ---------------------------
 // Eldritch baby SICK bob (3-frame)
 // ---------------------------
 static const char* kEldBabySickBob[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/sck/eld_baby_sck_bob1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/sck/eld_baby_sck_bob2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/sck/eld_baby_sck_bob3.png",
 };
 
 // ---------------------------
 // Eldritch baby SLEEPY yawn (4-frame)
 // ---------------------------
 static const char* kEldBabySleepyYawn[] = {
-  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn1.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn2.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn3.png",
-  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn4.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/slp/eld_baby_slp_yawn1.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/slp/eld_baby_slp_yawn2.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/slp/eld_baby_slp_yawn3.png",
+  "/raising_hell/graphics/pet/anim/eld/bb/slp/eld_baby_slp_yawn4.png",
 };
 
 // ---------------------------
 // Eldritch teen HAPPY bob (4-frame)
 // ---------------------------
 static const char* kEldTeenHappyBob[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hpy/eld_tn_hpy_bob1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hpy/eld_tn_hpy_bob2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hpy/eld_tn_hpy_bob3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hpy/eld_tn_hpy_bob4.png",
 };
 
 // ---------------------------
 // Eldritch teen HUNGRY bite (6-frame)
 // ---------------------------
 static const char* kEldTeenHungryBite[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite4.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite5.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite6.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite5.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/hgy/eld_tn_hgy_bite6.png",
 };
 
 // ---------------------------
 // Eldritch teen ANGRY pose (4-frame)
 // ---------------------------
 static const char* kEldTeenAngryPose[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/agy/eld_tn_agy_pose1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/agy/eld_tn_agy_pose2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/agy/eld_tn_agy_pose3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/agy/eld_tn_agy_pose4.png",
 };
 
 // ---------------------------
 // Eldritch teen BORED dribble (4-frame)
 // ---------------------------
 static const char* kEldTeenBoredDrib[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/brd/eld_tn_brd_drib1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/brd/eld_tn_brd_drib2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/brd/eld_tn_brd_drib3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/brd/eld_tn_brd_drib4.png",
 };
 
 // ---------------------------
 // Eldritch teen SICK sneeze (5-frame)
 // ---------------------------
 static const char* kEldTeenSickSneeze[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze4.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze5.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/sck/eld_tn_sck_sneeze1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/sck/eld_tn_sck_sneeze2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/sck/eld_tn_sck_sneeze3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/sck/eld_tn_sck_sneeze4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/sck/eld_tn_sck_sneeze5.png",
 };
 
 // ---------------------------
 // Eldritch teen TIRED nod (4-frame)
 // ---------------------------
 static const char* kEldTeenTiredNod[] = {
-  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod1.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod2.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod3.png",
-  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod4.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/trd/eld_tn_trd_nod1.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/trd/eld_tn_trd_nod2.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/trd/eld_tn_trd_nod3.png",
+  "/raising_hell/graphics/pet/anim/eld/tn/trd/eld_tn_trd_nod4.png",
+};
+
+// ---------------------------
+// Eldritch adult ANGRY flex (4-frame)
+// ---------------------------
+static const char* kEldAdultAngryFlex[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/agy/eld_ad_agy_flex1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/agy/eld_ad_agy_flex2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/agy/eld_ad_agy_flex3.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/agy/eld_ad_agy_flex4.png",
+};
+
+// ---------------------------
+// Eldritch adult BORED spin (3-frame)
+// ---------------------------
+static const char* kEldAdultBoredSpin[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/brd/eld_ad_brd_spin1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/brd/eld_ad_brd_spin2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/brd/eld_ad_brd_spin3.png",
+};
+
+// ---------------------------
+// Eldritch adult HUNGRY shake (4-frame)
+// ---------------------------
+static const char* kEldAdultHungryShake[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/hgy/eld_ad_hgy_shake1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hgy/eld_ad_hgy_shake2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hgy/eld_ad_hgy_shake3.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hgy/eld_ad_hgy_shake4.png",
+};
+
+// ---------------------------
+// Eldritch adult HAPPY spin (4-frame)
+// ---------------------------
+static const char* kEldAdultHappySpin[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/hpy/eld_ad_hpy_spin1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hpy/eld_ad_hpy_spin2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hpy/eld_ad_hpy_spin3.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/hpy/eld_ad_hpy_spin4.png",
+};
+
+// ---------------------------
+// Eldritch adult SICK hunch (4-frame)
+// ---------------------------
+static const char* kEldAdultSickHunch[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/sck/eld_ad_sck_hunch1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/sck/eld_ad_sck_hunch2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/sck/eld_ad_sck_hunch3.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/sck/eld_ad_sck_hunch4.png",
+};
+
+// ---------------------------
+// Eldritch adult SLEEPY drink (4-frame)
+// ---------------------------
+static const char* kEldAdultSleepyDrink[] = {
+  "/raising_hell/graphics/pet/anim/eld/ad/slp/eld_ad_slp_drink1.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/slp/eld_ad_slp_drink2.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/slp/eld_ad_slp_drink3.png",
+  "/raising_hell/graphics/pet/anim/eld/ad/slp/eld_ad_slp_drink4.png",
 };
 
 // ---------------------------
@@ -428,6 +487,13 @@ static const AnimClip kClips[] = {
 { ANIM_ELD_TEEN_BORED_DRIB,  kEldTeenBoredDrib,  4, 220, true },
 { ANIM_ELD_TEEN_SICK_SNEEZE, kEldTeenSickSneeze, 5, 140, true },
 { ANIM_ELD_TEEN_TIRED_NOD,   kEldTeenTiredNod,   4, 260, true },
+
+{ ANIM_ELD_ADULT_ANGRY_FLEX,  kEldAdultAngryFlex,  4, 140, true },
+{ ANIM_ELD_ADULT_BORED_SPIN,  kEldAdultBoredSpin,  3, 200, true },
+{ ANIM_ELD_ADULT_HUNGRY_SHAKE, kEldAdultHungryShake, 4, 160, true },
+{ ANIM_ELD_ADULT_HAPPY_SPIN,  kEldAdultHappySpin,  4, 160, true },
+{ ANIM_ELD_ADULT_SICK_HUNCH,  kEldAdultSickHunch,  4, 220, true },
+{ ANIM_ELD_ADULT_SLEEPY_DRINK, kEldAdultSleepyDrink, 4, 240, true },
 
 };
 
@@ -543,6 +609,18 @@ static AnimId eldTeenClipForMood(PetMood mood) {
   }
 }
 
+static AnimId eldAdultClipForMood(PetMood mood) {
+  switch (mood) {
+    case MOOD_SICK:   return ANIM_ELD_ADULT_SICK_HUNCH;
+    case MOOD_TIRED:  return ANIM_ELD_ADULT_SLEEPY_DRINK;
+    case MOOD_HUNGRY: return ANIM_ELD_ADULT_HUNGRY_SHAKE;
+    case MOOD_MAD:    return ANIM_ELD_ADULT_ANGRY_FLEX;
+    case MOOD_BORED:  return ANIM_ELD_ADULT_BORED_SPIN;
+    case MOOD_HAPPY:  return ANIM_ELD_ADULT_HAPPY_SPIN;
+    default:          return ANIM_ELD_ADULT_HAPPY_SPIN;
+  }
+}
+
 AnimId animSelectPetScreen() {
   // Animate whenever the UI is showing a "tab" surface that still displays the pet.
   // (Stats/Feed/Play are also PET_SCREEN with different currentTab.)
@@ -581,10 +659,17 @@ AnimId animSelectPetScreen() {
     }
 
     switch (pet.evoStage) {
-      case 0: return eldBabyClipForMood(pet.getMood());
-      case 1: return eldTeenClipForMood(pet.getMood());
-      case 2: return ANIM_ELD_ADULT_IDLE_1F;
-      default: return ANIM_ELD_ELDER_IDLE_1F;
+      case 0:
+        return eldBabyClipForMood(pet.getMood());
+    
+      case 1:
+        return eldTeenClipForMood(pet.getMood());
+    
+      case 2: 
+        return eldAdultClipForMood(pet.getMood());
+    
+      default:
+        return ANIM_ELD_ELDER_IDLE_1F;
     }
   }
 
