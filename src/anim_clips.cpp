@@ -259,6 +259,128 @@ static const char* kDevElderSickCough[] = {
 };
 
 // ---------------------------
+// Eldritch baby HAPPY sit (4-frame)
+// ---------------------------
+static const char* kEldBabyHappySit[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit3.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/hpy/eld_baby_hpy_sit4.png",
+};
+
+// ---------------------------
+// Eldritch baby HUNGRY rub (3-frame)
+// ---------------------------
+static const char* kEldBabyHungryRub[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/hgy/eld_baby_hgy_rub3.png",
+};
+
+// ---------------------------
+// Eldritch baby ANGRY wave (4-frame)
+// ---------------------------
+static const char* kEldBabyAngryWave[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave3.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/ang/eld_baby_agy_wave4.png",
+};
+
+// ---------------------------
+// Eldritch baby BORED ball (5-frame)
+// ---------------------------
+static const char* kEldBabyBoredBall[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball3.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball4.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/brd/eld_baby_brd_ball5.png",
+};
+
+// ---------------------------
+// Eldritch baby SICK bob (3-frame)
+// ---------------------------
+static const char* kEldBabySickBob[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/sck/eld_baby_sck_bob3.png",
+};
+
+// ---------------------------
+// Eldritch baby SLEEPY yawn (4-frame)
+// ---------------------------
+static const char* kEldBabySleepyYawn[] = {
+  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn1.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn2.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn3.png",
+  "/raising_hell/graphics/pet/anim/eld/baby/slp/eld_baby_slp_yawn4.png",
+};
+
+// ---------------------------
+// Eldritch teen HAPPY bob (4-frame)
+// ---------------------------
+static const char* kEldTeenHappyBob[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hpy/eld_tn_hpy_bob4.png",
+};
+
+// ---------------------------
+// Eldritch teen HUNGRY bite (6-frame)
+// ---------------------------
+static const char* kEldTeenHungryBite[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite4.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite5.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/hgy/eld_tn_hgy_bite6.png",
+};
+
+// ---------------------------
+// Eldritch teen ANGRY pose (4-frame)
+// ---------------------------
+static const char* kEldTeenAngryPose[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/agy/eld_tn_agy_pose4.png",
+};
+
+// ---------------------------
+// Eldritch teen BORED dribble (4-frame)
+// ---------------------------
+static const char* kEldTeenBoredDrib[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/brd/eld_tn_brd_drib4.png",
+};
+
+// ---------------------------
+// Eldritch teen SICK sneeze (5-frame)
+// ---------------------------
+static const char* kEldTeenSickSneeze[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze4.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/sck/eld_tn_sck_sneeze5.png",
+};
+
+// ---------------------------
+// Eldritch teen TIRED nod (4-frame)
+// ---------------------------
+static const char* kEldTeenTiredNod[] = {
+  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod1.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod2.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod3.png",
+  "/raising_hell/graphics/pet/anim/eld/teen/trd/eld_tn_trd_nod4.png",
+};
+
+// ---------------------------
 // Clip table
 // ---------------------------
 static const AnimClip kClips[] = {
@@ -292,6 +414,20 @@ static const AnimClip kClips[] = {
   { ANIM_DEV_ELDER_HUNGRY_RUB,   kDevElderHungryRub,    3, 180, true },
   { ANIM_DEV_ELDER_TIRED_SIT,  kDevElderTiredSit,  2,  700, true },
   { ANIM_DEV_ELDER_SICK_COUGH,  kDevElderSickCough,  3,  220, true },
+
+  { ANIM_ELD_BABY_HAPPY_SIT,   kEldBabyHappySit,   4, 220, true },
+{ ANIM_ELD_BABY_HUNGRY_RUB,  kEldBabyHungryRub,  3, 220, true },
+{ ANIM_ELD_BABY_ANGRY_WAVE,  kEldBabyAngryWave,  4, 180, true },
+{ ANIM_ELD_BABY_BORED_BALL,  kEldBabyBoredBall,  5, 220, true },
+{ ANIM_ELD_BABY_SLEEPY_YAWN, kEldBabySleepyYawn, 4, 260, true },
+{ ANIM_ELD_BABY_SICK_BOB,    kEldBabySickBob,    3, 220, true },
+
+{ ANIM_ELD_TEEN_HAPPY_BOB,   kEldTeenHappyBob,   4, 220, true },
+{ ANIM_ELD_TEEN_HUNGRY_BITE, kEldTeenHungryBite, 6, 180, true },
+{ ANIM_ELD_TEEN_ANGRY_POSE,  kEldTeenAngryPose,  4, 180, true },
+{ ANIM_ELD_TEEN_BORED_DRIB,  kEldTeenBoredDrib,  4, 220, true },
+{ ANIM_ELD_TEEN_SICK_SNEEZE, kEldTeenSickSneeze, 5, 140, true },
+{ ANIM_ELD_TEEN_TIRED_NOD,   kEldTeenTiredNod,   4, 260, true },
 
 };
 
@@ -383,6 +519,30 @@ static AnimId devClipForMood(uint8_t stage, PetMood mood) {
   }
 }
 
+static AnimId eldBabyClipForMood(PetMood mood) {
+  switch (mood) {
+    case MOOD_SICK:   return ANIM_ELD_BABY_SICK_BOB;
+    case MOOD_TIRED:  return ANIM_ELD_BABY_SLEEPY_YAWN;
+    case MOOD_HUNGRY: return ANIM_ELD_BABY_HUNGRY_RUB;
+    case MOOD_MAD:    return ANIM_ELD_BABY_ANGRY_WAVE;
+    case MOOD_BORED:  return ANIM_ELD_BABY_BORED_BALL;
+    case MOOD_HAPPY:  return ANIM_ELD_BABY_HAPPY_SIT;
+    default:          return ANIM_ELD_BABY_HAPPY_SIT;
+  }
+}
+
+static AnimId eldTeenClipForMood(PetMood mood) {
+  switch (mood) {
+    case MOOD_SICK:   return ANIM_ELD_TEEN_SICK_SNEEZE;
+    case MOOD_TIRED:  return ANIM_ELD_TEEN_TIRED_NOD;
+    case MOOD_HUNGRY: return ANIM_ELD_TEEN_HUNGRY_BITE;
+    case MOOD_MAD:    return ANIM_ELD_TEEN_ANGRY_POSE;
+    case MOOD_BORED:  return ANIM_ELD_TEEN_BORED_DRIB;
+    case MOOD_HAPPY:  return ANIM_ELD_TEEN_HAPPY_BOB;
+    default:          return ANIM_ELD_TEEN_HAPPY_BOB;
+  }
+}
+
 AnimId animSelectPetScreen() {
   // Animate whenever the UI is showing a "tab" surface that still displays the pet.
   // (Stats/Feed/Play are also PET_SCREEN with different currentTab.)
@@ -394,17 +554,39 @@ AnimId animSelectPetScreen() {
 
   if (!petVisibleUi) return ANIM_NONE;
 
-  if (pet.type != PET_DEVIL) return ANIM_NONE;
+  // Devil uses its existing routing.
+  if (pet.type == PET_DEVIL) {
+    // Keep returning a loop even while sleeping so it doesn't "freeze" after long idle.
+    if (pet.isSleeping) {
+      switch (pet.evoStage) {
+        case 0: return ANIM_DEV_BABY_SLEEPY_NOD;
+        case 1: return ANIM_DEV_TEEN_SLEEPY_BOB;
+        case 2: return ANIM_DEV_ADULT_TIRED_CHAIR_IDLE;
+        default: return ANIM_DEV_ELDER_TIRED_SIT;
+      }
+    }
+    return devClipForMood(pet.evoStage, pet.getMood());
+  }
 
-  // Keep returning a loop even while sleeping so it doesn't "freeze" after long idle.
-  if (pet.isSleeping) {
+  // Eldritch routing (baby + teen clips, placeholders for later stages).
+  if (pet.type == PET_ELDRITCH) {
+    // While sleeping, force a loop that still animates.
+    if (pet.isSleeping) {
+      switch (pet.evoStage) {
+        case 0: return ANIM_ELD_BABY_SLEEPY_YAWN;
+        case 1: return ANIM_ELD_TEEN_TIRED_NOD;
+        case 2: return ANIM_ELD_ADULT_IDLE_1F;
+        default: return ANIM_ELD_ELDER_IDLE_1F;
+      }
+    }
+
     switch (pet.evoStage) {
-      case 0: return ANIM_DEV_BABY_SLEEPY_NOD;
-      case 1: return ANIM_DEV_TEEN_SLEEPY_BOB;
-      case 2: return ANIM_DEV_ADULT_TIRED_CHAIR_IDLE;
-      default: return ANIM_DEV_ELDER_TIRED_SIT;
+      case 0: return eldBabyClipForMood(pet.getMood());
+      case 1: return eldTeenClipForMood(pet.getMood());
+      case 2: return ANIM_ELD_ADULT_IDLE_1F;
+      default: return ANIM_ELD_ELDER_IDLE_1F;
     }
   }
 
-  return devClipForMood(pet.evoStage, pet.getMood());
+  return ANIM_NONE;
 }
