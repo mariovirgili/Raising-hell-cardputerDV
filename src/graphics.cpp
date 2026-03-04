@@ -3738,6 +3738,20 @@ static const char *ELD_TEEN_SLEEP_FRAMES[ELD_TEEN_SLEEP_FRAME_COUNT] = {
 static inline bool useEldTeenSleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 1); }
 
 // -----------------------------------------------------------------------------
+// ELDRITCH ADULT sleep background animation (4 PNG frames)
+// -----------------------------------------------------------------------------
+static constexpr uint32_t ELD_ADULT_SLEEP_FRAME_MS = 180;
+
+static const char *ELD_ADULT_SLEEP_FRAMES[4] = {
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk1.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk2.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk3.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk4.png",
+};
+
+static inline bool useEldAdultSleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 2); }
+
+// -----------------------------------------------------------------------------
 // Sleep animation frame cache (RGB565 full-screen sprite buffer snapshots)
 // (Renamed to avoid colliding with existing ensureSleepFrameCache in this file.)
 // -----------------------------------------------------------------------------
@@ -3847,6 +3861,9 @@ static void drawSleepScreenImpl(bool redrawBg)
   static constexpr uint8_t DEV_TEEN_SLEEP_FRAME_COUNT = 4;
   static constexpr uint8_t DEV_ADULT_SLEEP_FRAME_COUNT = 4;
   static constexpr uint8_t DEV_ELDER_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_BABY_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_TEEN_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_ADULT_SLEEP_FRAME_COUNT = 4;
 
   const uint32_t now = millis();
 
@@ -3864,6 +3881,7 @@ static void drawSleepScreenImpl(bool redrawBg)
   const bool elderAnim = useDevElderSleepAnim();
   const bool eldBabyAnim = useEldBabySleepAnim();
   const bool eldTeenAnim = useEldTeenSleepAnim();
+  const bool eldAdultAnim = useEldAdultSleepAnim();
 
   uint8_t newMode = 0;
 
@@ -3879,7 +3897,8 @@ static void drawSleepScreenImpl(bool redrawBg)
     newMode = 5;
   else if (eldTeenAnim)
     newMode = 6;
-
+  else if (eldAdultAnim)
+    newMode = 7;
   // If mode changes, force a clean restart of the animation state + rebuild cache
   if (newMode != s_mode)
   {
@@ -3940,6 +3959,11 @@ static void drawSleepScreenImpl(bool redrawBg)
     frames = ELD_TEEN_SLEEP_FRAMES;
     frameCount = ELD_TEEN_SLEEP_FRAME_COUNT;
     frameMs = ELD_TEEN_SLEEP_FRAME_MS;
+    break;
+  case 7:
+    frames = ELD_ADULT_SLEEP_FRAMES;
+    frameCount = ELD_ADULT_SLEEP_FRAME_COUNT;
+    frameMs = ELD_ADULT_SLEEP_FRAME_MS;
     break;
   default:
     bgPath = sleepBgForPet(pet.type);
