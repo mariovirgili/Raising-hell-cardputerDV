@@ -2,7 +2,8 @@
 #include <stdint.h>
 
 // Animation clip IDs. Keep these stable: they are referenced by the engine.
-enum AnimId : uint16_t {
+enum AnimId : uint16_t
+{
   ANIM_NONE = 0,
 
   // Devil (baby)
@@ -41,10 +42,10 @@ enum AnimId : uint16_t {
   ANIM_DEV_ELDER_SICK_COUGH,
 
   // Eldritch (base idle placeholders)
-ANIM_ELD_BABY_IDLE_1F,
-ANIM_ELD_TEEN_IDLE_1F,
-ANIM_ELD_ADULT_IDLE_1F,
-ANIM_ELD_ELDER_IDLE_1F,
+  ANIM_ELD_BABY_IDLE_1F,
+  ANIM_ELD_TEEN_IDLE_1F,
+  ANIM_ELD_ADULT_IDLE_1F,
+  ANIM_ELD_ELDER_IDLE_1F,
 
   // Eldritch (baby)
   ANIM_ELD_BABY_HAPPY_SIT,
@@ -61,14 +62,22 @@ ANIM_ELD_ELDER_IDLE_1F,
   ANIM_ELD_TEEN_BORED_DRIB,
   ANIM_ELD_TEEN_SICK_SNEEZE,
   ANIM_ELD_TEEN_TIRED_NOD,
-  
+
   // Eldritch (adult)
-ANIM_ELD_ADULT_HAPPY_SPIN,
-ANIM_ELD_ADULT_HUNGRY_SHAKE,
-ANIM_ELD_ADULT_ANGRY_FLEX,
-ANIM_ELD_ADULT_BORED_SPIN,
-ANIM_ELD_ADULT_SICK_HUNCH,
-ANIM_ELD_ADULT_SLEEPY_DRINK,
+  ANIM_ELD_ADULT_HAPPY_SPIN,
+  ANIM_ELD_ADULT_HUNGRY_SHAKE,
+  ANIM_ELD_ADULT_ANGRY_FLEX,
+  ANIM_ELD_ADULT_BORED_SPIN,
+  ANIM_ELD_ADULT_SICK_HUNCH,
+  ANIM_ELD_ADULT_SLEEPY_DRINK,
+
+  // Eldritch (elder)
+  ANIM_ELD_ELDER_HAPPY_PASS,
+  ANIM_ELD_ELDER_HUNGRY_EAT,
+  ANIM_ELD_ELDER_ANGRY_SHAKE,
+  ANIM_ELD_ELDER_BORED_YOYO,
+  ANIM_ELD_ELDER_SICK_SNEEZE,
+  ANIM_ELD_ELDER_SLEEPY_HOLD,
 
   // Kaiju / Alien / Anubis / Axolotl
   ANIM_KAI_IDLE_1F,
@@ -77,21 +86,23 @@ ANIM_ELD_ADULT_SLEEPY_DRINK,
   ANIM_AXO_IDLE_1F,
 };
 
-struct AnimClip {
+struct AnimClip
+{
   AnimId id;
-  const char* const* frames;
+  const char *const *frames;
   uint8_t frameCount;
   uint16_t frameMs;
   bool loop;
 };
 
-struct AnimBehavior {
+struct AnimBehavior
+{
   AnimId baseId;
   AnimId triggerId;
   uint32_t triggerMinMs;
   uint32_t triggerMaxMs;
 };
 
-const AnimClip* animGetClip(AnimId id);
-const AnimBehavior* animGetBehavior(AnimId baseId);
+const AnimClip *animGetClip(AnimId id);
+const AnimBehavior *animGetBehavior(AnimId baseId);
 AnimId animSelectPetScreen();
