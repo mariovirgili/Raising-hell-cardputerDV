@@ -1340,7 +1340,7 @@ const char *getBioStatusImagePath()
       default:          return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
       }
     }
-  
+
     // ---------------- TEEN ----------------
     if (pet.evoStage == 1)
     {
@@ -1354,16 +1354,24 @@ const char *getBioStatusImagePath()
       default:          return "/raising_hell/graphics/pet/bio/eld/eld_teen_hpy_bio.png";
       }
     }
-  
+
+    // ---------------- ADULT ----------------
+    if (pet.evoStage == 2)
+    {
+      switch (mood)
+      {
+      case MOOD_SICK:   return "/raising_hell/graphics/pet/bio/eld/eld_ad_sck_bio.png";
+      case MOOD_TIRED:  return "/raising_hell/graphics/pet/bio/eld/eld_ad_trd_bio.png";
+      case MOOD_HUNGRY: return "/raising_hell/graphics/pet/bio/eld/eld_ad_hgy_bio.png";
+      case MOOD_MAD:    return "/raising_hell/graphics/pet/bio/eld/eld_ad_agy_bio.png";
+      case MOOD_BORED:  return "/raising_hell/graphics/pet/bio/eld/eld_ad_brd_bio.png";
+      default:          return "/raising_hell/graphics/pet/bio/eld/eld_ad_hpy_bio.png";
+      }
+    }
+
     // Fallback for future stages
     return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
   }
-  
-  
-  // --------------------------------------------------------------------------
-  // Global Fallback
-  // --------------------------------------------------------------------------
-  return "/raising_hell/graphics/pet/bio/dev/dev_baby_hpy_bio.png";
 }
 
 // ============================================================================
