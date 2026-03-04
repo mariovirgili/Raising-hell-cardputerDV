@@ -157,6 +157,22 @@ static AnimId evoHappyClipFor(PetType type, uint8_t stage)
     return ANIM_ANU_IDLE_1F;
   case PET_AXOLOTL:
     return ANIM_AXO_IDLE_1F;
+  case PET_PHOENIX:
+    switch (stage)
+    {
+    case 0:  return ANIM_PHX_BABY_HAPPY_FLUTTER;
+    case 1:  return ANIM_PHX_TEEN_HAPPY_RISE;
+    case 2:  return ANIM_PHX_ADULT_HAPPY_SOAR;
+    default: return ANIM_PHX_ELDER_HAPPY_REBIRTH;
+    }
+  case PET_BANSHEE:
+    switch (stage)
+    {
+    case 0:  return ANIM_BAN_BABY_HAPPY_FLOAT;
+    case 1:  return ANIM_BAN_TEEN_HAPPY_SWIRL;
+    case 2:  return ANIM_BAN_ADULT_HAPPY_CHORUS;
+    default: return ANIM_BAN_ELDER_HAPPY_ARIA;
+    }
   default:
     return ANIM_NONE;
   }
@@ -349,6 +365,32 @@ static inline PetUIColorScheme uiSchemeForPet(PetType t)
         0x0000  // tabTextOn
     };
 
+  case PET_PHOENIX:
+    // Amber / fire theme
+    return PetUIColorScheme{
+        0x4000, // topBg (dark amber)
+        0xFBE0, // topOutline (yellow)
+        0xFFFF, // topText
+        0x4000, // tabBg
+        0xFBE0, // tabOutline
+        0xFD20, // tabFillSel (orange-gold)
+        0xFFFF, // tabTextOff
+        0x0000  // tabTextOn
+    };
+
+  case PET_BANSHEE:
+    // Ghostly teal theme
+    return PetUIColorScheme{
+        0x0210, // topBg (dark teal)
+        0x07FF, // topOutline (cyan)
+        0xFFFF, // topText
+        0x0210, // tabBg
+        0x07FF, // tabOutline
+        0x4EFF, // tabFillSel (light teal)
+        0xFFFF, // tabTextOff
+        0x0000  // tabTextOn
+    };
+
   case PET_DEVIL:
   default:
     return PetUIColorScheme{
@@ -371,19 +413,15 @@ static inline uint16_t uiPillFillSelected(PetType t)
 {
   switch (t)
   {
-  case PET_KAIJU:
-    return 0x780F; // purple
-  case PET_ALIEN:
-    return 0x07E0; // green
-  case PET_ANUBIS:
-    return 0xFD20; // gold
-  case PET_AXOLOTL:
-    return 0xFB56; // pink
-  case PET_ELDRITCH:
-    return 0x0018; // slightly darker blue
+  case PET_KAIJU:    return 0x780F; // purple
+  case PET_ALIEN:    return 0x07E0; // green
+  case PET_ANUBIS:   return 0xFD20; // gold
+  case PET_AXOLOTL:  return 0xFB56; // pink
+  case PET_ELDRITCH: return 0x0018; // slightly darker blue
+  case PET_PHOENIX:  return 0xFD20; // orange-gold
+  case PET_BANSHEE:  return 0x4EFF; // light teal
   case PET_DEVIL:
-  default:
-    return 0x2104; // devil-ish pill fill
+  default:           return 0x2104; // devil-ish pill fill
   }
 }
 
@@ -3031,6 +3069,8 @@ static const PetRenderProfile kPetProfile[] = {
     /* PET_ALIEN    */ {PET_SPR_W, PET_SPR_H, PET_X_OFFSET, PET_Y_OFFSET},
     /* PET_ANUBIS   */ {PET_SPR_W, PET_SPR_H, PET_X_OFFSET, PET_Y_OFFSET},
     /* PET_AXOLOTL  */ {PET_SPR_W, PET_SPR_H, PET_X_OFFSET, PET_Y_OFFSET},
+    /* PET_PHOENIX  */ {PET_SPR_W, PET_SPR_H, PET_X_OFFSET, PET_Y_OFFSET},
+    /* PET_BANSHEE  */ {PET_SPR_W, PET_SPR_H, PET_X_OFFSET, PET_Y_OFFSET},
 };
 
 static inline const PetRenderProfile &getPetProfile(PetType t)
@@ -4952,26 +4992,15 @@ void drawChoosePetScreen(bool redrawBg)
   const char *eggPath = nullptr;
   switch (pet.type)
   {
-  case PET_DEVIL:
-    eggPath = DEV_EGG_PNG;
-    break;
-  case PET_ELDRITCH:
-    eggPath = ELD_EGG_PNG;
-    break;
-  case PET_KAIJU:
-    eggPath = KAI_EGG_PNG;
-    break;
-  case PET_ANUBIS:
-    eggPath = ANU_EGG_PNG;
-    break;
-  case PET_AXOLOTL:
-    eggPath = AXO_EGG_PNG;
-    break;
-  case PET_ALIEN:
-    eggPath = AL_EGG_PNG;
-    break;
-  default:
-    break;
+  case PET_DEVIL:    eggPath = DEV_EGG_PNG; break;
+  case PET_ELDRITCH: eggPath = ELD_EGG_PNG; break;
+  case PET_KAIJU:    eggPath = KAI_EGG_PNG; break;
+  case PET_ANUBIS:   eggPath = ANU_EGG_PNG; break;
+  case PET_AXOLOTL:  eggPath = AXO_EGG_PNG; break;
+  case PET_ALIEN:    eggPath = AL_EGG_PNG;  break;
+  case PET_PHOENIX:  /* no egg asset yet */ break;
+  case PET_BANSHEE:  /* no egg asset yet */ break;
+  default:           break;
   }
 
   bool ok = false;
@@ -4989,26 +5018,15 @@ void drawChoosePetScreen(bool redrawBg)
   const char *label = "Unknown Egg";
   switch (pet.type)
   {
-  case PET_DEVIL:
-    label = "Devil Egg";
-    break;
-  case PET_KAIJU:
-    label = "Kaiju Egg";
-    break;
-  case PET_ELDRITCH:
-    label = "Eldritch Egg";
-    break;
-  case PET_ALIEN:
-    label = "Alien Egg";
-    break;
-  case PET_ANUBIS:
-    label = "Anubis Egg";
-    break;
-  case PET_AXOLOTL:
-    label = "Axolotl Egg";
-    break;
-  default:
-    break;
+  case PET_DEVIL:    label = "Devil Egg";    break;
+  case PET_KAIJU:    label = "Kaiju Egg";    break;
+  case PET_ELDRITCH: label = "Eldritch Egg"; break;
+  case PET_ALIEN:    label = "Alien Egg";    break;
+  case PET_ANUBIS:   label = "Anubis Egg";   break;
+  case PET_AXOLOTL:  label = "Axolotl Egg";  break;
+  case PET_PHOENIX:  label = "Phoenix Egg";  break;
+  case PET_BANSHEE:  label = "Banshee Egg";  break;
+  default:           break;
   }
 
   static constexpr int EGG_TEXT_NUDGE_Y = 4;

@@ -259,20 +259,15 @@ static const char *petTypeToString(PetType t)
 {
   switch (t)
   {
-  case PET_DEVIL:
-    return "devil";
-  case PET_KAIJU:
-    return "kaiju";
-  case PET_ELDRITCH:
-    return "eldritch";
-  case PET_ALIEN:
-    return "alien";
-  case PET_ANUBIS:
-    return "anubis";
-  case PET_AXOLOTL:
-    return "axolotl";
-  default:
-    return "unknown";
+  case PET_DEVIL:    return "devil";
+  case PET_KAIJU:    return "kaiju";
+  case PET_ELDRITCH: return "eldritch";
+  case PET_ALIEN:    return "alien";
+  case PET_ANUBIS:   return "anubis";
+  case PET_AXOLOTL:  return "axolotl";
+  case PET_PHOENIX:  return "phoenix";
+  case PET_BANSHEE:  return "banshee";
+  default:           return "unknown";
   }
 }
 
@@ -280,36 +275,14 @@ static bool parsePetType(const char *s, PetType &out)
 {
   if (!s || !*s)
     return false;
-  if (!strcmp(s, "devil"))
-  {
-    out = PET_DEVIL;
-    return true;
-  }
-  if (!strcmp(s, "kaiju"))
-  {
-    out = PET_KAIJU;
-    return true;
-  }
-  if (!strcmp(s, "eldritch"))
-  {
-    out = PET_ELDRITCH;
-    return true;
-  }
-  if (!strcmp(s, "alien"))
-  {
-    out = PET_ALIEN;
-    return true;
-  }
-  if (!strcmp(s, "anubis"))
-  {
-    out = PET_ANUBIS;
-    return true;
-  }
-  if (!strcmp(s, "axolotl"))
-  {
-    out = PET_AXOLOTL;
-    return true;
-  }
+  if (!strcmp(s, "devil"))    { out = PET_DEVIL;    return true; }
+  if (!strcmp(s, "kaiju"))    { out = PET_KAIJU;    return true; }
+  if (!strcmp(s, "eldritch")) { out = PET_ELDRITCH; return true; }
+  if (!strcmp(s, "alien"))    { out = PET_ALIEN;    return true; }
+  if (!strcmp(s, "anubis"))   { out = PET_ANUBIS;   return true; }
+  if (!strcmp(s, "axolotl"))  { out = PET_AXOLOTL;  return true; }
+  if (!strcmp(s, "phoenix"))  { out = PET_PHOENIX;  return true; }
+  if (!strcmp(s, "banshee"))  { out = PET_BANSHEE;  return true; }
   return false;
 }
 

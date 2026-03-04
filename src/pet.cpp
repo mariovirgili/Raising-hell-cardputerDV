@@ -690,7 +690,7 @@ void Pet::save() {
 
 void Pet::load() {
   uint8_t rawType = EEPROM.read(10);
-  if (rawType > PET_ALIEN) rawType = PET_DEVIL;
+  if (rawType >= (uint8_t)PET_TYPE_COUNT) rawType = PET_DEVIL;
 
   type             = (PetType)rawType;
   health           = EEPROM.read(11);
