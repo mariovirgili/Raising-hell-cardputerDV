@@ -470,7 +470,9 @@ static const char *PATH_SHOP_ELDRITCH_EYE = "/raising_hell/graphics/ui/shop_item
 #define KAI_EGG_PNG "/raising_hell/graphics/pet/egg/kai_egg.png"
 #define ANU_EGG_PNG "/raising_hell/graphics/pet/egg/anu_egg.png"
 #define AXO_EGG_PNG "/raising_hell/graphics/pet/egg/axo_egg.png"
-#define AL_EGG_PNG "/raising_hell/graphics/pet/egg/al_egg.png"
+#define AL_EGG_PNG  "/raising_hell/graphics/pet/egg/al_egg.png"
+#define PHX_EGG_PNG "/raising_hell/graphics/pet/egg/phx_egg.png"
+#define BAN_EGG_PNG "/raising_hell/graphics/pet/egg/ban_egg.png"
 
 // Pet-area background (drawn at PET_AREA_Y)
 static const char *PATH_BG_DEVIL_BABY = "/raising_hell/graphics/background/dev/hell_bg.jpg";
@@ -4998,8 +5000,8 @@ void drawChoosePetScreen(bool redrawBg)
   case PET_ANUBIS:   eggPath = ANU_EGG_PNG; break;
   case PET_AXOLOTL:  eggPath = AXO_EGG_PNG; break;
   case PET_ALIEN:    eggPath = AL_EGG_PNG;  break;
-  case PET_PHOENIX:  /* no egg asset yet */ break;
-  case PET_BANSHEE:  /* no egg asset yet */ break;
+  case PET_PHOENIX:  eggPath = PHX_EGG_PNG; break;
+  case PET_BANSHEE:  eggPath = BAN_EGG_PNG; break;
   default:           break;
   }
 
