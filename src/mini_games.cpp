@@ -529,7 +529,20 @@ void drawFlappyFireball()
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
-  spr.fillSprite(TFT_BLACK);
+  // Background: dark gradient sky (infernal night)
+  spr.fillSprite(0x0821); // very dark navy/black
+  for (int y = gH - 1; y >= gH / 2; --y) {
+    int t = (gH - 1 - y) * 255 / (gH / 2);
+    if (t > 255) t = 255;
+    uint8_t r5 = (uint8_t)(t * 8 / 255) & 0x1F;
+    spr.drawFastHLine(0, y, gW, (uint16_t)(r5 << 11));
+  }
+  // Stars (static pattern)
+  static const uint8_t kStarX[] = { 10, 40, 80, 120, 160, 200, 230, 25, 70, 150, 195 };
+  static const uint8_t kStarY[] = {  8, 20,  5,  15,   9,   4,  18, 30, 12,  25,  30 };
+  for (int s = 0; s < 11; ++s) {
+    spr.drawPixel(kStarX[s], kStarY[s], TFT_WHITE);
+  }
 
   if (s_showReward)
   {
@@ -539,50 +552,77 @@ void drawFlappyFireball()
 
   if (g_app.gameOver)
   {
+    spr.fillRect(20, gH/2 - 28, gW - 40, 64, TFT_BLACK);
+    const uint16_t borderCol = playerWon ? TFT_GREEN : TFT_RED;
+    spr.drawRect(20, gH/2 - 28, gW - 40, 64, borderCol);
+    spr.drawRect(21, gH/2 - 27, gW - 42, 62, borderCol);
     spr.setTextDatum(CC_DATUM);
-    spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);
-    spr.drawCentreString(playerWon ? "YOU WIN!" : "YOU LOSE!", gW / 2, gH / 2 - 10, 4);
-
+    spr.setTextColor(borderCol, TFT_BLACK);
+    spr.drawCentreString(playerWon ? "YOU WIN!" : "YOU LOSE!", gW/2, gH/2 - 12, 4);
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW / 2, gH / 2 + 22, 2);
+    spr.drawCentreString(playerWon ? "Survived the flames!" : "Burned to ash...", gW/2, gH/2 + 8, 2);
+    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
     return;
   }
 
+  // Pipes – dark green stone columns with highlight edge and cap
   const int pipeW = 26;
-  const int gapH = 64;
+  const int gapH  = 64;
+  const uint16_t pipeBody  = 0x02A0;
+  const uint16_t pipeEdgeL = 0x05C0;
+  const uint16_t pipeEdgeR = 0x0140;
+  const uint16_t pipeCap   = 0x03E0;
 
   for (int i = 0; i < 3; ++i)
   {
-    const int x = s_pipes[i].x;
+    const int x      = s_pipes[i].x;
     const int gapTop = s_pipes[i].gapY - gapH / 2;
     const int gapBot = s_pipes[i].gapY + gapH / 2;
 
-    spr.fillRect(x, 0, pipeW, gapTop, TFT_DARKGREY);
-    spr.fillRect(x, gapBot, pipeW, gH - gapBot, TFT_DARKGREY);
+    if (gapTop > 0) {
+      spr.fillRect(x + 1, 0, pipeW - 2, gapTop, pipeBody);
+      spr.drawFastVLine(x, 0, gapTop, pipeEdgeL);
+      spr.drawFastVLine(x + pipeW - 1, 0, gapTop, pipeEdgeR);
+      spr.fillRect(x - 2, gapTop - 6, pipeW + 4, 6, pipeCap);
+      spr.drawRect(x - 2, gapTop - 6, pipeW + 4, 6, pipeEdgeR);
+    }
+    if (gapBot < gH) {
+      spr.fillRect(x + 1, gapBot, pipeW - 2, gH - gapBot, pipeBody);
+      spr.drawFastVLine(x, gapBot, gH - gapBot, pipeEdgeL);
+      spr.drawFastVLine(x + pipeW - 1, gapBot, gH - gapBot, pipeEdgeR);
+      spr.fillRect(x - 2, gapBot, pipeW + 4, 6, pipeCap);
+      spr.drawRect(x - 2, gapBot, pipeW + 4, 6, pipeEdgeR);
+    }
   }
 
+  // Fireball – layered glow effect
+  spr.fillCircle(s_fbX, s_fbY, 7, TFT_RED);
   spr.fillCircle(s_fbX, s_fbY, 5, TFT_ORANGE);
-  spr.drawCircle(s_fbX, s_fbY, 5, TFT_RED);
+  spr.fillCircle(s_fbX, s_fbY, 3, TFT_YELLOW);
+  spr.fillCircle(s_fbX, s_fbY, 1, TFT_WHITE);
 
+  // Timer bar – colour transitions green → yellow → red
   {
-    const uint32_t now = millis();
+    const uint32_t now    = millis();
     const uint32_t aliveMs = flappyAliveMsNow(now);
-    const uint32_t winMs = s_flappyWinMs;
+    const uint32_t winMs   = s_flappyWinMs;
 
-    int barW = gW - 20;
-    int barX = 10;
-    int barY = 6;
-    int barH = 6;
+    const int barW = gW - 20;
+    const int barX = 10;
+    const int barY = 4;
+    const int barH = 5;
 
-    spr.drawRect(barX, barY, barW, barH, TFT_DARKGREY);
+    spr.fillRect(barX, barY, barW, barH, 0x2104);
 
     int fill = (int)((aliveMs * (uint32_t)(barW - 2)) / winMs);
-    if (fill < 0)
-      fill = 0;
-    if (fill > barW - 2)
-      fill = barW - 2;
+    if (fill < 0) fill = 0;
+    if (fill > barW - 2) fill = barW - 2;
 
-    spr.fillRect(barX + 1, barY + 1, fill, barH - 2, TFT_YELLOW);
+    const int pct = (int)((aliveMs * 100) / winMs);
+    const uint16_t barCol = (pct < 50) ? TFT_GREEN : ((pct < 80) ? TFT_YELLOW : TFT_ORANGE);
+    spr.fillRect(barX + 1, barY + 1, fill, barH - 2, barCol);
+    spr.drawRect(barX, barY, barW, barH, TFT_DARKGREY);
   }
 }
 
@@ -1117,50 +1157,103 @@ void drawResurrectionRun()
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
-  spr.fillSprite(TFT_BLACK);
+  // Background: dark sky with purple hue (underworld)
+  spr.fillSprite(0x1008); // dark purple-grey
 
-  if (rr_gameOver)
-  {
-    spr.setTextDatum(CC_DATUM);
-    spr.setTextColor(rr_won ? TFT_GREEN : TFT_RED, TFT_BLACK);
-    spr.drawCentreString(rr_won ? "RESURRECTED!" : "FALLEN...", gW / 2, gH / 2 - 10, 4);
-
-    spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW / 2, gH / 2 + 22, 2);
-    return;
+  // Stars / floating embers in background
+  static const uint8_t kRrStarX[] = { 15, 50, 90, 130, 170, 210, 35, 100, 175, 220 };
+  static const uint8_t kRrStarY[] = { 12,  8, 20,   5,  14,  10, 28,  30,  22,  25 };
+  for (int s = 0; s < 10; ++s) {
+    spr.drawPixel(kRrStarX[s], kRrStarY[s], 0x8410); // dim grey-white
   }
 
   const int groundY = gH - 18;
-  spr.drawLine(0, groundY, gW, groundY, TFT_DARKGREY);
 
+  // Ground texture: dark earth with grass-line
+  spr.fillRect(0, groundY, gW, gH - groundY, 0x2100); // dark brown earth
+  spr.drawFastHLine(0, groundY, gW, 0x0440);           // dark green grass line
+  // Grass tufts (static pattern that scrolls would need animation; static is fine)
+  for (int gx = (rr_distance % 20); gx < gW; gx += 20) {
+    spr.drawPixel(gx,     groundY - 1, 0x0660);
+    spr.drawPixel(gx + 2, groundY - 2, 0x0660);
+    spr.drawPixel(gx + 4, groundY - 1, 0x0660);
+  }
+
+  // Game-over screen
+  if (rr_gameOver) {
+    spr.fillRect(20, gH/2 - 28, gW - 40, 64, TFT_BLACK);
+    const uint16_t bc = rr_won ? TFT_GREEN : TFT_RED;
+    spr.drawRect(20, gH/2 - 28, gW - 40, 64, bc);
+    spr.drawRect(21, gH/2 - 27, gW - 42, 62, bc);
+
+    spr.setTextDatum(CC_DATUM);
+    spr.setTextColor(bc, TFT_BLACK);
+    spr.drawCentreString(rr_won ? "RESURRECTED!" : "FALLEN...", gW/2, gH/2 - 12, 4);
+
+    spr.setTextColor(TFT_WHITE, TFT_BLACK);
+    spr.drawCentreString(rr_won ? "The soul lives on!" : "Lost to the void.", gW/2, gH/2 + 8, 2);
+    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
+    return;
+  }
+
+  // Player: ghost/skeleton silhouette
   int px = 48;
   int py = groundY - 18 + (int)rr_y;
-  int pw = 16;
-  int ph = rr_ducking ? 10 : 16;
-  if (rr_ducking)
-    py = groundY - ph + (int)rr_y;
-  spr.fillRect(px, py, pw, ph, TFT_GREEN);
+  int pw = 14;
+  int ph = rr_ducking ? 9 : 16;
+  if (rr_ducking) py = groundY - ph + (int)rr_y;
+
+  if (!rr_ducking) {
+    // Body
+    spr.fillRect(px + 2, py + 6, pw - 4, ph - 6, 0xBDF7);   // light ghostly white
+    // Head (rounded top)
+    spr.fillCircle(px + pw/2, py + 4, 5, 0xDEFB);
+    // Eyes (red-ish)
+    spr.fillRect(px + 3, py + 2, 2, 2, TFT_RED);
+    spr.fillRect(px + 8, py + 2, 2, 2, TFT_RED);
+  } else {
+    // Ducking: flatter rectangle
+    spr.fillRect(px + 1, py, pw - 2, ph, 0xBDF7);
+    spr.fillRect(px + 3, py + 2, 2, 2, TFT_RED);
+    spr.fillRect(px + 7, py + 2, 2, 2, TFT_RED);
+  }
 
   for (auto &o : rr_obs)
   {
     if (!o.active)
       continue;
     int ox = o.x - rr_distance;
-    if (ox < -40 || ox > gW + 40)
-      continue;
-    spr.fillRect(ox, o.y, o.w, o.h, TFT_RED);
+    if (ox < -40 || ox > gW + 40) continue;
+
+    // Detect type by height: SPIKE=14h, LOW_FIRE=10h
+    if (o.h >= 12) {
+      // SPIKE: bone/tooth spike shape
+      spr.fillRect(ox + 4, o.y + 4, o.w - 8, o.h - 4, 0xAD55);  // bone beige
+      spr.fillTriangle(ox, o.y + o.h, ox + o.w/2, o.y, ox + o.w, o.y + o.h, 0xDEFB); // spike tip
+      spr.drawTriangle(ox, o.y + o.h, ox + o.w/2, o.y, ox + o.w, o.y + o.h, TFT_DARKGREY);
+    } else {
+      // LOW_FIRE: small flame
+      spr.fillCircle(ox + o.w/2, o.y + o.h/2, o.w/2, TFT_ORANGE);
+      spr.fillCircle(ox + o.w/2, o.y + o.h/2 - 2, o.w/2 - 2, TFT_YELLOW);
+      spr.fillCircle(ox + o.w/2, o.y + o.h/2 - 3, 2, TFT_WHITE);
+    }
   }
 
-  int barW = gW - 20;
-  int barX = 10;
-  int barY = 6;
-  spr.drawRect(barX, barY, barW, 6, TFT_DARKGREY);
+  // Progress bar
+  const int barW = gW - 20;
+  const int barX = 10;
+  const int barY = 4;
+  spr.fillRect(barX, barY, barW, 5, 0x2104);
   int fill = (rr_distance * (barW - 2)) / rr_courseLen;
-  if (fill < 0)
-    fill = 0;
-  if (fill > barW - 2)
-    fill = barW - 2;
-  spr.fillRect(barX + 1, barY + 1, fill, 4, TFT_YELLOW);
+  if (fill < 0) fill = 0;
+  if (fill > barW - 2) fill = barW - 2;
+
+  // Colour: purple → blue → green as you approach win
+  const int pct = (rr_distance * 100) / rr_courseLen;
+  uint16_t barCol = (pct < 50) ? 0xF81F : ((pct < 80) ? TFT_CYAN : TFT_GREEN); // magenta→cyan→green
+  spr.fillRect(barX + 1, barY + 1, fill, 3, barCol);
+  spr.drawRect(barX, barY, barW, 5, TFT_DARKGREY);
 }
 
 // -----------------------------------------------------------------------------
@@ -1448,29 +1541,48 @@ void drawCrossyRoad()
     return;
   }
 
-  for (int y = 0; y < kCrossyRows; ++y)
-  {
+  // Draw rows with themed colours
+  for (int y = 0; y < kCrossyRows; ++y) {
     const int ry = kCrossyOriginY + y * kCrossyTileH;
+    const int rw = kCrossyCols * kCrossyTileW;
 
-    uint16_t col = TFT_NAVY;
-    if (y == 0)
-      col = TFT_DARKGREEN;
-    else if (y == kCrossyRows - 1)
-      col = TFT_DARKGREY;
-
-    spr.fillRect(kCrossyOriginX, ry, kCrossyCols * kCrossyTileW, kCrossyTileH, col);
+    if (y == 0) {
+      // Goal: vivid green grass with small markers
+      spr.fillRect(kCrossyOriginX, ry, rw, kCrossyTileH, 0x04A0);
+      spr.drawFastHLine(kCrossyOriginX, ry + kCrossyTileH - 1, rw, 0x0780);
+      for (int mx = 8; mx < rw - 8; mx += 24) {
+        spr.fillRect(kCrossyOriginX + mx, ry + 4, 8, kCrossyTileH - 8, 0x07E0);
+      }
+    } else if (y == kCrossyRows - 1) {
+      // Start: concrete sidewalk with tile lines
+      spr.fillRect(kCrossyOriginX, ry, rw, kCrossyTileH, 0x7BEF);
+      for (int sx = 0; sx < rw; sx += 16) {
+        spr.drawFastVLine(kCrossyOriginX + sx, ry, kCrossyTileH, 0x5AEB);
+      }
+    } else {
+      // Traffic lane: dark asphalt with dashed centre line
+      spr.fillRect(kCrossyOriginX, ry, rw, kCrossyTileH, 0x2124);
+      const int cy = ry + kCrossyTileH / 2;
+      for (int sx = 4; sx < rw - 4; sx += 14) {
+        spr.drawFastHLine(kCrossyOriginX + sx, cy, 8, 0xFFE0);
+      }
+    }
   }
 
-  for (int r = kCrossyFirstTrafficRow; r <= kCrossyLastTrafficRow; ++r)
-  {
-    const CrossyLane &L = s_crossyLanes[r];
+  // Cars – body + windows + wheel dots
+  for (int r = kCrossyFirstTrafficRow; r <= kCrossyLastTrafficRow; ++r) {
+    const CrossyLane& L = s_crossyLanes[r];
 
     const int carLenPx = (int)L.carLen * kCrossyTileW;
     const int periodPx = carLenPx + (int)L.gapPx;
     const int laneW = kCrossyCols * kCrossyTileW;
 
-    if (carLenPx <= 0 || periodPx <= 0)
-      continue;
+    // Safety: never allow modulo/step by 0 or negative
+    if (carLenPx <= 0 || periodPx <= 0) continue;
+
+    const uint16_t carCol = (r % 3 == 0) ? TFT_RED :
+                            (r % 3 == 1) ? 0x001F : 0x8000;
+    const uint16_t winCol = 0xAEFC;
 
     const int y = kCrossyOriginY + r * kCrossyTileH;
 
@@ -1478,8 +1590,7 @@ void drawCrossyRoad()
     if (offset < 0)
       offset += periodPx;
 
-    for (int x0 = -periodPx * 2; x0 < laneW + periodPx * 2; x0 += periodPx)
-    {
+    for (int x0 = -periodPx * 2; x0 < laneW + periodPx * 2; x0 += periodPx) {
       const int x = x0 - offset;
       const int drawX = kCrossyOriginX + x;
 
@@ -1488,14 +1599,34 @@ void drawCrossyRoad()
       if (drawX > kCrossyOriginX + laneW)
         continue;
 
-      spr.fillRect(drawX, y + 2, carLenPx - 2, kCrossyTileH - 4, TFT_RED);
-      spr.fillRect(drawX + 2, y + 4, carLenPx - 6, 2, TFT_WHITE);
+      // Car body
+      spr.fillRect(drawX, y + 2, carLenPx - 1, kCrossyTileH - 4, carCol);
+      // Window
+      if (carLenPx > 12) {
+        spr.fillRect(drawX + 2, y + 3, carLenPx / 3, kCrossyTileH - 8, winCol);
+      }
+      // Top highlight
+      spr.drawFastHLine(drawX + 1, y + 2, carLenPx - 3, TFT_WHITE);
+      // Wheel dots
+      spr.fillRect(drawX + 1,            y + kCrossyTileH - 5, 3, 3, TFT_BLACK);
+      spr.fillRect(drawX + carLenPx - 4, y + kCrossyTileH - 5, 3, 3, TFT_BLACK);
     }
   }
 
+  // Player: little imp with horns and eyes
   const int fx = kCrossyOriginX + s_crossyPx * kCrossyTileW;
   const int fy = kCrossyOriginY + s_crossyPy * kCrossyTileH;
-  spr.fillRect(fx + 4, fy + 3, kCrossyTileW - 8, kCrossyTileH - 6, TFT_GREEN);
+  const int tw = kCrossyTileW;
+  const int th = kCrossyTileH;
+
+  spr.fillRect(fx + 3, fy + 4, tw - 6, th - 7, TFT_GREEN);
+  spr.fillCircle(fx + tw/2, fy + 3, 4, 0x07C0);
+  // Horns
+  spr.fillTriangle(fx + 3, fy + 1, fx + 5, fy - 2, fx + 7, fy + 1, TFT_RED);
+  spr.fillTriangle(fx + tw - 7, fy + 1, fx + tw - 5, fy - 2, fx + tw - 3, fy + 1, TFT_RED);
+  // Eyes
+  spr.fillRect(fx + tw/2 - 3, fy + 2, 2, 2, TFT_BLACK);
+  spr.fillRect(fx + tw/2 + 1, fy + 2, 2, 2, TFT_BLACK);
 }
 
 // -----------------------------------------------------------------------------
@@ -1817,23 +1948,54 @@ void drawInfernalDodger()
   const int gW = (screenW > 0) ? screenW : 240;
   const int gH = (screenH > 0) ? screenH : 135;
 
-  spr.fillSprite(TFT_BLACK);
+  // Background: infernal dark-red gradient
+  spr.fillSprite(0x2000); // dark maroon
+  for (int y = gH - 1; y >= gH * 3 / 4; --y) {
+    int t = (gH - 1 - y) * 255 / (gH / 4);
+    if (t > 255) t = 255;
+    uint8_t r5 = (uint8_t)(8 + t * 14 / 255) & 0x1F;
+    uint16_t col = (r5 << 11);
+    spr.drawFastHLine(0, y, gW, col);
+  }
 
-  // Top survive bar
+  // Lava/fire border at bottom
+  const int lavaY = gH - 10;
+  spr.fillRect(0, lavaY, gW, 10, 0xF800); // red lava strip
+  for (int fx2 = 0; fx2 < gW; fx2 += 8) {
+    spr.fillTriangle(fx2,     lavaY,
+                     fx2 + 4, lavaY - 5,
+                     fx2 + 8, lavaY,
+                     TFT_ORANGE);
+  }
+
+  // Ash/ember particles (static ambient)
+  static const uint8_t kEmX[] = { 20, 60, 100, 140, 180, 220, 45, 120, 190 };
+  static const uint8_t kEmY[] = { 20, 40,  15,  50,  25,  35, 55,  30,  45 };
+  for (int e = 0; e < 9; ++e) {
+    spr.drawPixel(kEmX[e], kEmY[e], TFT_ORANGE);
+  }
+
+  // Progress bar – red filling like a rising lava meter
   {
-    const uint32_t aliveMs = dodgerAliveMsNow(millis());
-    const uint32_t kWinMs = kSurviveWinMs;
-    int barW = gW - 20;
-    int barX = 10;
-    int barY = 6;
+    const uint32_t aliveMs = millis() - s_dodgerStartMs;
+    const uint32_t kWinMs  = 18000;
 
-    spr.drawRect(barX, barY, barW, 6, TFT_DARKGREY);
+    const int barW = gW - 20;
+    const int barX = 10;
+    const int barY = 4;
+    const int barH = 5;
+
+    spr.fillRect(barX, barY, barW, barH, 0x2104);
 
     int fill = (int)((aliveMs * (uint32_t)(barW - 2)) / kWinMs);
     if (fill < 0) fill = 0;
     if (fill > barW - 2) fill = barW - 2;
 
-    spr.fillRect(barX + 1, barY + 1, fill, 4, TFT_YELLOW);
+    // Lava colour: dark orange → bright orange → yellow at end
+    const int pct = (int)((aliveMs * 100) / kWinMs);
+    const uint16_t barCol = (pct < 60) ? TFT_ORANGE : ((pct < 85) ? 0xFD00 : TFT_YELLOW);
+    spr.fillRect(barX + 1, barY + 1, fill, barH - 2, barCol);
+    spr.drawRect(barX, barY, barW, barH, TFT_DARKGREY);
   }
 
   // Reward modal (win only)
@@ -1846,25 +2008,47 @@ void drawInfernalDodger()
   // Win/Lose screen
   if (g_app.gameOver)
   {
+    spr.fillRect(20, gH/2 - 28, gW - 40, 64, TFT_BLACK);
+    const uint16_t bc = playerWon ? TFT_GREEN : TFT_RED;
+    spr.drawRect(20, gH/2 - 28, gW - 40, 64, bc);
+    spr.drawRect(21, gH/2 - 27, gW - 42, 62, bc);
+
     spr.setTextDatum(CC_DATUM);
-    spr.setTextColor(playerWon ? TFT_GREEN : TFT_RED, TFT_BLACK);
-    spr.drawCentreString(playerWon ? "YOU WIN!" : "YOU LOSE!", gW / 2, gH / 2 - 10, 4);
+    spr.setTextColor(bc, TFT_BLACK);
+    spr.drawCentreString(playerWon ? "YOU WIN!" : "YOU LOSE!", gW/2, gH/2 - 12, 4);
 
     spr.setTextColor(TFT_WHITE, TFT_BLACK);
-    spr.drawCentreString("Press ENTER", gW / 2, gH / 2 + 22, 2);
+    spr.drawCentreString(playerWon ? "Dodged the inferno!" : "Consumed by flames!", gW/2, gH/2 + 8, 2);
+    spr.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
+    spr.drawCentreString("Press ENTER", gW/2, gH/2 + 22, 2);
     return;
   }
 
-  // Gameplay
+  // Draw falling fireballs with layered glow
   for (auto &b : s_dodgerBalls)
   {
     if (!b.active) continue;
+    if (b.r > 1) spr.fillCircle(b.x, b.y, b.r + 2, 0x6000); // outer dark halo
     spr.fillCircle(b.x, b.y, b.r, TFT_ORANGE);
-    spr.drawCircle(b.x, b.y, b.r, TFT_RED);
+    if (b.r > 2) spr.fillCircle(b.x, b.y, b.r - 1, TFT_YELLOW);
+    spr.fillCircle(b.x, b.y, 1, TFT_WHITE);
   }
 
-  spr.fillCircle(s_dodgerPx, s_dodgerPy, 6, TFT_GREEN);
-  spr.drawCircle(s_dodgerPx, s_dodgerPy, 6, TFT_DARKGREEN);
+  // Player: small devil sprite (head + horns + body)
+  const int px = s_dodgerPx;
+  const int py = s_dodgerPy;
+
+  // Body
+  spr.fillCircle(px, py, 6, TFT_GREEN);
+  spr.drawCircle(px, py, 6, 0x0300); // dark green outline
+  // Horns
+  spr.fillTriangle(px - 4, py - 5, px - 6, py - 10, px - 2, py - 5, TFT_RED);
+  spr.fillTriangle(px + 4, py - 5, px + 6, py - 10, px + 2, py - 5, TFT_RED);
+  // Eyes
+  spr.fillRect(px - 3, py - 2, 2, 2, TFT_BLACK);
+  spr.fillRect(px + 1, py - 2, 2, 2, TFT_BLACK);
+  // Tail indicator (small dot below)
+  spr.fillCircle(px, py + 8, 2, TFT_RED);
 }
 
 static void mgSyncGameTimebases(uint32_t now)

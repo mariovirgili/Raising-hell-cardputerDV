@@ -14,7 +14,7 @@
 // They ensure pet_renderer() + pet_eyes() work correctly
 // -------------------------------------------
 
-const PetVisualProfile PET_PROFILES[6] = {
+const PetVisualProfile PET_PROFILES[8] = {
 
     // PET_DEVIL
     {96, 96, 0, -6, 24, 7, 3, 0, 20},
@@ -28,8 +28,15 @@ const PetVisualProfile PET_PROFILES[6] = {
     // PET_ALIEN
     {96, 96, 0, -6, 24, 7, 3, 0, 20},
 
-    // PET_ANUBIS (placeholder)
+    // PET_ANUBIS
     {96, 96, 0, -8, 26, 8, 3, 0, 18},
 
-    // PET_AXOLOTL (placeholder)
-    {96, 96, 0, -6, 24, 7, 3, 0, 20}};
+    // PET_AXOLOTL
+    {96, 96, 0, -6, 24, 7, 3, 0, 20},
+
+    // PET_PHOENIX
+    {96, 96, 0, -8, 26, 7, 3, 0, 18},
+
+    // PET_BANSHEE
+    {96, 96, 0, -4, 20, 8, 4, 0, 22}
+};

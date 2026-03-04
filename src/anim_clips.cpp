@@ -498,6 +498,286 @@ static const char *kEldElderSleepyHold[] = {
     "/raising_hell/graphics/pet/anim/eld/ed/slp/eld_ed_slp_hold4.png",
 };
 
+// ==========================================================
+// PHOENIX (PET_PHOENIX) frame paths
+// Convention: /raising_hell/graphics/pet/anim/phx/<stage>/<mood>/phx_<stage>_<mood>_<name><N>.png
+// ==========================================================
+
+// ---- Baby ----
+static const char* kPhxBabyHappyFlutter[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/hpy/phx_baby_hpy_flutter1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/hpy/phx_baby_hpy_flutter2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/hpy/phx_baby_hpy_flutter3.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/hpy/phx_baby_hpy_flutter4.png",
+};
+static const char* kPhxBabyHungryPeck[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/hgy/phx_baby_hgy_peck1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/hgy/phx_baby_hgy_peck2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/hgy/phx_baby_hgy_peck3.png",
+};
+static const char* kPhxBabyAngryFlare[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/ang/phx_baby_ang_flare1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/ang/phx_baby_ang_flare2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/ang/phx_baby_ang_flare3.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/ang/phx_baby_ang_flare4.png",
+};
+static const char* kPhxBabySleepyDroop[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/slp/phx_baby_slp_droop1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/slp/phx_baby_slp_droop2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/slp/phx_baby_slp_droop3.png",
+};
+static const char* kPhxBabySickSmolder[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/sck/phx_baby_sck_smolder1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/sck/phx_baby_sck_smolder2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/sck/phx_baby_sck_smolder3.png",
+};
+static const char* kPhxBabyBoredHop[] = {
+  "/raising_hell/graphics/pet/anim/phx/baby/brd/phx_baby_brd_hop1.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/brd/phx_baby_brd_hop2.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/brd/phx_baby_brd_hop3.png",
+  "/raising_hell/graphics/pet/anim/phx/baby/brd/phx_baby_brd_hop4.png",
+};
+
+// ---- Teen ----
+static const char* kPhxTeenHappyRise[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/hpy/phx_tn_hpy_rise1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/hpy/phx_tn_hpy_rise2.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/hpy/phx_tn_hpy_rise3.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/hpy/phx_tn_hpy_rise4.png",
+};
+static const char* kPhxTeenHungryScratch[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/hgy/phx_tn_hgy_scratch1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/hgy/phx_tn_hgy_scratch2.png",
+};
+static const char* kPhxTeenAngryBurst[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/ang/phx_tn_ang_burst1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/ang/phx_tn_ang_burst2.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/ang/phx_tn_ang_burst3.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/ang/phx_tn_ang_burst4.png",
+};
+static const char* kPhxTeenSleepyNod[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/slp/phx_tn_slp_nod1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/slp/phx_tn_slp_nod2.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/slp/phx_tn_slp_nod3.png",
+};
+static const char* kPhxTeenSickWilt[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/sck/phx_tn_sck_wilt1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/sck/phx_tn_sck_wilt2.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/sck/phx_tn_sck_wilt3.png",
+};
+static const char* kPhxTeenBoredPreen[] = {
+  "/raising_hell/graphics/pet/anim/phx/tn/brd/phx_tn_brd_preen1.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/brd/phx_tn_brd_preen2.png",
+  "/raising_hell/graphics/pet/anim/phx/tn/brd/phx_tn_brd_preen3.png",
+};
+
+// ---- Adult ----
+static const char* kPhxAdultHappySoar[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/hpy/phx_ad_hpy_soar1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/hpy/phx_ad_hpy_soar2.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/hpy/phx_ad_hpy_soar3.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/hpy/phx_ad_hpy_soar4.png",
+};
+static const char* kPhxAdultHungryDive[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/hgy/phx_ad_hgy_dive1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/hgy/phx_ad_hgy_dive2.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/hgy/phx_ad_hgy_dive3.png",
+};
+static const char* kPhxAdultAngryInferno[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/agy/phx_ad_ang_inferno1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/agy/phx_ad_ang_inferno2.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/agy/phx_ad_ang_inferno3.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/agy/phx_ad_ang_inferno4.png",
+};
+static const char* kPhxAdultSleepyPerch[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/trd/phx_ad_trd_perch1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/trd/phx_ad_trd_perch2.png",
+};
+static const char* kPhxAdultSickFlicker[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/sck/phx_ad_sck_flicker1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/sck/phx_ad_sck_flicker2.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/sck/phx_ad_sck_flicker3.png",
+};
+static const char* kPhxAdultBoredSpin[] = {
+  "/raising_hell/graphics/pet/anim/phx/ad/brd/phx_ad_brd_spin1.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/brd/phx_ad_brd_spin2.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/brd/phx_ad_brd_spin3.png",
+  "/raising_hell/graphics/pet/anim/phx/ad/brd/phx_ad_brd_spin4.png",
+};
+
+// ---- Elder ----
+static const char* kPhxElderHappyRebirth[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/hpy/phx_edr_hpy_rebirth1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/hpy/phx_edr_hpy_rebirth2.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/hpy/phx_edr_hpy_rebirth3.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/hpy/phx_edr_hpy_rebirth4.png",
+};
+static const char* kPhxElderHungryEmber[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/hgy/phx_edr_hgy_ember1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/hgy/phx_edr_hgy_ember2.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/hgy/phx_edr_hgy_ember3.png",
+};
+static const char* kPhxElderAngryNova[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/agy/phx_edr_ang_nova1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/agy/phx_edr_ang_nova2.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/agy/phx_edr_ang_nova3.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/agy/phx_edr_ang_nova4.png",
+};
+static const char* kPhxElderSleepyAsh[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/trd/phx_edr_trd_ash1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/trd/phx_edr_trd_ash2.png",
+};
+static const char* kPhxElderSickFade[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/sck/phx_edr_sck_fade1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/sck/phx_edr_sck_fade2.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/sck/phx_edr_sck_fade3.png",
+};
+static const char* kPhxElderBoredDrift[] = {
+  "/raising_hell/graphics/pet/anim/phx/edr/brd/phx_edr_brd_drift1.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/brd/phx_edr_brd_drift2.png",
+  "/raising_hell/graphics/pet/anim/phx/edr/brd/phx_edr_brd_drift3.png",
+};
+
+// ==========================================================
+// BANSHEE (PET_BANSHEE) frame paths
+// Convention: /raising_hell/graphics/pet/anim/ban/<stage>/<mood>/ban_<stage>_<mood>_<name><N>.png
+// ==========================================================
+
+// ---- Baby ----
+static const char* kBanBabyHappyFloat[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/hpy/ban_baby_hpy_float1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/hpy/ban_baby_hpy_float2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/hpy/ban_baby_hpy_float3.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/hpy/ban_baby_hpy_float4.png",
+};
+static const char* kBanBabyHungryWail[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/hgy/ban_baby_hgy_wail1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/hgy/ban_baby_hgy_wail2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/hgy/ban_baby_hgy_wail3.png",
+};
+static const char* kBanBabyAngryShriek[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/ang/ban_baby_ang_shriek1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/ang/ban_baby_ang_shriek2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/ang/ban_baby_ang_shriek3.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/ang/ban_baby_ang_shriek4.png",
+};
+static const char* kBanBabySleepyFade[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/slp/ban_baby_slp_fade1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/slp/ban_baby_slp_fade2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/slp/ban_baby_slp_fade3.png",
+};
+static const char* kBanBabySickFlicker[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/sck/ban_baby_sck_flicker1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/sck/ban_baby_sck_flicker2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/sck/ban_baby_sck_flicker3.png",
+};
+static const char* kBanBabyBoredDrift[] = {
+  "/raising_hell/graphics/pet/anim/ban/baby/brd/ban_baby_brd_drift1.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/brd/ban_baby_brd_drift2.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/brd/ban_baby_brd_drift3.png",
+  "/raising_hell/graphics/pet/anim/ban/baby/brd/ban_baby_brd_drift4.png",
+};
+
+// ---- Teen ----
+static const char* kBanTeenHappySwirl[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/hpy/ban_tn_hpy_swirl1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/hpy/ban_tn_hpy_swirl2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/hpy/ban_tn_hpy_swirl3.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/hpy/ban_tn_hpy_swirl4.png",
+};
+static const char* kBanTeenHungryLament[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/hgy/ban_tn_hgy_lament1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/hgy/ban_tn_hgy_lament2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/hgy/ban_tn_hgy_lament3.png",
+};
+static const char* kBanTeenAngryBlast[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/ang/ban_tn_ang_blast1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/ang/ban_tn_ang_blast2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/ang/ban_tn_ang_blast3.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/ang/ban_tn_ang_blast4.png",
+};
+static const char* kBanTeenSleepyBob[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/slp/ban_tn_slp_bob1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/slp/ban_tn_slp_bob2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/slp/ban_tn_slp_bob3.png",
+};
+static const char* kBanTeenSickWrithe[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/sck/ban_tn_sck_writhe1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/sck/ban_tn_sck_writhe2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/sck/ban_tn_sck_writhe3.png",
+};
+static const char* kBanTeenBoredHaunt[] = {
+  "/raising_hell/graphics/pet/anim/ban/tn/brd/ban_tn_brd_haunt1.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/brd/ban_tn_brd_haunt2.png",
+  "/raising_hell/graphics/pet/anim/ban/tn/brd/ban_tn_brd_haunt3.png",
+};
+
+// ---- Adult ----
+static const char* kBanAdultHappyChorus[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/hpy/ban_ad_hpy_chorus1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/hpy/ban_ad_hpy_chorus2.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/hpy/ban_ad_hpy_chorus3.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/hpy/ban_ad_hpy_chorus4.png",
+};
+static const char* kBanAdultHungryHowl[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/hgy/ban_ad_hgy_howl1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/hgy/ban_ad_hgy_howl2.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/hgy/ban_ad_hgy_howl3.png",
+};
+static const char* kBanAdultAngryScream[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/agy/ban_ad_ang_scream1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/agy/ban_ad_ang_scream2.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/agy/ban_ad_ang_scream3.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/agy/ban_ad_ang_scream4.png",
+};
+static const char* kBanAdultSleepyWisp[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/trd/ban_ad_trd_wisp1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/trd/ban_ad_trd_wisp2.png",
+};
+static const char* kBanAdultSickMoan[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/sck/ban_ad_sck_moan1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/sck/ban_ad_sck_moan2.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/sck/ban_ad_sck_moan3.png",
+};
+static const char* kBanAdultBoredPhase[] = {
+  "/raising_hell/graphics/pet/anim/ban/ad/brd/ban_ad_brd_phase1.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/brd/ban_ad_brd_phase2.png",
+  "/raising_hell/graphics/pet/anim/ban/ad/brd/ban_ad_brd_phase3.png",
+};
+
+// ---- Elder ----
+static const char* kBanElderHappyAria[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/hpy/ban_edr_hpy_aria1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/hpy/ban_edr_hpy_aria2.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/hpy/ban_edr_hpy_aria3.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/hpy/ban_edr_hpy_aria4.png",
+};
+static const char* kBanElderHungryKeen[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/hgy/ban_edr_hgy_keen1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/hgy/ban_edr_hgy_keen2.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/hgy/ban_edr_hgy_keen3.png",
+};
+static const char* kBanElderAngryDoom[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/agy/ban_edr_ang_doom1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/agy/ban_edr_ang_doom2.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/agy/ban_edr_ang_doom3.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/agy/ban_edr_ang_doom4.png",
+};
+static const char* kBanElderSleepyStill[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/trd/ban_edr_trd_still1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/trd/ban_edr_trd_still2.png",
+};
+static const char* kBanElderSickDispel[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/sck/ban_edr_sck_dispel1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/sck/ban_edr_sck_dispel2.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/sck/ban_edr_sck_dispel3.png",
+};
+static const char* kBanElderBoredEcho[] = {
+  "/raising_hell/graphics/pet/anim/ban/edr/brd/ban_edr_brd_echo1.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/brd/ban_edr_brd_echo2.png",
+  "/raising_hell/graphics/pet/anim/ban/edr/brd/ban_edr_brd_echo3.png",
+};
+
 // ---------------------------
 // Clip table
 // ---------------------------
@@ -561,6 +841,69 @@ static const AnimClip kClips[] = {
     {ANIM_ELD_ELDER_SICK_SNEEZE, kEldElderSickSneeze, 6, 90, false},
     {ANIM_ELD_ELDER_SLEEPY_HOLD, kEldElderSleepyHold, 4, 130, true},
 
+  // ---- Phoenix baby ----
+  { ANIM_PHX_BABY_HAPPY_FLUTTER,  kPhxBabyHappyFlutter,  4,  200, true  },
+  { ANIM_PHX_BABY_HUNGRY_PECK,    kPhxBabyHungryPeck,    3,  220, true  },
+  { ANIM_PHX_BABY_ANGRY_FLARE,    kPhxBabyAngryFlare,    4,  100, true  },
+  { ANIM_PHX_BABY_SLEEPY_DROOP,   kPhxBabySleepyDroop,   3,  280, true  },
+  { ANIM_PHX_BABY_SICK_SMOLDER,   kPhxBabySickSmolder,   3,  240, true  },
+  { ANIM_PHX_BABY_BORED_HOP,      kPhxBabyBoredHop,      4,  200, true  },
+
+  // ---- Phoenix teen ----
+  { ANIM_PHX_TEEN_HAPPY_RISE,     kPhxTeenHappyRise,     4,  180, true  },
+  { ANIM_PHX_TEEN_HUNGRY_SCRATCH, kPhxTeenHungryScratch, 2,  240, true  },
+  { ANIM_PHX_TEEN_ANGRY_BURST,    kPhxTeenAngryBurst,    4,   90, false },
+  { ANIM_PHX_TEEN_SLEEPY_NOD,     kPhxTeenSleepyNod,     3,  260, true  },
+  { ANIM_PHX_TEEN_SICK_WILT,      kPhxTeenSickWilt,      3,  220, true  },
+  { ANIM_PHX_TEEN_BORED_PREEN,    kPhxTeenBoredPreen,    3,  200, true  },
+
+  // ---- Phoenix adult ----
+  { ANIM_PHX_ADULT_HAPPY_SOAR,    kPhxAdultHappySoar,    4,  160, true  },
+  { ANIM_PHX_ADULT_HUNGRY_DIVE,   kPhxAdultHungryDive,   3,  180, true  },
+  { ANIM_PHX_ADULT_ANGRY_INFERNO, kPhxAdultAngryInferno, 4,   80, true  },
+  { ANIM_PHX_ADULT_SLEEPY_PERCH,  kPhxAdultSleepyPerch,  2,  800, true  },
+  { ANIM_PHX_ADULT_SICK_FLICKER,  kPhxAdultSickFlicker,  3,  200, true  },
+  { ANIM_PHX_ADULT_BORED_SPIN,    kPhxAdultBoredSpin,    4,  160, true  },
+
+  // ---- Phoenix elder ----
+  { ANIM_PHX_ELDER_HAPPY_REBIRTH, kPhxElderHappyRebirth, 4,  140, true  },
+  { ANIM_PHX_ELDER_HUNGRY_EMBER,  kPhxElderHungryEmber,  3,  200, true  },
+  { ANIM_PHX_ELDER_ANGRY_NOVA,    kPhxElderAngryNova,    4,   80, true  },
+  { ANIM_PHX_ELDER_SLEEPY_ASH,    kPhxElderSleepyAsh,    2,  700, true  },
+  { ANIM_PHX_ELDER_SICK_FADE,     kPhxElderSickFade,     3,  220, true  },
+  { ANIM_PHX_ELDER_BORED_DRIFT,   kPhxElderBoredDrift,   3,  300, true  },
+
+  // ---- Banshee baby ----
+  { ANIM_BAN_BABY_HAPPY_FLOAT,    kBanBabyHappyFloat,    4,  220, true  },
+  { ANIM_BAN_BABY_HUNGRY_WAIL,    kBanBabyHungryWail,    3,  180, true  },
+  { ANIM_BAN_BABY_ANGRY_SHRIEK,   kBanBabyAngryShriek,   4,   90, false },
+  { ANIM_BAN_BABY_SLEEPY_FADE,    kBanBabySleepyFade,    3,  280, true  },
+  { ANIM_BAN_BABY_SICK_FLICKER,   kBanBabySickFlicker,   3,  200, true  },
+  { ANIM_BAN_BABY_BORED_DRIFT,    kBanBabyBoredDrift,    4,  260, true  },
+
+  // ---- Banshee teen ----
+  { ANIM_BAN_TEEN_HAPPY_SWIRL,    kBanTeenHappySwirl,    4,  180, true  },
+  { ANIM_BAN_TEEN_HUNGRY_LAMENT,  kBanTeenHungryLament,  3,  200, true  },
+  { ANIM_BAN_TEEN_ANGRY_BLAST,    kBanTeenAngryBlast,    4,   80, false },
+  { ANIM_BAN_TEEN_SLEEPY_BOB,     kBanTeenSleepyBob,     3,  260, true  },
+  { ANIM_BAN_TEEN_SICK_WRITHE,    kBanTeenSickWrithe,    3,  200, true  },
+  { ANIM_BAN_TEEN_BORED_HAUNT,    kBanTeenBoredHaunt,    3,  240, true  },
+
+  // ---- Banshee adult ----
+  { ANIM_BAN_ADULT_HAPPY_CHORUS,  kBanAdultHappyChorus,  4,  160, true  },
+  { ANIM_BAN_ADULT_HUNGRY_HOWL,   kBanAdultHungryHowl,   3,  180, true  },
+  { ANIM_BAN_ADULT_ANGRY_SCREAM,  kBanAdultAngryScream,  4,   70, false },
+  { ANIM_BAN_ADULT_SLEEPY_WISP,   kBanAdultSleepyWisp,   2,  800, true  },
+  { ANIM_BAN_ADULT_SICK_MOAN,     kBanAdultSickMoan,     3,  220, true  },
+  { ANIM_BAN_ADULT_BORED_PHASE,   kBanAdultBoredPhase,   3,  260, true  },
+
+  // ---- Banshee elder ----
+  { ANIM_BAN_ELDER_HAPPY_ARIA,    kBanElderHappyAria,    4,  140, true  },
+  { ANIM_BAN_ELDER_HUNGRY_KEEN,   kBanElderHungryKeen,   3,  180, true  },
+  { ANIM_BAN_ELDER_ANGRY_DOOM,    kBanElderAngryDoom,    4,   60, false },
+  { ANIM_BAN_ELDER_SLEEPY_STILL,  kBanElderSleepyStill,  2,  900, true  },
+  { ANIM_BAN_ELDER_SICK_DISPEL,   kBanElderSickDispel,   3,  200, true  },
+  { ANIM_BAN_ELDER_BORED_ECHO,    kBanElderBoredEcho,    3,  280, true  },
 };
 
 const AnimClip *animGetClip(AnimId id)
@@ -843,6 +1186,110 @@ AnimId animSelectPetScreen()
 
     default:
       return ANIM_ELD_ELDER_IDLE_1F;
+    }
+  }
+
+  // ---- PHOENIX ----
+  if (pet.type == PET_PHOENIX) {
+    const PetMood mood = pet.getMood();
+    if (pet.isSleeping) {
+      switch (pet.evoStage) {
+        case 0: return ANIM_PHX_BABY_SLEEPY_DROOP;
+        case 1: return ANIM_PHX_TEEN_SLEEPY_NOD;
+        case 2: return ANIM_PHX_ADULT_SLEEPY_PERCH;
+        default: return ANIM_PHX_ELDER_SLEEPY_ASH;
+      }
+    }
+    if (pet.evoStage == 0) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_PHX_BABY_SICK_SMOLDER;
+        case MOOD_TIRED:  return ANIM_PHX_BABY_SLEEPY_DROOP;
+        case MOOD_HUNGRY: return ANIM_PHX_BABY_HUNGRY_PECK;
+        case MOOD_MAD:    return ANIM_PHX_BABY_ANGRY_FLARE;
+        case MOOD_BORED:  return ANIM_PHX_BABY_BORED_HOP;
+        default:          return ANIM_PHX_BABY_HAPPY_FLUTTER;
+      }
+    }
+    if (pet.evoStage == 1) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_PHX_TEEN_SICK_WILT;
+        case MOOD_TIRED:  return ANIM_PHX_TEEN_SLEEPY_NOD;
+        case MOOD_HUNGRY: return ANIM_PHX_TEEN_HUNGRY_SCRATCH;
+        case MOOD_MAD:    return ANIM_PHX_TEEN_ANGRY_BURST;
+        case MOOD_BORED:  return ANIM_PHX_TEEN_BORED_PREEN;
+        default:          return ANIM_PHX_TEEN_HAPPY_RISE;
+      }
+    }
+    if (pet.evoStage == 2) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_PHX_ADULT_SICK_FLICKER;
+        case MOOD_TIRED:  return ANIM_PHX_ADULT_SLEEPY_PERCH;
+        case MOOD_HUNGRY: return ANIM_PHX_ADULT_HUNGRY_DIVE;
+        case MOOD_MAD:    return ANIM_PHX_ADULT_ANGRY_INFERNO;
+        case MOOD_BORED:  return ANIM_PHX_ADULT_BORED_SPIN;
+        default:          return ANIM_PHX_ADULT_HAPPY_SOAR;
+      }
+    }
+    // Elder
+    switch (mood) {
+      case MOOD_SICK:   return ANIM_PHX_ELDER_SICK_FADE;
+      case MOOD_TIRED:  return ANIM_PHX_ELDER_SLEEPY_ASH;
+      case MOOD_HUNGRY: return ANIM_PHX_ELDER_HUNGRY_EMBER;
+      case MOOD_MAD:    return ANIM_PHX_ELDER_ANGRY_NOVA;
+      case MOOD_BORED:  return ANIM_PHX_ELDER_BORED_DRIFT;
+      default:          return ANIM_PHX_ELDER_HAPPY_REBIRTH;
+    }
+  }
+
+  // ---- BANSHEE ----
+  if (pet.type == PET_BANSHEE) {
+    const PetMood mood = pet.getMood();
+    if (pet.isSleeping) {
+      switch (pet.evoStage) {
+        case 0: return ANIM_BAN_BABY_SLEEPY_FADE;
+        case 1: return ANIM_BAN_TEEN_SLEEPY_BOB;
+        case 2: return ANIM_BAN_ADULT_SLEEPY_WISP;
+        default: return ANIM_BAN_ELDER_SLEEPY_STILL;
+      }
+    }
+    if (pet.evoStage == 0) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_BAN_BABY_SICK_FLICKER;
+        case MOOD_TIRED:  return ANIM_BAN_BABY_SLEEPY_FADE;
+        case MOOD_HUNGRY: return ANIM_BAN_BABY_HUNGRY_WAIL;
+        case MOOD_MAD:    return ANIM_BAN_BABY_ANGRY_SHRIEK;
+        case MOOD_BORED:  return ANIM_BAN_BABY_BORED_DRIFT;
+        default:          return ANIM_BAN_BABY_HAPPY_FLOAT;
+      }
+    }
+    if (pet.evoStage == 1) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_BAN_TEEN_SICK_WRITHE;
+        case MOOD_TIRED:  return ANIM_BAN_TEEN_SLEEPY_BOB;
+        case MOOD_HUNGRY: return ANIM_BAN_TEEN_HUNGRY_LAMENT;
+        case MOOD_MAD:    return ANIM_BAN_TEEN_ANGRY_BLAST;
+        case MOOD_BORED:  return ANIM_BAN_TEEN_BORED_HAUNT;
+        default:          return ANIM_BAN_TEEN_HAPPY_SWIRL;
+      }
+    }
+    if (pet.evoStage == 2) {
+      switch (mood) {
+        case MOOD_SICK:   return ANIM_BAN_ADULT_SICK_MOAN;
+        case MOOD_TIRED:  return ANIM_BAN_ADULT_SLEEPY_WISP;
+        case MOOD_HUNGRY: return ANIM_BAN_ADULT_HUNGRY_HOWL;
+        case MOOD_MAD:    return ANIM_BAN_ADULT_ANGRY_SCREAM;
+        case MOOD_BORED:  return ANIM_BAN_ADULT_BORED_PHASE;
+        default:          return ANIM_BAN_ADULT_HAPPY_CHORUS;
+      }
+    }
+    // Elder
+    switch (mood) {
+      case MOOD_SICK:   return ANIM_BAN_ELDER_SICK_DISPEL;
+      case MOOD_TIRED:  return ANIM_BAN_ELDER_SLEEPY_STILL;
+      case MOOD_HUNGRY: return ANIM_BAN_ELDER_HUNGRY_KEEN;
+      case MOOD_MAD:    return ANIM_BAN_ELDER_ANGRY_DOOM;
+      case MOOD_BORED:  return ANIM_BAN_ELDER_BORED_ECHO;
+      default:          return ANIM_BAN_ELDER_HAPPY_ARIA;
     }
   }
 

@@ -22,11 +22,13 @@ enum PetType : uint8_t {
   PET_KAIJU,
   PET_ANUBIS,
   PET_AXOLOTL,
+  PET_PHOENIX,   // Fenice – risorge dalle ceneri, animazioni di fuoco e ascesa
+  PET_BANSHEE,   // Banshee – entità spettrale, animazioni di urlo e volo
   PET_TYPE_COUNT
 };
 
 // Array indexed by (int)PetType
-extern const PetVisualProfile PET_PROFILES[6];
+extern const PetVisualProfile PET_PROFILES[8];
 
 // ------------------------------------------------------------
 // PET MOOD / CONDITION (priority: sick > tired > hungry > mad > happy)
@@ -97,8 +99,10 @@ public:
       case PET_KAIJU:    return ITEM_DEMON_BONE;
       case PET_ELDRITCH: return ITEM_CURSED_RELIC;
       case PET_ALIEN:    return ITEM_ELDRITCH_EYE;
-      case PET_ANUBIS:   return ITEM_SOUL_FOOD;    // TODO: pick real item
-      case PET_AXOLOTL:  return ITEM_SOUL_FOOD;    // TODO: pick real item
+      case PET_ANUBIS:   return ITEM_SOUL_FOOD;
+      case PET_AXOLOTL:  return ITEM_SOUL_FOOD;
+      case PET_PHOENIX:  return ITEM_ELDRITCH_EYE;  // Ember Shard (shared)
+      case PET_BANSHEE:  return ITEM_CURSED_RELIC;  // Cursed Relic (shared)
       default:           return ITEM_SOUL_FOOD;
     }
   }

@@ -84,6 +84,66 @@ enum AnimId : uint16_t
   ANIM_AL_IDLE_1F,
   ANIM_ANU_IDLE_1F,
   ANIM_AXO_IDLE_1F,
+
+  // ---- PHOENIX (Fenice) ----
+  // Baby
+  ANIM_PHX_BABY_HAPPY_FLUTTER,   // ali che sbattono felice
+  ANIM_PHX_BABY_HUNGRY_PECK,     // becca a terra affamato
+  ANIM_PHX_BABY_ANGRY_FLARE,     // fiamma di rabbia
+  ANIM_PHX_BABY_SLEEPY_DROOP,    // testa che cade assonnata
+  ANIM_PHX_BABY_SICK_SMOLDER,    // fumo malato
+  ANIM_PHX_BABY_BORED_HOP,       // saltella annoiato
+  // Teen
+  ANIM_PHX_TEEN_HAPPY_RISE,      // si alza in volo breve
+  ANIM_PHX_TEEN_HUNGRY_SCRATCH,  // si gratta la testa
+  ANIM_PHX_TEEN_ANGRY_BURST,     // esplosione di fiamme
+  ANIM_PHX_TEEN_SLEEPY_NOD,      // annuisce assonnato
+  ANIM_PHX_TEEN_SICK_WILT,       // si accascia malato
+  ANIM_PHX_TEEN_BORED_PREEN,     // si liscia le piume
+  // Adult
+  ANIM_PHX_ADULT_HAPPY_SOAR,     // volo maestoso
+  ANIM_PHX_ADULT_HUNGRY_DIVE,    // tuffo per cacciare
+  ANIM_PHX_ADULT_ANGRY_INFERNO,  // avvolto nelle fiamme
+  ANIM_PHX_ADULT_SLEEPY_PERCH,   // appollaiato a dormire
+  ANIM_PHX_ADULT_SICK_FLICKER,   // fiamme che tremolano
+  ANIM_PHX_ADULT_BORED_SPIN,     // gira su se stesso
+  // Elder
+  ANIM_PHX_ELDER_HAPPY_REBIRTH,  // si rigenera dalle ceneri
+  ANIM_PHX_ELDER_HUNGRY_EMBER,   // brace che si spegne
+  ANIM_PHX_ELDER_ANGRY_NOVA,     // supernova di fuoco
+  ANIM_PHX_ELDER_SLEEPY_ASH,     // cade a cenere
+  ANIM_PHX_ELDER_SICK_FADE,      // si dissolve
+  ANIM_PHX_ELDER_BORED_DRIFT,    // fluttua lentamente
+
+  // ---- BANSHEE (Entità spettrale) ----
+  // Baby
+  ANIM_BAN_BABY_HAPPY_FLOAT,     // fluttua felice
+  ANIM_BAN_BABY_HUNGRY_WAIL,     // urlo di fame
+  ANIM_BAN_BABY_ANGRY_SHRIEK,    // urlo di rabbia
+  ANIM_BAN_BABY_SLEEPY_FADE,     // si dissolve assonnata
+  ANIM_BAN_BABY_SICK_FLICKER,    // tremola malata
+  ANIM_BAN_BABY_BORED_DRIFT,     // deriva annoiata
+  // Teen
+  ANIM_BAN_TEEN_HAPPY_SWIRL,     // vortica gioiosa
+  ANIM_BAN_TEEN_HUNGRY_LAMENT,   // lamento per il cibo
+  ANIM_BAN_TEEN_ANGRY_BLAST,     // onda d'urto
+  ANIM_BAN_TEEN_SLEEPY_BOB,      // si dondola
+  ANIM_BAN_TEEN_SICK_WRITHE,     // si contorce
+  ANIM_BAN_TEEN_BORED_HAUNT,     // infesta l'ambiente
+  // Adult
+  ANIM_BAN_ADULT_HAPPY_CHORUS,   // canta in coro spettrale
+  ANIM_BAN_ADULT_HUNGRY_HOWL,    // ululato di fame
+  ANIM_BAN_ADULT_ANGRY_SCREAM,   // urlo devastante
+  ANIM_BAN_ADULT_SLEEPY_WISP,    // fuoco fatuo assonnato
+  ANIM_BAN_ADULT_SICK_MOAN,      // gemito malato
+  ANIM_BAN_ADULT_BORED_PHASE,    // attraversa i muri
+  // Elder
+  ANIM_BAN_ELDER_HAPPY_ARIA,     // aria spettrale maestosa
+  ANIM_BAN_ELDER_HUNGRY_KEEN,    // lamento acuto
+  ANIM_BAN_ELDER_ANGRY_DOOM,     // urlo di morte
+  ANIM_BAN_ELDER_SLEEPY_STILL,   // perfettamente immobile
+  ANIM_BAN_ELDER_SICK_DISPEL,    // si disperde
+  ANIM_BAN_ELDER_BORED_ECHO,     // echo spettrale
 };
 
 struct AnimClip
