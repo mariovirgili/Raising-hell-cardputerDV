@@ -456,14 +456,21 @@ static const char *DEV_FACE_HAPPY_TEEN = "/raising_hell/graphics/pet/face/dev_te
 static const char *DEV_FACE_HAPPY_ADULT = "/raising_hell/graphics/pet/face/dev_ad_face_hpy.png";
 static const char *DEV_FACE_HAPPY_ELDER = "/raising_hell/graphics/pet/face/dev_el_face_hpy.png";
 
-static const char *PATH_INF_COIN = "/raising_hell/graphics/ui/inf_coin.png";
-static const char *PATH_LIFE_ICON = "/raising_hell/graphics/ui/life_icon.png";
+static const char *PATH_INF_COIN = "/raising_hell/graphics/ui/icons/inf_coin.png";
+static const char *PATH_LIFE_ICON = "/raising_hell/graphics/ui/icons/life_icon.png";
 
-static const char *PATH_SHOP_SOUL_FOOD = "/raising_hell/graphics/ui/shop_items/dev_food.png";
-static const char *PATH_SHOP_CURSED_RELIC = "/raising_hell/graphics/ui/shop_items/dev_mood.png";
-static const char *PATH_SHOP_DEMON_BONE = "/raising_hell/graphics/ui/shop_items/dev_rest.png";
-static const char *PATH_SHOP_RITUAL_CHALK = "/raising_hell/graphics/ui/shop_items/dev_health.png";
-static const char *PATH_SHOP_ELDRITCH_EYE = "/raising_hell/graphics/ui/shop_items/dev_evo.png";
+// Shop item icons (per-pet theme)
+static const char *PATH_SHOP_DEV_FOOD = "/raising_hell/graphics/ui/shop_items/dev/dev_food.png";
+static const char *PATH_SHOP_DEV_MOOD = "/raising_hell/graphics/ui/shop_items/dev/dev_mood.png";
+static const char *PATH_SHOP_DEV_REST = "/raising_hell/graphics/ui/shop_items/dev/dev_rest.png";
+static const char *PATH_SHOP_DEV_HEALTH = "/raising_hell/graphics/ui/shop_items/dev/dev_health.png";
+static const char *PATH_SHOP_DEV_EVO = "/raising_hell/graphics/ui/shop_items/dev/dev_evo.png";
+
+static const char *PATH_SHOP_ELD_FOOD = "/raising_hell/graphics/ui/shop_items/eld/eld_food.png";
+static const char *PATH_SHOP_ELD_MOOD = "/raising_hell/graphics/ui/shop_items/eld/eld_mood.png";
+static const char *PATH_SHOP_ELD_REST = "/raising_hell/graphics/ui/shop_items/eld/eld_rest.png";
+static const char *PATH_SHOP_ELD_HEALTH = "/raising_hell/graphics/ui/shop_items/eld/eld_health.png";
+static const char *PATH_SHOP_ELD_EVO = "/raising_hell/graphics/ui/shop_items/eld/eld_evo.png";
 
 #define DEV_EGG_PNG "/raising_hell/graphics/pet/egg/dev_egg.png"
 #define ELD_EGG_PNG "/raising_hell/graphics/pet/egg/eld_egg.png"
@@ -1300,7 +1307,7 @@ const char *getBioStatusImagePath()
   const PetMood mood = petResolveMood(pet);
 
   // --------------------------------------------------------------------------
-  // DEVIL BIOS 
+  // DEVIL BIOS
   // --------------------------------------------------------------------------
   if (pet.type == PET_DEVIL)
   {
@@ -1471,9 +1478,9 @@ const char *getBioStatusImagePath()
     }
   }
 
-    // Fallback for future stages
-    return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
-  }
+  // Fallback for future stages
+  return "/raising_hell/graphics/pet/bio/eld/eld_baby_hpy_bio.png";
+}
 
 // ============================================================================
 // Decay Mode Select Helper
@@ -2371,23 +2378,25 @@ void drawShopScreen()
 
   const ItemType selType = availableItems[g_app.shopIndex].type;
 
+  const bool eldTheme = (pet.type == PET_ELDRITCH);
+
   const char *imgPath = nullptr;
   switch (selType)
   {
   case ITEM_SOUL_FOOD:
-    imgPath = PATH_SHOP_SOUL_FOOD;
+    imgPath = eldTheme ? PATH_SHOP_ELD_FOOD : PATH_SHOP_DEV_FOOD;
     break;
   case ITEM_CURSED_RELIC:
-    imgPath = PATH_SHOP_CURSED_RELIC;
+    imgPath = eldTheme ? PATH_SHOP_ELD_MOOD : PATH_SHOP_DEV_MOOD;
     break;
   case ITEM_DEMON_BONE:
-    imgPath = PATH_SHOP_DEMON_BONE;
+    imgPath = eldTheme ? PATH_SHOP_ELD_REST : PATH_SHOP_DEV_REST;
     break;
   case ITEM_RITUAL_CHALK:
-    imgPath = PATH_SHOP_RITUAL_CHALK;
+    imgPath = eldTheme ? PATH_SHOP_ELD_HEALTH : PATH_SHOP_DEV_HEALTH;
     break;
   case ITEM_ELDRITCH_EYE:
-    imgPath = PATH_SHOP_ELDRITCH_EYE;
+    imgPath = eldTheme ? PATH_SHOP_ELD_EVO : PATH_SHOP_DEV_EVO;
     break;
   default:
     imgPath = nullptr;
@@ -3686,10 +3695,10 @@ static void drawSleepMeterBar()
 static constexpr uint32_t DEV_BABY_SLEEP_FRAME_MS = 200; // tweak speed (ms)
 
 static const char *DEV_BABY_SLEEP_FRAMES[4] = {
-    "/raising_hell/graphics/pet/anim/dev/baby/sleeping/dev_baby_sleepbk1.jpg",
-    "/raising_hell/graphics/pet/anim/dev/baby/sleeping/dev_baby_sleepbk2.jpg",
-    "/raising_hell/graphics/pet/anim/dev/baby/sleeping/dev_baby_sleepbk3.jpg",
-    "/raising_hell/graphics/pet/anim/dev/baby/sleeping/dev_baby_sleepbk4.jpg",
+    "/raising_hell/graphics/pet/anim/dev/bb/sleep/dev_baby_sleepbk1.jpg",
+    "/raising_hell/graphics/pet/anim/dev/bb/sleep/dev_baby_sleepbk2.jpg",
+    "/raising_hell/graphics/pet/anim/dev/bb/sleep/dev_baby_sleepbk3.jpg",
+    "/raising_hell/graphics/pet/anim/dev/bb/sleep/dev_baby_sleepbk4.jpg",
 };
 
 static inline bool useDevBabySleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 0); }
@@ -3700,10 +3709,10 @@ static inline bool useDevBabySleepAnim() { return (pet.type == PET_DEVIL) && (pe
 static constexpr uint32_t DEV_TEEN_SLEEP_FRAME_MS = 180; // tweak speed (ms)
 
 static const char *DEV_TEEN_SLEEP_FRAMES[4] = {
-    "/raising_hell/graphics/pet/anim/dev/tn/sleeping/dev_teen_sleepbk1.jpg",
-    "/raising_hell/graphics/pet/anim/dev/tn/sleeping/dev_teen_sleepbk2.jpg",
-    "/raising_hell/graphics/pet/anim/dev/tn/sleeping/dev_teen_sleepbk3.jpg",
-    "/raising_hell/graphics/pet/anim/dev/tn/sleeping/dev_teen_sleepbk4.jpg",
+    "/raising_hell/graphics/pet/anim/dev/tn/sleep/dev_teen_sleepbk1.jpg",
+    "/raising_hell/graphics/pet/anim/dev/tn/sleep/dev_teen_sleepbk2.jpg",
+    "/raising_hell/graphics/pet/anim/dev/tn/sleep/dev_teen_sleepbk3.jpg",
+    "/raising_hell/graphics/pet/anim/dev/tn/sleep/dev_teen_sleepbk4.jpg",
 };
 
 static inline bool useDevTeenSleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 1); }
@@ -3714,10 +3723,10 @@ static inline bool useDevTeenSleepAnim() { return (pet.type == PET_DEVIL) && (pe
 static constexpr uint32_t DEV_ADULT_SLEEP_FRAME_MS = 160; // slightly smoother
 
 static const char *DEV_ADULT_SLEEP_FRAMES[4] = {
-    "/raising_hell/graphics/pet/anim/dev/ad/sleeping/dev_adult_sleepbk1.jpg",
-    "/raising_hell/graphics/pet/anim/dev/ad/sleeping/dev_adult_sleepbk2.jpg",
-    "/raising_hell/graphics/pet/anim/dev/ad/sleeping/dev_adult_sleepbk3.jpg",
-    "/raising_hell/graphics/pet/anim/dev/ad/sleeping/dev_adult_sleepbk4.jpg",
+    "/raising_hell/graphics/pet/anim/dev/ad/sleep/dev_adult_sleepbk1.jpg",
+    "/raising_hell/graphics/pet/anim/dev/ad/sleep/dev_adult_sleepbk2.jpg",
+    "/raising_hell/graphics/pet/anim/dev/ad/sleep/dev_adult_sleepbk3.jpg",
+    "/raising_hell/graphics/pet/anim/dev/ad/sleep/dev_adult_sleepbk4.jpg",
 };
 
 static inline bool useDevAdultSleepAnim() { return (pet.type == PET_DEVIL) && (pet.evoStage == 2); }
@@ -3730,16 +3739,73 @@ static constexpr uint32_t DEV_ELDER_SLEEP_FRAME_MS = 200; // slightly slower fee
 static constexpr uint8_t DEV_ELDER_SLEEP_FRAME_COUNT = 4;
 
 static const char *DEV_ELDER_SLEEP_FRAMES[DEV_ELDER_SLEEP_FRAME_COUNT] = {
-    "/raising_hell/graphics/pet/anim/dev/edr/sleeping/dev_el_sleepbk1.jpg",
-    "/raising_hell/graphics/pet/anim/dev/edr/sleeping/dev_el_sleepbk2.jpg",
-    "/raising_hell/graphics/pet/anim/dev/edr/sleeping/dev_el_sleepbk3.jpg",
-    "/raising_hell/graphics/pet/anim/dev/edr/sleeping/dev_el_sleepbk4.jpg",
+    "/raising_hell/graphics/pet/anim/dev/edr/sleep/dev_el_sleepbk1.jpg",
+    "/raising_hell/graphics/pet/anim/dev/edr/sleep/dev_el_sleepbk2.jpg",
+    "/raising_hell/graphics/pet/anim/dev/edr/sleep/dev_el_sleepbk3.jpg",
+    "/raising_hell/graphics/pet/anim/dev/edr/sleep/dev_el_sleepbk4.jpg",
 };
 
 static inline bool useDevElderSleepAnim()
 {
   return (pet.type == PET_DEVIL) && (pet.evoStage == 3); // adjust if needed
 }
+
+// -----------------------------------------------------------------------------
+// ELDRITCH BABY sleep background animation (4 PNG frames)
+// -----------------------------------------------------------------------------
+static constexpr uint32_t ELD_BABY_SLEEP_FRAME_MS = 200; // tweak speed (ms)
+
+static const char *ELD_BABY_SLEEP_FRAMES[4] = {
+    "/raising_hell/graphics/pet/anim/eld/bb/sleep/eld_bb_sleepbk1.png",
+    "/raising_hell/graphics/pet/anim/eld/bb/sleep/eld_bb_sleepbk2.png",
+    "/raising_hell/graphics/pet/anim/eld/bb/sleep/eld_bb_sleepbk3.png",
+    "/raising_hell/graphics/pet/anim/eld/bb/sleep/eld_bb_sleepbk4.png",
+};
+
+static inline bool useEldBabySleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 0); }
+
+// -----------------------------------------------------------------------------
+// ELDRITCH TEEN sleep background animation (3 PNG frames)
+// -----------------------------------------------------------------------------
+static constexpr uint32_t ELD_TEEN_SLEEP_FRAME_MS = 200;
+
+static constexpr uint8_t ELD_TEEN_SLEEP_FRAME_COUNT = 3;
+
+static const char *ELD_TEEN_SLEEP_FRAMES[ELD_TEEN_SLEEP_FRAME_COUNT] = {
+    "/raising_hell/graphics/pet/anim/eld/tn/sleep/eld_tn_sleepbk1.png",
+    "/raising_hell/graphics/pet/anim/eld/tn/sleep/eld_tn_sleepbk2.png",
+    "/raising_hell/graphics/pet/anim/eld/tn/sleep/eld_tn_sleepbk3.png",
+};
+
+static inline bool useEldTeenSleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 1); }
+
+// -----------------------------------------------------------------------------
+// ELDRITCH ADULT sleep background animation (4 PNG frames)
+// -----------------------------------------------------------------------------
+static constexpr uint32_t ELD_ADULT_SLEEP_FRAME_MS = 180;
+
+static const char *ELD_ADULT_SLEEP_FRAMES[4] = {
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk1.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk2.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk3.png",
+    "/raising_hell/graphics/pet/anim/eld/ad/sleep/eld_ad_sleepbk4.png",
+};
+
+static inline bool useEldAdultSleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 2); }
+
+// -----------------------------------------------------------------------------
+// ELDRITCH ELDER sleep background animation (4 PNG frames)
+// -----------------------------------------------------------------------------
+static constexpr uint32_t ELD_ELDER_SLEEP_FRAME_MS = 180;
+
+static const char *ELD_ELDER_SLEEP_FRAMES[4] = {
+    "/raising_hell/graphics/pet/anim/eld/ed/sleep/eld_ed_sleepbk1.png",
+    "/raising_hell/graphics/pet/anim/eld/ed/sleep/eld_ed_sleepbk2.png",
+    "/raising_hell/graphics/pet/anim/eld/ed/sleep/eld_ed_sleepbk3.png",
+    "/raising_hell/graphics/pet/anim/eld/ed/sleep/eld_ed_sleepbk4.png",
+};
+
+static inline bool useEldElderSleepAnim() { return (pet.type == PET_ELDRITCH) && (pet.evoStage == 3); }
 
 // -----------------------------------------------------------------------------
 // Sleep animation frame cache (RGB565 full-screen sprite buffer snapshots)
@@ -3842,13 +3908,19 @@ static void drawSleepScreenImpl(bool redrawBg)
   static uint32_t s_nextFrameMs = 0;
   static bool s_hasBg = false;
 
-  // 0 = static, 1 = baby, 2 = teen, 3 = adult, 4 = elder
+  // 0 = static, 1 = devil baby, 2 = devil teen, 3 = devil adult, 4 = devil elder,
+  // 5 = eld baby, 6 = eld teen
+
   static uint8_t s_mode = 0;
 
   static constexpr uint8_t DEV_BABY_SLEEP_FRAME_COUNT = 4;
   static constexpr uint8_t DEV_TEEN_SLEEP_FRAME_COUNT = 4;
   static constexpr uint8_t DEV_ADULT_SLEEP_FRAME_COUNT = 4;
   static constexpr uint8_t DEV_ELDER_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_BABY_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_TEEN_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_ADULT_SLEEP_FRAME_COUNT = 4;
+  static constexpr uint8_t ELD_ELDER_SLEEP_FRAME_COUNT = 4;
 
   const uint32_t now = millis();
 
@@ -3864,8 +3936,13 @@ static void drawSleepScreenImpl(bool redrawBg)
   const bool teenAnim = useDevTeenSleepAnim();
   const bool adultAnim = useDevAdultSleepAnim();
   const bool elderAnim = useDevElderSleepAnim();
+  const bool eldBabyAnim = useEldBabySleepAnim();
+  const bool eldTeenAnim = useEldTeenSleepAnim();
+  const bool eldAdultAnim = useEldAdultSleepAnim();
+  const bool eldElderAnim = useEldElderSleepAnim();
 
   uint8_t newMode = 0;
+
   if (babyAnim)
     newMode = 1;
   else if (teenAnim)
@@ -3874,7 +3951,14 @@ static void drawSleepScreenImpl(bool redrawBg)
     newMode = 3;
   else if (elderAnim)
     newMode = 4;
-
+  else if (eldBabyAnim)
+    newMode = 5;
+  else if (eldTeenAnim)
+    newMode = 6;
+  else if (eldAdultAnim)
+    newMode = 7;
+  else if (eldElderAnim)
+    newMode = 8;
   // If mode changes, force a clean restart of the animation state + rebuild cache
   if (newMode != s_mode)
   {
@@ -3925,6 +4009,26 @@ static void drawSleepScreenImpl(bool redrawBg)
     frames = DEV_ELDER_SLEEP_FRAMES;
     frameCount = DEV_ELDER_SLEEP_FRAME_COUNT;
     frameMs = DEV_ELDER_SLEEP_FRAME_MS;
+    break;
+  case 5:
+    frames = ELD_BABY_SLEEP_FRAMES;
+    frameCount = 4;
+    frameMs = ELD_BABY_SLEEP_FRAME_MS;
+    break;
+  case 6:
+    frames = ELD_TEEN_SLEEP_FRAMES;
+    frameCount = ELD_TEEN_SLEEP_FRAME_COUNT;
+    frameMs = ELD_TEEN_SLEEP_FRAME_MS;
+    break;
+  case 7:
+    frames = ELD_ADULT_SLEEP_FRAMES;
+    frameCount = ELD_ADULT_SLEEP_FRAME_COUNT;
+    frameMs = ELD_ADULT_SLEEP_FRAME_MS;
+    break;
+  case 8:
+    frames = ELD_ELDER_SLEEP_FRAMES;
+    frameCount = 4;
+    frameMs = ELD_ELDER_SLEEP_FRAME_MS;
     break;
   default:
     bgPath = sleepBgForPet(pet.type);
